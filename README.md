@@ -6,7 +6,7 @@ Welcome to the **`Youmuu's Ghostblade`**! This project is an eBF based container
 
 ## **How to use**
 
-### **2. Clone your new repository**
+### **1. Clone your new repository**
 
 Clone your newly created repository to your local machine:
 
@@ -20,7 +20,7 @@ Or after clone the repo, you can update the git submodule with following command
 git submodule update --init --recursive
 ```
 
-### **3. Install dependencies**
+### **2. Install dependencies**
 
 For dependencies, it varies from distribution to distribution. You can refer to shell.nix and dockerfile for installation.
 
@@ -34,7 +34,7 @@ sudo apt-get install -y --no-install-recommends \
 
 to install dependencies.
 
-### **4. Build the project**
+### **3. Build the project**
 
 To build the project, run the following command:
 
@@ -42,7 +42,7 @@ To build the project, run the following command:
 make build
 ```
 
-### ***Run the Project***
+### **4. Run the Project**
 
 You can run the binary with:
 
