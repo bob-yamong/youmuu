@@ -11,6 +11,9 @@
 #include "network.skel.h"
 
 #define MAX_PATH 256
+#define ALLOW 0
+#define BLOCK 1
+#define LOGGING 2
 
 struct event_key {
     __u32 ns_id;
@@ -241,9 +244,10 @@ int main(int argc, char **argv) {
             }
             action_str[strcspn(action_str, "\n")] = 0;
 
-            if (strcmp(action_str, "allow") == 0) action = 0;
-            if (strcmp(action_str, "block") == 0) action = 1;
-            if (strcmp(action_str, "logging") == 0) action = 2;
+            if (strcmp(action_str, "allow") == 0) action = ALLOW;
+            else if (strcmp(action_str, "block") == 0) action = BLOCK;
+            else if (strcmp(action_str, "logging") == 0) action = LOGGING;
+
             struct event_key key = {
                 .ns_id = ns_id,
                 .event_id = event_id
@@ -274,9 +278,9 @@ int main(int argc, char **argv) {
             }
             action_str[strcspn(action_str, "\n")] = 0;
 
-            if (strcmp(action_str, "allow") == 0) action = 0;
-            if (strcmp(action_str, "block") == 0) action = 1;
-            if (strcmp(action_str, "logging") == 0) action = 2;
+            if (strcmp(action_str, "allow") == 0) action = ALLOW;
+            else if (strcmp(action_str, "block") == 0) action = BLOCK;
+            else if (strcmp(action_str, "logging") == 0) action = LOGGING;
 
             struct event_key key = {
                 .ns_id = ns_id,
