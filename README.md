@@ -34,7 +34,28 @@ sudo apt-get install -y --no-install-recommends \
 
 to install dependencies.
 
-### **3. Build the project**
+### **3. Activate BPF LSM Availability**
+
+First, please confirm that your kernel version is higher than 5.7. Next, you can use the following command to check if BPF LSM support is enabled:
+```sh
+$ cat /boot/config-$(uname -r) | grep BPF_LSM
+CONFIG_BPF_LSM=y
+```
+
+If the output contains CONFIG_BPF_LSM=y, BPF LSM is supported. Provided that the above conditions are met, you can use the following command to check if the output includes the bpf option:
+```sh
+$ cat /sys/kernel/security/lsm
+ndlock,lockdown,yama,integrity,apparmor
+```
+
+If the output does not include the bpf option (as in the example above), you can modify /etc/default/grub:
+```sh
+GRUB_CMDLINE_LINUX="lsm=ndlock,lockdown,yama,integrity,apparmor,bpf"
+```
+
+Then, update the grub configuration using the `update-grub2` command (the corresponding command may vary depending on the system), and restart the system.
+
+### **4. Build the project**
 
 To build the project, run the following command:
 
@@ -42,12 +63,18 @@ To build the project, run the following command:
 make build
 ```
 
-### **4. Run the Project**
+### **5. Run the Project**
 
 You can run the binary with:
 
 ```console
 sudo src/youmuu
+```
+
+### **Additional**
+You can print the kernel space log created by `bpf_printk` following command.
+```sh
+$ sudo cat /sys/kernel/debug/tracing/trace_pipe
 ```
 
 ## **License**
