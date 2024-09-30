@@ -1,4 +1,6 @@
+<!---
 ## Pull Request Template
+-->
 
 ### Description
 <!---
@@ -29,8 +31,9 @@ Please check all relevant options.
 - [ ] I have made corresponding changes to the documentation
 - [ ] My changes generate no new warnings or errors
 
-### Additional Notes
 <!---
+### Additional Notes
+
 Please provide any additional context or information about the PR here.
 -->
 
