@@ -1,9 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-#include <linux/ptrace.h>
-#include <linux/sched.h>
-#include <linux/unistd.h>
-#include <linux/types.h>
-#include <linux/uaccess.h>
+#include "vmlinux.h"
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
 
@@ -16,7 +12,7 @@ struct event {
     u32 syscall_nr;
     char comm[TASK_COMM_LEN];
     char syscall[16];
-};
+} __attribute__((packed));
 
 // 시스템 호출 번호와 이름 매핑을 위한 맵을 정의합니다.
 struct {
