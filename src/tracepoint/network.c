@@ -43,6 +43,12 @@ static const struct EventMapping event_mappings[] = {
     {"sys_exit_getpeername", 11},
     {"sys_enter_bind", 12},
     {"sys_exit_bind", 13},
+    {"sys_enter_listen", 14},
+    {"sys_exit_listen", 15},
+    {"sys_enter_accept", 16},
+    {"sys_exit_accept", 17},
+    {"sys_enter_accept4", 18},
+    {"sys_exit_accept4", 19},
     // 새로운 이벤트를 여기에 추가
     {NULL, 0}  // 배열의 끝을 나타내는 센티널
 };

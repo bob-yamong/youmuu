@@ -473,3 +473,181 @@ int trace_sys_exit_bind(struct trace_event_raw_sys_exit *ctx) {
     
     return 0;
 }
+
+SEC("tracepoint/syscalls/sys_enter_listen")
+int trace_sys_enter_listen(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 14;
+
+    __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
+    __s32 backlog = BPF_CORE_READ(ctx, args[1]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            bpf_printk("Enter listen: ns_id=%llu, pid=%u sockfd=%d, backlog=%d\n", 
+                    ct.ns_id, ct.pid, sockfd, backlog);
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_listen")
+int trace_sys_exit_listen(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 15;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+    
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit listen: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit listen: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_accept")
+int trace_sys_enter_accept(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 16;
+
+    __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
+    void *addr_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
+    __u32 addrlen_ptr = BPF_CORE_READ(ctx, args[2]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            struct sockaddr_in addr;
+            long err = bpf_probe_read_user(&addr, sizeof(addr), addr_ptr);
+            if (err == 0) {
+                __u32 ip = addr.sin_addr.s_addr;
+                __u16 port = bpf_ntohs(addr.sin_port);
+                bpf_printk("Enter accept: ns_id=%llu, pid=%u sockfd=%d, addr=%u.%u.%u.%u:%u, addrlen=%u\n", 
+                        ct.ns_id, ct.pid, sockfd, 
+                        (ip & 0xFF), ((ip >> 8) & 0xFF), ((ip >> 16) & 0xFF), ((ip >> 24) & 0xFF),
+                        port, addrlen_ptr);
+            } else {
+                bpf_printk("Enter accept: ns_id=%llu, pid=%u sockfd=%d, failed to read addr\n", 
+                        ct.ns_id, ct.pid, sockfd);
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_accept")
+int trace_sys_exit_accept(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 17;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+    
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit accept: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit accept: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_accept4")
+int trace_sys_enter_accept4(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 18;
+
+    __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
+    void *addr_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
+    __u32 addrlen_ptr = BPF_CORE_READ(ctx, args[2]);
+    __s32 flags = BPF_CORE_READ(ctx, args[3]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            struct sockaddr_in addr;
+            long err = bpf_probe_read_user(&addr, sizeof(addr), addr_ptr);
+            if (err == 0) {
+                __u32 ip = addr.sin_addr.s_addr;
+                __u16 port = bpf_ntohs(addr.sin_port);
+                bpf_printk("Enter accept4: ns_id=%llu, pid=%u sockfd=%d, addr=%u.%u.%u.%u:%u, addrlen=%u, flags=%d\n", 
+                        ct.ns_id, ct.pid, sockfd, 
+                        (ip & 0xFF), ((ip >> 8) & 0xFF), ((ip >> 16) & 0xFF), ((ip >> 24) & 0xFF),
+                        port, addrlen_ptr, flags);
+            } else {
+                bpf_printk("Enter accept4: ns_id=%llu, pid=%u sockfd=%d, failed to read addr\n", 
+                        ct.ns_id, ct.pid, sockfd);
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_accept4")
+int trace_sys_exit_accept4(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 19;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+    
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit accept4: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit accept4: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
