@@ -16,7 +16,7 @@
 #define LOGGING 2
 
 struct event_key {
-    __u32 ns_id;
+    __u64 ns_id;
     __u32 event_id;
     char argument[256];
 };
@@ -131,7 +131,7 @@ int get_container_pid(const char* container_name) {
     }
 }
 
-int get_namespace_id(int container_pid) {
+__u64 get_namespace_id(int container_pid) {
     char path[MAX_PATH];
     snprintf(path, sizeof(path), "/proc/%d/ns/pid", container_pid);
     
@@ -187,6 +187,7 @@ void get_user_input(struct network_bpf *skel, __u64 ns_id, __u32 event_id) {
         fprintf(stderr, "Failed to update map: %d\n", err);
         return;
     }
+    printf("Updated map with action: %d, namespace_id: %llu, evnet_id: %d\n", action, ns_id, event_id);
 }
 
 int main(int argc, char **argv) {
@@ -258,7 +259,19 @@ container_name:
             event_id = 0;
         } else if (strcmp(event_str, "sys_exit_socket") == 0) {
             event_id = 1;
+        } else if (strcmp(event_str, "sys_enter_socketpair") == 0) {
+            event_id = 2;
+        } else if (strcmp(event_str, "sys_exit_socketpair") == 0) {
+            event_id = 3;
+        } else if (strcmp(event_str, "sys_enter_setsockopt") == 0) {
+            event_id = 4;
+        } else if (strcmp(event_str, "sys_exit_setsockopt") == 0) {
+            event_id = 5;
+        } else {
+            fprintf(stderr, "Unknown event\n");
+            continue;
         }
+        printf("ns_id: %llu\n", ns_id);
         get_user_input(skel, ns_id, event_id);
     }
 cleanup:
