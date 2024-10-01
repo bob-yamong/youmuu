@@ -775,3 +775,190 @@ int trace_sys_exit_shutdown(struct trace_event_raw_sys_exit *ctx) {
     
     return 0;
 }
+
+SEC("tracepoint/syscalls/sys_enter_recvfrom")
+int trace_sys_enter_recvfrom(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 24;
+
+    __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
+    __u32 len = BPF_CORE_READ(ctx, args[2]);
+    __u32 flags = BPF_CORE_READ(ctx, args[3]);
+    void *src_addr_ptr = (void *)BPF_CORE_READ(ctx, args[4]);
+    __u32 *addrlen_ptr = (__u32 *)BPF_CORE_READ(ctx, args[5]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            struct sockaddr_in src_addr;
+            __u32 addrlen;
+            long err = bpf_probe_read_user(&src_addr, sizeof(src_addr), src_addr_ptr);
+            bpf_probe_read_user(&addrlen, sizeof(addrlen), addrlen_ptr);
+            if (err == 0) {
+                __u32 ip = src_addr.sin_addr.s_addr;
+                __u16 port = bpf_ntohs(src_addr.sin_port);
+                bpf_printk("Enter recvfrom: ns_id=%llu, pid=%u sockfd=%d, len=%u, flags=%u, src_addr=%u.%u.%u.%u:%u, addrlen=%u\n", 
+                        ct.ns_id, ct.pid, sockfd, len, flags, 
+                        (ip & 0xFF), ((ip >> 8) & 0xFF), ((ip >> 16) & 0xFF), ((ip >> 24) & 0xFF),
+                        port, addrlen);
+            } else {
+                bpf_printk("Enter recvfrom: ns_id=%llu, pid=%u sockfd=%d, len=%u, flags=%u, failed to read src_addr\n", 
+                        ct.ns_id, ct.pid, sockfd, len, flags);
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_recvfrom")
+int trace_sys_exit_recvfrom(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 25;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+    
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit recvfrom: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit recvfrom: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_recvmsg")
+int trace_sys_enter_recvmsg(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 26;
+
+    __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
+    void *msg_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
+    __u32 flags = BPF_CORE_READ(ctx, args[2]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            struct msghdr msg;
+            long err = bpf_probe_read_user(&msg, sizeof(msg), msg_ptr);
+            if (err == 0) {
+                bpf_printk("Enter recvmsg: ns_id=%llu, pid=%u sockfd=%d, flags=%u\n", 
+                        ct.ns_id, ct.pid, sockfd, flags);
+            } else {
+                bpf_printk("Enter recvmsg: ns_id=%llu, pid=%u sockfd=%d, failed to read msg\n", 
+                        ct.ns_id, ct.pid, sockfd);
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_recvmsg")
+int trace_sys_exit_recvmsg(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 27;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+    
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit recvmsg: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit recvmsg: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_recvmmsg")
+int trace_sys_enter_recvmmsg(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 28;
+
+    __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
+    void *msgvec_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
+    __u32 vlen = BPF_CORE_READ(ctx, args[2]);
+    __u32 flags = BPF_CORE_READ(ctx, args[3]);
+    void *timeout_ptr = (void *)BPF_CORE_READ(ctx, args[4]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            struct mmsghdr msgvec;
+            long err = bpf_probe_read_user(&msgvec, sizeof(msgvec), msgvec_ptr);
+            if (err == 0) {
+                bpf_printk("Enter recvmmsg: ns_id=%llu, pid=%u sockfd=%d, vlen=%u, flags=%u\n", 
+                        ct.ns_id, ct.pid, sockfd, vlen, flags);
+            } else {
+                bpf_printk("Enter recvmmsg: ns_id=%llu, pid=%u sockfd=%d, failed to read msgvec\n", 
+                        ct.ns_id, ct.pid, sockfd);
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_recvmmsg")
+int trace_sys_exit_recvmmsg(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 29;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+    
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit recvmmsg: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit recvmmsg: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}

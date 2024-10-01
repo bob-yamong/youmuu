@@ -53,6 +53,12 @@ static const struct EventMapping event_mappings[] = {
     {"sys_exit_connect", 21},
     {"sys_enter_shutdown", 22},
     {"sys_exit_shutdown", 23},
+    {"sys_enter_recvfrom", 24},
+    {"sys_exit_recvfrom", 25},
+    {"sys_enter_recvmsg", 26},
+    {"sys_exit_recvmsg", 27},
+    {"sys_enter_recvmmsg", 28},
+    {"sys_exit_recvmmsg", 29},
     // 새로운 이벤트를 여기에 추가
     {NULL, 0}  // 배열의 끝을 나타내는 센티널
 };
