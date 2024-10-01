@@ -232,7 +232,7 @@ int trace_sys_enter_getsockopt(struct trace_event_raw_sys_enter *ctx) {
     __s32 level = BPF_CORE_READ(ctx, args[1]);
     __s32 optname = BPF_CORE_READ(ctx, args[2]);
     void *optval_ptr = (void *)BPF_CORE_READ(ctx, args[3]);
-    __s32 optlen_ptr = BPF_CORE_READ(ctx, args[4]);
+    __s32 *optlen_ptr = BPF_CORE_READ(ctx, args[4]);
 
     struct current_task ct = get_task_struct();
 
@@ -245,10 +245,12 @@ int trace_sys_enter_getsockopt(struct trace_event_raw_sys_enter *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             __u32 optval;
+            __u32 optlen;
             long err = bpf_probe_read_user(&optval, sizeof(optval), optval_ptr);
+            bpf_probe_read_user(&optlen, sizeof(optlen), optlen_ptr);
             if (err == 0) {
                 bpf_printk("Enter getsockopt: ns_id=%llu, pid=%u sockfd=%d, level=%d, optname=%d, optval=%u, optlen=%d\n", 
-                        ct.ns_id, ct.pid, sockfd, level, optname, optval, optlen_ptr);
+                        ct.ns_id, ct.pid, sockfd, level, optname, optval, optlen);
             } else {
                 bpf_printk("Enter getsockopt: ns_id=%llu, pid=%u sockfd=%d, level=%d, optname=%d, failed to read optval\n", 
                         ct.ns_id, ct.pid, sockfd, level, optname);
@@ -291,7 +293,7 @@ int trace_sys_enter_getsockname(struct trace_event_raw_sys_enter *ctx) {
 
     __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
     void *addr_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
-    __u32 addrlen_ptr = BPF_CORE_READ(ctx, args[2]);
+    __u32 *addrlen_ptr = BPF_CORE_READ(ctx, args[2]);
 
     struct current_task ct = get_task_struct();
 
@@ -304,14 +306,16 @@ int trace_sys_enter_getsockname(struct trace_event_raw_sys_enter *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             struct sockaddr_in addr;
+            __u32 addrlen;
             long err = bpf_probe_read_user(&addr, sizeof(addr), addr_ptr);
+            bpf_probe_read_user(&addrlen, sizeof(addrlen), addrlen_ptr);
             if (err == 0) {
                 __u32 ip = addr.sin_addr.s_addr;
                 __u16 port = bpf_ntohs(addr.sin_port);
                 bpf_printk("Enter getsockname: ns_id=%llu, pid=%u sockfd=%d, addr=%u.%u.%u.%u:%u, addrlen=%u\n", 
                         ct.ns_id, ct.pid, sockfd, 
                         (ip & 0xFF), ((ip >> 8) & 0xFF), ((ip >> 16) & 0xFF), ((ip >> 24) & 0xFF),
-                        port, addrlen_ptr);
+                        port, addrlen);
             } else {
                 bpf_printk("Enter getsockname: ns_id=%llu, pid=%u sockfd=%d, failed to read addr\n", 
                         ct.ns_id, ct.pid, sockfd);
@@ -354,7 +358,7 @@ int trace_sys_enter_getpeername(struct trace_event_raw_sys_enter *ctx) {
 
     __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
     void *addr_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
-    __u32 addrlen_ptr = BPF_CORE_READ(ctx, args[2]);
+    __u32 *addrlen_ptr = BPF_CORE_READ(ctx, args[2]);
 
     struct current_task ct = get_task_struct();
 
@@ -367,14 +371,16 @@ int trace_sys_enter_getpeername(struct trace_event_raw_sys_enter *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             struct sockaddr_in addr;
+            __u32 addrlen;
             long err = bpf_probe_read_user(&addr, sizeof(addr), addr_ptr);
+            bpf_probe_read_user(&addrlen, sizeof(addrlen), addrlen_ptr);
             if (err == 0) {
                 __u32 ip = addr.sin_addr.s_addr;
                 __u16 port = bpf_ntohs(addr.sin_port);
                 bpf_printk("Enter getpeername: ns_id=%llu, pid=%u sockfd=%d, addr=%u.%u.%u.%u:%u, addrlen=%u\n", 
                         ct.ns_id, ct.pid, sockfd, 
                         (ip & 0xFF), ((ip >> 8) & 0xFF), ((ip >> 16) & 0xFF), ((ip >> 24) & 0xFF),
-                        port, addrlen_ptr);
+                        port, addrlen);
             } else {
                 bpf_printk("Enter getpeername: ns_id=%llu, pid=%u sockfd=%d, failed to read addr\n", 
                         ct.ns_id, ct.pid, sockfd);
@@ -531,7 +537,7 @@ int trace_sys_enter_accept(struct trace_event_raw_sys_enter *ctx) {
 
     __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
     void *addr_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
-    __u32 addrlen_ptr = BPF_CORE_READ(ctx, args[2]);
+    __u32 *addrlen_ptr = BPF_CORE_READ(ctx, args[2]);
 
     struct current_task ct = get_task_struct();
 
@@ -544,14 +550,16 @@ int trace_sys_enter_accept(struct trace_event_raw_sys_enter *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             struct sockaddr_in addr;
+            __u32 addrlen;
             long err = bpf_probe_read_user(&addr, sizeof(addr), addr_ptr);
+            bpf_probe_read_user(&addrlen, sizeof(addrlen), addrlen_ptr);
             if (err == 0) {
                 __u32 ip = addr.sin_addr.s_addr;
                 __u16 port = bpf_ntohs(addr.sin_port);
                 bpf_printk("Enter accept: ns_id=%llu, pid=%u sockfd=%d, addr=%u.%u.%u.%u:%u, addrlen=%u\n", 
                         ct.ns_id, ct.pid, sockfd, 
                         (ip & 0xFF), ((ip >> 8) & 0xFF), ((ip >> 16) & 0xFF), ((ip >> 24) & 0xFF),
-                        port, addrlen_ptr);
+                        port, addrlen);
             } else {
                 bpf_printk("Enter accept: ns_id=%llu, pid=%u sockfd=%d, failed to read addr\n", 
                         ct.ns_id, ct.pid, sockfd);
@@ -594,7 +602,7 @@ int trace_sys_enter_accept4(struct trace_event_raw_sys_enter *ctx) {
 
     __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
     void *addr_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
-    __u32 addrlen_ptr = BPF_CORE_READ(ctx, args[2]);
+    __u32 *addrlen_ptr = BPF_CORE_READ(ctx, args[2]);
     __s32 flags = BPF_CORE_READ(ctx, args[3]);
 
     struct current_task ct = get_task_struct();
@@ -608,14 +616,16 @@ int trace_sys_enter_accept4(struct trace_event_raw_sys_enter *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             struct sockaddr_in addr;
+            __u32 addrlen;
             long err = bpf_probe_read_user(&addr, sizeof(addr), addr_ptr);
+            bpf_probe_read_user(&addrlen, sizeof(addrlen), addrlen_ptr);
             if (err == 0) {
                 __u32 ip = addr.sin_addr.s_addr;
                 __u16 port = bpf_ntohs(addr.sin_port);
                 bpf_printk("Enter accept4: ns_id=%llu, pid=%u sockfd=%d, addr=%u.%u.%u.%u:%u, addrlen=%u, flags=%d\n", 
                         ct.ns_id, ct.pid, sockfd, 
                         (ip & 0xFF), ((ip >> 8) & 0xFF), ((ip >> 16) & 0xFF), ((ip >> 24) & 0xFF),
-                        port, addrlen_ptr, flags);
+                        port, addrlen, flags);
             } else {
                 bpf_printk("Enter accept4: ns_id=%llu, pid=%u sockfd=%d, failed to read addr\n", 
                         ct.ns_id, ct.pid, sockfd);
