@@ -1,30 +1,22 @@
 // SPDX-License-Identifier: GPL-2.0
 #include "vmlinux.h"
 #include <bpf/bpf_helpers.h>
-#include <bpf/bpf_tracing.h>
+#include "event.h"
 
-#define MAX_SYSCALL_ENTRIES 256
 #define TASK_COMM_LEN 16
-
-struct event {
-    u32 pid;
-    u32 uid;
-    u32 syscall_nr;
-    char comm[TASK_COMM_LEN];
-    char syscall[16];
-} __attribute__((packed));
 
 // 시스템 호출 번호와 이름 매핑을 위한 맵을 정의합니다.
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, MAX_SYSCALL_ENTRIES);
+    __uint(max_entries, 256);
     __type(key, u32);
     __type(value, char[16]);
 } syscall_map SEC(".maps");
 
-// 유저 공간으로 이벤트를 전달하기 위한 퍼퓸 이벤트 맵을 정의합니다.
+// 유저 공간으로 이벤트를 전달하기 위한 링 버퍼 맵을 정의합니다.
 struct {
-    __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
+    __uint(type, BPF_MAP_TYPE_RINGBUF);
+    __uint(max_entries, 1 << 24); // 16MB 링 버퍼
 } events SEC(".maps");
 
 // eBPF 프로그램 섹션 정의
@@ -49,15 +41,19 @@ int sys_enter(struct bpf_raw_tracepoint_args *ctx)
     bpf_get_current_comm(&comm, sizeof(comm));
 
     // 이벤트 구조체를 채웁니다.
-    struct event event = {};
-    event.pid = pid;
-    event.uid = uid;
-    event.syscall_nr = syscall_nr;
-    __builtin_memcpy(&event.comm, comm, sizeof(event.comm));
-    __builtin_memcpy(&event.syscall, syscall_name, sizeof(event.syscall));
+    struct event *e;
+    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e)
+        return 0;
+
+    e->pid = pid;
+    e->uid = uid;
+    e->syscall_nr = syscall_nr;
+    __builtin_memcpy(&e->comm, comm, sizeof(e->comm));
+    __builtin_memcpy(&e->syscall, syscall_name, sizeof(e->syscall));
 
     // 이벤트를 유저 공간으로 전달합니다.
-    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, &event, sizeof(event));
+    bpf_ringbuf_submit(e, 0);
 
     return 0;
 }
