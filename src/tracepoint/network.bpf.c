@@ -962,3 +962,246 @@ int trace_sys_exit_recvmmsg(struct trace_event_raw_sys_exit *ctx) {
     
     return 0;
 }
+
+SEC("tracepoint/syscalls/sys_enter_sendto")
+int trace_sys_enter_sendto(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 30;
+
+    __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
+    void *buf_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
+    __u32 len = BPF_CORE_READ(ctx, args[2]);
+    __u32 flags = BPF_CORE_READ(ctx, args[3]);
+    void *dest_addr_ptr = (void *)BPF_CORE_READ(ctx, args[4]);
+    __u32 addrlen = BPF_CORE_READ(ctx, args[5]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            struct sockaddr_in dest_addr;
+            long err = bpf_probe_read_user(&dest_addr, sizeof(dest_addr), dest_addr_ptr);
+            if (err == 0) {
+                __u32 ip = dest_addr.sin_addr.s_addr;
+                __u16 port = bpf_ntohs(dest_addr.sin_port);
+                bpf_printk("Enter sendto: ns_id=%llu, pid=%u sockfd=%d, len=%u, flags=%u, dest_addr=%u.%u.%u.%u:%u, addrlen=%u\n", 
+                        ct.ns_id, ct.pid, sockfd, len, flags, 
+                        (ip & 0xFF), ((ip >> 8) & 0xFF), ((ip >> 16) & 0xFF), ((ip >> 24) & 0xFF),
+                        port, addrlen);
+            } else {
+                bpf_printk("Enter sendto: ns_id=%llu, pid=%u sockfd=%d, len=%u, flags=%u, failed to read dest_addr\n", 
+                        ct.ns_id, ct.pid, sockfd, len, flags);
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_sendto")
+int trace_sys_exit_sendto(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 31;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+    
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit sendto: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit sendto: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_sendmsg")
+int trace_sys_enter_sendmsg(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 32;
+
+    __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
+    void *msg_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
+    __u32 flags = BPF_CORE_READ(ctx, args[2]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            struct msghdr msg;
+            long err = bpf_probe_read_user(&msg, sizeof(msg), msg_ptr);
+            if (err == 0) {
+                bpf_printk("Enter sendmsg: ns_id=%llu, pid=%u sockfd=%d, flags=%u\n", 
+                        ct.ns_id, ct.pid, sockfd, flags);
+            } else {
+                bpf_printk("Enter sendmsg: ns_id=%llu, pid=%u sockfd=%d, failed to read msg\n", 
+                        ct.ns_id, ct.pid, sockfd);
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_sendmsg")
+int trace_sys_exit_sendmsg(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 33;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+    
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit sendmsg: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit sendmsg: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_sendmmsg")
+int trace_sys_enter_sendmmsg(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 34;
+
+    __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
+    void *msgvec_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
+    __u32 vlen = BPF_CORE_READ(ctx, args[2]);
+    __u32 flags = BPF_CORE_READ(ctx, args[3]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            struct mmsghdr msgvec;
+            long err = bpf_probe_read_user(&msgvec, sizeof(msgvec), msgvec_ptr);
+            if (err == 0) {
+                bpf_printk("Enter sendmmsg: ns_id=%llu, pid=%u sockfd=%d, vlen=%u, flags=%u\n", 
+                        ct.ns_id, ct.pid, sockfd, vlen, flags);
+            } else {
+                bpf_printk("Enter sendmmsg: ns_id=%llu, pid=%u sockfd=%d, failed to read msgvec\n", 
+                        ct.ns_id, ct.pid, sockfd);
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_sendmmsg")
+int trace_sys_exit_sendmmsg(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 35;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+    
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit sendmmsg: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit sendmmsg: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_sethostname")
+int trace_sys_enter_sethostname(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 36;
+
+    char *name = (char *)BPF_CORE_READ(ctx, args[0]);
+    __u32 len = BPF_CORE_READ(ctx, args[1]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            char hostname[64];
+            long err = bpf_probe_read_user(hostname, sizeof(hostname), name);
+            if (err == 0) {
+                bpf_printk("Enter sethostname: ns_id=%llu, pid=%u, hostname=%s, len=%u\n", 
+                        ct.ns_id, ct.pid, hostname, len);
+            } else {
+                bpf_printk("Enter sethostname: ns_id=%llu, pid=%u, failed to read hostname\n", 
+                        ct.ns_id, ct.pid);
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_sethostname")
+int trace_sys_exit_sethostname(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 37;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+    
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit sethostname: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit sethostname: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
