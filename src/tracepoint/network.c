@@ -197,10 +197,10 @@ __u32 get_event_id(const char *event_str) {
 
 void get_user_input(struct network_bpf *skel, __u64 ns_id, __u32 event_id) {
     char action_str[10];
-    __u32 action;
+    __u32 action = LOGGING;
     int err;
 
-    printf("Enter action to block or allow (e.g., block, allow, logging): ");
+    printf("Enter action (allow/block/logging, default is logging): ");
     if (fgets(action_str, sizeof(action_str), stdin) == NULL) {
         return;
     }
@@ -208,7 +208,6 @@ void get_user_input(struct network_bpf *skel, __u64 ns_id, __u32 event_id) {
 
     if (strcmp(action_str, "allow") == 0) action = ALLOW;
     else if (strcmp(action_str, "block") == 0) action = BLOCK;
-    else if (strcmp(action_str, "logging") == 0) action = LOGGING;
 
     struct event_key key = {
         .ns_id = ns_id,
@@ -219,7 +218,7 @@ void get_user_input(struct network_bpf *skel, __u64 ns_id, __u32 event_id) {
         fprintf(stderr, "Failed to update map: %d\n", err);
         return;
     }
-    printf("Updated map with action: %d, namespace_id: %llu, evnet_id: %d\n", action, ns_id, event_id);
+    printf("Updated map with action: %d, namespace_id: %llu, event_id: %d\n", action, ns_id, event_id);
 }
 
 int main(int argc, char **argv) {
