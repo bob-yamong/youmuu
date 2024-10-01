@@ -35,6 +35,14 @@ static const struct EventMapping event_mappings[] = {
     {"sys_exit_socketpair", 3},
     {"sys_enter_setsockopt", 4},
     {"sys_exit_setsockopt", 5},
+    {"sys_enter_getsockopt", 6},
+    {"sys_exit_getsockopt", 7},
+    {"sys_enter_getsockname", 8},
+    {"sys_exit_getsockname", 9},
+    {"sys_enter_getpeername", 10},
+    {"sys_exit_getpeername", 11},
+    {"sys_enter_bind", 12},
+    {"sys_exit_bind", 13},
     // 새로운 이벤트를 여기에 추가
     {NULL, 0}  // 배열의 끝을 나타내는 센티널
 };

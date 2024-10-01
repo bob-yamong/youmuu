@@ -2,6 +2,7 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
 #include <bpf/bpf_core_read.h>
+#include <bpf/bpf_endian.h>
 
 #define AF_INET 2
 #define ALLOW 0
@@ -277,6 +278,195 @@ int trace_sys_exit_getsockopt(struct trace_event_raw_sys_exit *ctx) {
                 bpf_printk("Exit getsockopt: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit getsockopt: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_getsockname") 
+int trace_sys_enter_getsockname(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 8;
+
+    __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
+    void *addr_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
+    __u32 addrlen_ptr = BPF_CORE_READ(ctx, args[2]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            struct sockaddr_in addr;
+            long err = bpf_probe_read_user(&addr, sizeof(addr), addr_ptr);
+            if (err == 0) {
+                __u32 ip = addr.sin_addr.s_addr;
+                __u16 port = bpf_ntohs(addr.sin_port);
+                bpf_printk("Enter getsockname: ns_id=%llu, pid=%u sockfd=%d, addr=%u.%u.%u.%u:%u, addrlen=%u\n", 
+                        ct.ns_id, ct.pid, sockfd, 
+                        (ip & 0xFF), ((ip >> 8) & 0xFF), ((ip >> 16) & 0xFF), ((ip >> 24) & 0xFF),
+                        port, addrlen_ptr);
+            } else {
+                bpf_printk("Enter getsockname: ns_id=%llu, pid=%u sockfd=%d, failed to read addr\n", 
+                        ct.ns_id, ct.pid, sockfd);
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_getsockname")
+int trace_sys_exit_getsockname(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 9;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+    
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit getsockname: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit getsockname: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_getpeername")
+int trace_sys_enter_getpeername(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 10;
+
+    __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
+    void *addr_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
+    __u32 addrlen_ptr = BPF_CORE_READ(ctx, args[2]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            struct sockaddr_in addr;
+            long err = bpf_probe_read_user(&addr, sizeof(addr), addr_ptr);
+            if (err == 0) {
+                __u32 ip = addr.sin_addr.s_addr;
+                __u16 port = bpf_ntohs(addr.sin_port);
+                bpf_printk("Enter getpeername: ns_id=%llu, pid=%u sockfd=%d, addr=%u.%u.%u.%u:%u, addrlen=%u\n", 
+                        ct.ns_id, ct.pid, sockfd, 
+                        (ip & 0xFF), ((ip >> 8) & 0xFF), ((ip >> 16) & 0xFF), ((ip >> 24) & 0xFF),
+                        port, addrlen_ptr);
+            } else {
+                bpf_printk("Enter getpeername: ns_id=%llu, pid=%u sockfd=%d, failed to read addr\n", 
+                        ct.ns_id, ct.pid, sockfd);
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_getpeername")
+int trace_sys_exit_getpeername(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 11;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+    
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit getpeername: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit getpeername: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_bind")
+int trace_sys_enter_bind(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 12;
+
+    __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
+    void *addr_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
+    __u32 addrlen = BPF_CORE_READ(ctx, args[2]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            struct sockaddr_in addr;
+            long err = bpf_probe_read_user(&addr, sizeof(addr), addr_ptr);
+            if (err == 0) {
+                __u32 ip = addr.sin_addr.s_addr;
+                __u16 port = bpf_ntohs(addr.sin_port);
+                bpf_printk("Enter bind: ns_id=%llu, pid=%u sockfd=%d, addr=%u.%u.%u.%u:%u, addrlen=%u\n", 
+                        ct.ns_id, ct.pid, sockfd, 
+                        (ip & 0xFF), ((ip >> 8) & 0xFF), ((ip >> 16) & 0xFF), ((ip >> 24) & 0xFF),
+                        port, addrlen);
+            } else {
+                bpf_printk("Enter bind: ns_id=%llu, pid=%u sockfd=%d, failed to read addr\n", 
+                        ct.ns_id, ct.pid, sockfd);
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_bind")
+int trace_sys_exit_bind(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 13;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+    
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit bind: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit bind: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
     }
