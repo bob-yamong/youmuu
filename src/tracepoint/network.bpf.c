@@ -67,7 +67,6 @@ int trace_sys_enter_socket(struct trace_event_raw_sys_enter *ctx) {
 
     __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
     if (watched) {
-        bpf_printk("watched value: %d\n", *watched);
         if (*watched == LOGGING) {
             bpf_printk("Enter socket: ns_id=%llu, pid=%u domain=%d, type=%d, protocol=%d\n", ct.ns_id, ct.pid, domain, type, protocol);
         }
