@@ -40,8 +40,8 @@ ContainerRuntime get_runtime_from_user() {
     input[strcspn(input, "\n")] = 0;
 
     if (strcmp(input, "docker") == 0) return RUNTIME_DOCKER;
-    if (strcmp(input, "containerd") == 0) return RUNTIME_CONTAINERD;
-    if (strcmp(input, "crio") == 0) return RUNTIME_CRIO;
+    else if (strcmp(input, "containerd") == 0) return RUNTIME_CONTAINERD;
+    else if (strcmp(input, "crio") == 0) return RUNTIME_CRIO;
     
     return RUNTIME_UNKNOWN;
 }
@@ -132,8 +132,6 @@ int get_container_pid(const char* container_name) {
 }
 
 int get_namespace_id(int container_pid) {
-    
-    // PID 네임스페이스 ID 찾기
     char path[MAX_PATH];
     snprintf(path, sizeof(path), "/proc/%d/ns/pid", container_pid);
     
@@ -165,18 +163,44 @@ int get_namespace_id(int container_pid) {
     return ns_id;
 }
 
-int main(int argc, char **argv) {
-    struct network_bpf *skel;
+void get_user_input(struct network_bpf *skel, __u64 ns_id, __u32 event_id) {
+    char action_str[10];
+    __u32 action;
     int err;
 
-    skel = network_bpf__open(); // Ensure this function name matches
+    printf("Enter action to block or allow (e.g., block, allow, logging): ");
+    if (fgets(action_str, sizeof(action_str), stdin) == NULL) {
+        return;
+    }
+    action_str[strcspn(action_str, "\n")] = 0;
+
+    if (strcmp(action_str, "allow") == 0) action = ALLOW;
+    else if (strcmp(action_str, "block") == 0) action = BLOCK;
+    else if (strcmp(action_str, "logging") == 0) action = LOGGING;
+
+    struct event_key key = {
+        .ns_id = ns_id,
+        .event_id = event_id
+    };
+    err = bpf_map__update_elem(skel->maps.event_policy_map, &key, sizeof(key), &action, sizeof(action), BPF_ANY);
+    if (err) {
+        fprintf(stderr, "Failed to update map: %d\n", err);
+        return;
+    }
+}
+
+int main(int argc, char **argv) {
+    struct network_bpf *skel;
+    __u64 ns_id;
+    int err;
+
+    skel = network_bpf__open();
     if (!skel) {
         fprintf(stderr, "Failed to open and load BPF skeleton\n");
         return 1;
     }
 
-    // Load & verify BPF programs
-    err = network_bpf__load(skel); // Ensure this function name matches
+    err = network_bpf__load(skel);
     if (err) {
         fprintf(stderr, "Failed to load and verify BPF skeleton\n");
         goto cleanup;
@@ -188,141 +212,55 @@ int main(int argc, char **argv) {
         goto cleanup;
     }
     ContainerRuntime runtime = get_runtime_from_user();
-    // main loop process from user's input
+    
+container_name:
+    char container_str[256];
+    __u32 pid;
+
+    printf("Enter container name to restrict (or 'quit' to exit): ");
+    if (fgets(container_str, sizeof(container_str), stdin) == NULL) {
+        return 1;
+    }
+    container_str[strcspn(container_str, "\n")] = 0;
+    if (strcmp(container_str, "quit") == 0) {
+            return 0;
+    }
+    
+    switch(runtime) {
+        case RUNTIME_DOCKER:
+            pid = get_docker_pid(container_str);
+            break;
+        case RUNTIME_CONTAINERD:
+            pid =  get_containerd_pid(container_str);
+            break;
+        case RUNTIME_CRIO:
+            pid = get_crio_pid(container_str);
+            break;
+        default:
+            fprintf(stderr, "Unknown or unsupported container runtime\n");
+            return -1;
+    }
+    ns_id = get_namespace_id(pid);
+
     while (1) {
-        char container_str[256];
         char event_str[256];
-        // char ip_str[16];
-        char action_str[10];
-        __u32 pid;
-        __u32 ns_id;
         __u32 event_id;
-        __u32 action;
-
-        printf("Enter container name to restrict (or 'quit' to exit): ");
-        if (fgets(container_str, sizeof(container_str), stdin) == NULL) {
-            break;
-        }
-        container_str[strcspn(container_str, "\n")] = 0;
-
-        // quit program
-        if (strcmp(container_str, "quit") == 0) {
-            break;
-        }
         
-        switch(runtime) {
-            case RUNTIME_DOCKER:
-                printf("docker\n");
-                pid = get_docker_pid(container_str);
-                break;
-            case RUNTIME_CONTAINERD:
-                printf("containerd\n");
-                pid =  get_containerd_pid(container_str);
-                break;
-            case RUNTIME_CRIO:
-                printf("cri-o\n");
-                pid = get_crio_pid(container_str);
-                break;
-            default:
-                fprintf(stderr, "Unknown or unsupported container runtime\n");
-                return -1;
-        }
-        ns_id = get_namespace_id(pid);
-        
-        printf("Enter event (e.g., sys_enter_socket, sys_exit_socket): ");
+        printf("Enter event (e.g., sys_enter_socket, sys_exit_socket), (or 'quit' to exit): ");
         if (fgets(event_str, sizeof(event_str), stdin) == NULL) {
             break;
         }
         event_str[strcspn(event_str, "\n")] = 0;
 
-        if (strcmp(event_str, "sys_enter_socket") == 0) {
+        if (strcmp(event_str, "quit") == 0) {
+            goto container_name;
+        } else if (strcmp(event_str, "sys_enter_socket") == 0) {
             event_id = 0;
-
-            printf("Enter action to block or allow (e.g., block, allow, logging): ");
-            if (fgets(action_str, sizeof(action_str), stdin) == NULL) {
-                break;
-            }
-            action_str[strcspn(action_str, "\n")] = 0;
-
-            if (strcmp(action_str, "allow") == 0) action = ALLOW;
-            else if (strcmp(action_str, "block") == 0) action = BLOCK;
-            else if (strcmp(action_str, "logging") == 0) action = LOGGING;
-
-            struct event_key key = {
-                .ns_id = ns_id,
-                .event_id = event_id
-            };
-            err = bpf_map__update_elem(skel->maps.event_policy_map, &key, sizeof(key), &action, sizeof(action), BPF_ANY);
-            if (err) {
-                fprintf(stderr, "Failed to update map: %d\n", err);
-                continue;
-            }
-            // printf("Now restricting root access in container: %s\n", container_str);
         } else if (strcmp(event_str, "sys_exit_socket") == 0) {
             event_id = 1;
-            // printf("Enter IP to block or allow (e.g., 8.8.8.8): ");
-            // if (fgets(ip_str, sizeof(ip_str), stdin) == NULL) {
-            //     break;
-            // }
-            // ip_str[strcspn(ip_str, "\n")] = 0;
-
-            // struct in_addr ip_addr;
-            // if (inet_pton(AF_INET, ip_str, &ip_addr) != 1) {
-            //     fprintf(stderr, "ERROR: Invalid IP address\n");
-            //     continue;
-            // }
-
-            printf("Enter action to block or allow (e.g., block, allow, logging): ");
-            if (fgets(action_str, sizeof(action_str), stdin) == NULL) {
-                break;
-            }
-            action_str[strcspn(action_str, "\n")] = 0;
-
-            if (strcmp(action_str, "allow") == 0) action = ALLOW;
-            else if (strcmp(action_str, "block") == 0) action = BLOCK;
-            else if (strcmp(action_str, "logging") == 0) action = LOGGING;
-
-            struct event_key key = {
-                .ns_id = ns_id,
-                .event_id = event_id
-            };
-            // memcpy(key.argument, &ip_addr.s_addr, sizeof(ip_addr.s_addr));
-
-            // __u32 current_action = 0;
-            // err = bpf_map__lookup_elem(skel->maps.event_policy_map, &key, sizeof(key), &current_action, sizeof(current_action), 0);
-            // if (err && err != -ENOENT) {
-            //     fprintf(stderr, "Failed to lookup current action: %d\n", err);
-            //     continue;
-            // }
-
-            // if (current_action != action) {
-            //     // Delete all existing policies for this ns_id and event_id
-            //     struct event_key iter_key = {0};
-            //     struct event_key next_key = {0};
-                
-            //     while (bpf_map__get_next_key(skel->maps.event_policy_map, &iter_key, &next_key, sizeof(next_key)) == 0) {
-            //         if (next_key.ns_id == ns_id && next_key.event_id == event_id) {
-            //             bpf_map__delete_elem(skel->maps.event_policy_map, &next_key, sizeof(next_key), 0);
-            //         }
-            //         iter_key = next_key;
-            //     }
-            //     printf("Action changed or new policy created. All previous policies for this event_id have been cleared.\n");
-            // }
-            // err = bpf_map__update_elem(skel->maps.event_mode_map, &event_id, sizeof(event_id), &action, sizeof(action), BPF_ANY);
-            // if (err) {
-            //     fprintf(stderr, "Failed to update map: %d\n", err);
-            //     continue;
-            // }
-            err = bpf_map__update_elem(skel->maps.event_policy_map, &key, sizeof(key), &action, sizeof(action), BPF_ANY);
-            if (err) {
-                fprintf(stderr, "Failed to update map: %d\n", err);
-                continue;
-            }
-
-            // printf("Now restricting ip/port(%s) access in container: %s\n", ip_str, container_str);
         }
+        get_user_input(skel, ns_id, event_id);
     }
-
 cleanup:
     network_bpf__destroy(skel);
     return err != 0;

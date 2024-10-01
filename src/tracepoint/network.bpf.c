@@ -22,14 +22,14 @@ struct {
 } event_policy_map SEC(".maps");
 
 struct event_key {
-    __u32 ns_id;
+    __u64 ns_id;
     __u32 event_id;
     char argument[256];
 };
 
 struct current_task {
     __u32 pid;
-    __u32 ns_id;
+    __u64 ns_id;
 };
 
 static __always_inline struct current_task get_task_struct() {
