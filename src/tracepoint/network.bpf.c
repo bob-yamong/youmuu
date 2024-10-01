@@ -4,6 +4,9 @@
 #include <bpf/bpf_core_read.h>
 
 #define AF_INET 2
+#define ALLOW 0
+#define BLOCK 1
+#define LOGGING 2
 
 char LICENSE[] SEC("license") = "GPL";
 
@@ -64,11 +67,12 @@ int trace_sys_enter_socket(struct trace_event_raw_sys_enter *ctx) {
 
     __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
     if (watched) {
-        if (*watched == 2) {
-            bpf_printk("Enter socket: ns_id=%u, pid=%u domain=%d, type=%d, protocol=%d\n", ct.ns_id, ct.pid, domain, type, protocol);
+        bpf_printk("watched value: %d\n", *watched);
+        if (*watched == LOGGING) {
+            bpf_printk("Enter socket: ns_id=%llu, pid=%u domain=%d, type=%d, protocol=%d\n", ct.ns_id, ct.pid, domain, type, protocol);
         }
     }
-    
+
     return 0;
 }
 
@@ -86,11 +90,132 @@ int trace_sys_exit_socket(struct trace_event_raw_sys_exit *ctx) {
 
     __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
     if (watched) {
-        if (*watched == 2) {
+        if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit socket: failed, ns_id=%u, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit socket: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
             } else {
-                bpf_printk("Exit socket: success, ns_id=%u, pid=%u fd=%ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit socket: success, ns_id=%llu, pid=%u fd=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_socketpair")
+int trace_sys_enter_socketpair(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 2;
+
+    __s32 domain = BPF_CORE_READ(ctx, args[0]);
+    __s32 type = BPF_CORE_READ(ctx, args[1]);
+    __s32 protocol = BPF_CORE_READ(ctx, args[2]);
+    void *sv_ptr = (void *)BPF_CORE_READ(ctx, args[3]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            __s32 sv[2];
+            long err = bpf_probe_read_user(sv, sizeof(sv), sv_ptr);
+            if (err == 0) {
+                bpf_printk("Enter socket: ns_id=%llu, pid=%u domain=%d, type=%d, protocol=%d, sv[0]=%d, sv[1]=%d\n", 
+                        ct.ns_id, ct.pid, domain, type, protocol, sv[0], sv[1]);
+            } else {
+                bpf_printk("Enter socket: ns_id=%llu, pid=%u domain=%d, type=%d, protocol=%d, failed to read sv\n", 
+                        ct.ns_id, ct.pid, domain, type, protocol);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_socketpair")
+int trace_raw_sys_exit_socketpair(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 3;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+    
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit socketpair: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit socketpair: success, ns_id=%llu, pid=%u fd=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_setsockopt")
+int trace_sys_enter_setsockopt(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 4;
+
+    __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
+    __s32 level = BPF_CORE_READ(ctx, args[1]);
+    __s32 optname = BPF_CORE_READ(ctx, args[2]);
+    void *optval_ptr = (void *)BPF_CORE_READ(ctx, args[3]);
+    __s32 optlen = BPF_CORE_READ(ctx, args[4]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            __u32 optval;
+            long err = bpf_probe_read_user(&optval, sizeof(optval), optval_ptr);
+            if (err == 0) {
+                bpf_printk("Enter setsockopt: ns_id=%llu, pid=%u sockfd=%d, level=%d, optname=%d, optval=%u, optlen=%d\n", 
+                        ct.ns_id, ct.pid, sockfd, level, optname, optval, optlen);
+            } else {
+                bpf_printk("Enter setsockopt: ns_id=%llu, pid=%u sockfd=%d, level=%d, optname=%d, failed to read optval\n", 
+                        ct.ns_id, ct.pid, sockfd, level, optname);
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_setsockopt")
+int trace_sys_exit_setsockopt(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 5;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+    
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit setsockopt: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit setsockopt: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
     }

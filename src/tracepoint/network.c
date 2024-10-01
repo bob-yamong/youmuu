@@ -271,7 +271,6 @@ container_name:
             fprintf(stderr, "Unknown event\n");
             continue;
         }
-        printf("ns_id: %llu\n", ns_id);
         get_user_input(skel, ns_id, event_id);
     }
 cleanup:
