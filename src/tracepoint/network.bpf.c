@@ -232,7 +232,7 @@ int trace_sys_enter_getsockopt(struct trace_event_raw_sys_enter *ctx) {
     __s32 level = BPF_CORE_READ(ctx, args[1]);
     __s32 optname = BPF_CORE_READ(ctx, args[2]);
     void *optval_ptr = (void *)BPF_CORE_READ(ctx, args[3]);
-    __s32 *optlen_ptr = BPF_CORE_READ(ctx, args[4]);
+    __u32 *optlen_ptr = (__u32 *)BPF_CORE_READ(ctx, args[4]);
 
     struct current_task ct = get_task_struct();
 
@@ -293,7 +293,7 @@ int trace_sys_enter_getsockname(struct trace_event_raw_sys_enter *ctx) {
 
     __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
     void *addr_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
-    __u32 *addrlen_ptr = BPF_CORE_READ(ctx, args[2]);
+    __u32 *addrlen_ptr = (__u32 *)BPF_CORE_READ(ctx, args[2]);
 
     struct current_task ct = get_task_struct();
 
@@ -358,7 +358,7 @@ int trace_sys_enter_getpeername(struct trace_event_raw_sys_enter *ctx) {
 
     __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
     void *addr_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
-    __u32 *addrlen_ptr = BPF_CORE_READ(ctx, args[2]);
+    __u32 *addrlen_ptr = (__u32 *)BPF_CORE_READ(ctx, args[2]);
 
     struct current_task ct = get_task_struct();
 
@@ -537,7 +537,7 @@ int trace_sys_enter_accept(struct trace_event_raw_sys_enter *ctx) {
 
     __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
     void *addr_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
-    __u32 *addrlen_ptr = BPF_CORE_READ(ctx, args[2]);
+    __u32 *addrlen_ptr = (__u32 *)BPF_CORE_READ(ctx, args[2]);
 
     struct current_task ct = get_task_struct();
 
@@ -602,7 +602,7 @@ int trace_sys_enter_accept4(struct trace_event_raw_sys_enter *ctx) {
 
     __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
     void *addr_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
-    __u32 *addrlen_ptr = BPF_CORE_READ(ctx, args[2]);
+    __u32 *addrlen_ptr = (__u32 *)BPF_CORE_READ(ctx, args[2]);
     __s32 flags = BPF_CORE_READ(ctx, args[3]);
 
     struct current_task ct = get_task_struct();
