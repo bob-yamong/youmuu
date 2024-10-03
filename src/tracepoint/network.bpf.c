@@ -1205,3 +1205,61 @@ int trace_sys_exit_sethostname(struct trace_event_raw_sys_exit *ctx) {
     
     return 0;
 }
+
+SEC("tracepoint/syscalls/sys_enter_setdomainname")
+int trace_sys_enter_setdomainname(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 38;
+
+    char *name = (char *)BPF_CORE_READ(ctx, args[0]);
+    __u32 len = BPF_CORE_READ(ctx, args[1]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            char domainname[64];
+            long err = bpf_probe_read_user(domainname, sizeof(domainname), name);
+            if (err == 0) {
+                bpf_printk("Enter setdomainname: ns_id=%llu, pid=%u, domainname=%s, len=%u\n", 
+                        ct.ns_id, ct.pid, domainname, len);
+            } else {
+                bpf_printk("Enter setdomainname: ns_id=%llu, pid=%u, failed to read domainname\n", 
+                        ct.ns_id, ct.pid);
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_setdomainname")
+int trace_sys_exit_setdomainname(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 39;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+    
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit setdomainname: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit setdomainname: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
