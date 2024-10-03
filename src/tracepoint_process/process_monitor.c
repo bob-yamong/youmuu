@@ -73,7 +73,8 @@ void init_syscall_map(struct process_monitor_bpf *skel)
 static int handle_event(void *ctx, void *data, size_t data_sz)
 {
     const struct event *e = data;
-    if(e->ppid != 86066)
+    // 88919 프로세스의 시스템 콜만 출력
+    if(e->ppid != 88919)
         return 0;   
     printf("Process syscall: %s (nr=%d, pid=%d, tid=%d, ppid=%d, uid=%d, comm=%s)\n",
            e->syscall, e->syscall_nr, e->pid, e->tid, e->ppid, e->uid, e->comm);

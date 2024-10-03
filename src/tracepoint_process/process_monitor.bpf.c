@@ -6,6 +6,7 @@
 #include "event.h"
 
 // 시스템 콜 번호 정의
+// Todo: memcmp를 사용하지 않고 비교하려면 아래 내용을 아키텍쳐 별로 정의해야함 
 #ifndef __NR_execve
 #define __NR_execve 59  // x86_64 아키텍처의 execve 시스템 콜 번호
 #endif
@@ -31,6 +32,19 @@ struct {
     __type(key, u32);
     __type(value, u32);
 } current_pid SEC(".maps");
+
+// memcmp 함수 직접 구현
+static inline int my_memcmp(const void* s1, const void* s2, size_t n) {
+    const unsigned char *p1 = s1, *p2 = s2;
+    while(n--) {
+        if (*p1 != *p2) {
+            return *p1 - *p2;
+        }
+        p1++;
+        p2++;
+    }
+    return 0;
+}
 
 SEC("tracepoint/raw_syscalls/sys_enter")
 int sys_enter(struct trace_event_raw_sys_enter *ctx)
@@ -83,7 +97,8 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     e->args[5] = ctx->args[5];
 
     // execve 시스템 콜인 경우 filename과 argv 읽기
-    if (syscall_nr == __NR_execve) {
+    // if (syscall_nr == __NR_execve)
+    if (syscall_name && my_memcmp(syscall_name, "execve", 6) == 0) {
         const char *filename_ptr = (const char *)ctx->args[0];
         bpf_probe_read_str(e->filename, sizeof(e->filename), filename_ptr);
 
