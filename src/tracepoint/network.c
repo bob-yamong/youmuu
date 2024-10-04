@@ -69,6 +69,8 @@ static const struct EventMapping event_mappings[] = {
     {"sys_exit_sethostname", 38},
     {"sys_enter_setdomainname", 39},
     {"sys_exit_setdomianname", 40},
+    {"sys_enter_close", 41},
+    {"sys_exit_close", 42},
     // 새로운 이벤트를 여기에 추가
     {NULL, 0}  // 배열의 끝을 나타내는 센티널
 };

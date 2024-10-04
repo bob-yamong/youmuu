@@ -53,7 +53,7 @@ static __always_inline struct current_task get_task_struct() {
 
 SEC("tracepoint/syscalls/sys_enter_socket")
 int trace_sys_enter_socket(struct trace_event_raw_sys_enter *ctx) {
-    __u32 event_id = 0;
+    __u32 event_id = 1;
 
     __s32 domain = BPF_CORE_READ(ctx, args[0]);
     __s32 type = BPF_CORE_READ(ctx, args[1]);
@@ -79,7 +79,7 @@ int trace_sys_enter_socket(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_socket")
 int trace_sys_exit_socket(struct trace_event_raw_sys_exit *ctx) {
-    __u32 event_id = 1;
+    __u32 event_id = 2;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
     struct current_task ct = get_task_struct();
@@ -105,7 +105,7 @@ int trace_sys_exit_socket(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_socketpair")
 int trace_sys_enter_socketpair(struct trace_event_raw_sys_enter *ctx) {
-    __u32 event_id = 2;
+    __u32 event_id = 3;
 
     __s32 domain = BPF_CORE_READ(ctx, args[0]);
     __s32 type = BPF_CORE_READ(ctx, args[1]);
@@ -139,7 +139,7 @@ int trace_sys_enter_socketpair(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_socketpair")
 int trace_raw_sys_exit_socketpair(struct trace_event_raw_sys_exit *ctx) {
-    __u32 event_id = 3;
+    __u32 event_id = 4;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
     struct current_task ct = get_task_struct();
@@ -165,7 +165,7 @@ int trace_raw_sys_exit_socketpair(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_setsockopt")
 int trace_sys_enter_setsockopt(struct trace_event_raw_sys_enter *ctx) {
-    __u32 event_id = 4;
+    __u32 event_id = 5;
 
     __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
     __s32 level = BPF_CORE_READ(ctx, args[1]);
@@ -200,7 +200,7 @@ int trace_sys_enter_setsockopt(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_setsockopt")
 int trace_sys_exit_setsockopt(struct trace_event_raw_sys_exit *ctx) {
-    __u32 event_id = 5;
+    __u32 event_id = 6;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
     struct current_task ct = get_task_struct();
@@ -226,7 +226,7 @@ int trace_sys_exit_setsockopt(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_getsockopt")
 int trace_sys_enter_getsockopt(struct trace_event_raw_sys_enter *ctx) {
-    __u32 event_id = 6;
+    __u32 event_id = 7;
 
     __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
     __s32 level = BPF_CORE_READ(ctx, args[1]);
@@ -263,7 +263,7 @@ int trace_sys_enter_getsockopt(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_getsockopt")
 int trace_sys_exit_getsockopt(struct trace_event_raw_sys_exit *ctx) {
-    __u32 event_id = 7;
+    __u32 event_id = 8;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
     struct current_task ct = get_task_struct();
@@ -289,7 +289,7 @@ int trace_sys_exit_getsockopt(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_getsockname") 
 int trace_sys_enter_getsockname(struct trace_event_raw_sys_enter *ctx) {
-    __u32 event_id = 8;
+    __u32 event_id = 9;
 
     __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
     void *addr_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
@@ -328,7 +328,7 @@ int trace_sys_enter_getsockname(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_getsockname")
 int trace_sys_exit_getsockname(struct trace_event_raw_sys_exit *ctx) {
-    __u32 event_id = 9;
+    __u32 event_id = 10;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
     struct current_task ct = get_task_struct();
@@ -354,7 +354,7 @@ int trace_sys_exit_getsockname(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_getpeername")
 int trace_sys_enter_getpeername(struct trace_event_raw_sys_enter *ctx) {
-    __u32 event_id = 10;
+    __u32 event_id = 11;
 
     __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
     void *addr_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
@@ -393,7 +393,7 @@ int trace_sys_enter_getpeername(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_getpeername")
 int trace_sys_exit_getpeername(struct trace_event_raw_sys_exit *ctx) {
-    __u32 event_id = 11;
+    __u32 event_id = 12;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
     struct current_task ct = get_task_struct();
@@ -419,7 +419,7 @@ int trace_sys_exit_getpeername(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_bind")
 int trace_sys_enter_bind(struct trace_event_raw_sys_enter *ctx) {
-    __u32 event_id = 12;
+    __u32 event_id = 13;
 
     __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
     void *addr_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
@@ -456,7 +456,7 @@ int trace_sys_enter_bind(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_bind")
 int trace_sys_exit_bind(struct trace_event_raw_sys_exit *ctx) {
-    __u32 event_id = 13;
+    __u32 event_id = 14;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
     struct current_task ct = get_task_struct();
@@ -482,7 +482,7 @@ int trace_sys_exit_bind(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_listen")
 int trace_sys_enter_listen(struct trace_event_raw_sys_enter *ctx) {
-    __u32 event_id = 14;
+    __u32 event_id = 15;
 
     __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
     __s32 backlog = BPF_CORE_READ(ctx, args[1]);
@@ -507,7 +507,7 @@ int trace_sys_enter_listen(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_listen")
 int trace_sys_exit_listen(struct trace_event_raw_sys_exit *ctx) {
-    __u32 event_id = 15;
+    __u32 event_id = 16;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
     struct current_task ct = get_task_struct();
@@ -533,7 +533,7 @@ int trace_sys_exit_listen(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_accept")
 int trace_sys_enter_accept(struct trace_event_raw_sys_enter *ctx) {
-    __u32 event_id = 16;
+    __u32 event_id = 17;
 
     __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
     void *addr_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
@@ -572,7 +572,7 @@ int trace_sys_enter_accept(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_accept")
 int trace_sys_exit_accept(struct trace_event_raw_sys_exit *ctx) {
-    __u32 event_id = 17;
+    __u32 event_id = 18;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
     struct current_task ct = get_task_struct();
@@ -598,7 +598,7 @@ int trace_sys_exit_accept(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_accept4")
 int trace_sys_enter_accept4(struct trace_event_raw_sys_enter *ctx) {
-    __u32 event_id = 18;
+    __u32 event_id = 19;
 
     __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
     void *addr_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
@@ -638,7 +638,7 @@ int trace_sys_enter_accept4(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_accept4")
 int trace_sys_exit_accept4(struct trace_event_raw_sys_exit *ctx) {
-    __u32 event_id = 19;
+    __u32 event_id = 20;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
     struct current_task ct = get_task_struct();
@@ -664,7 +664,7 @@ int trace_sys_exit_accept4(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_connect")
 int trace_sys_enter_connect(struct trace_event_raw_sys_enter *ctx) {
-    __u32 event_id = 20;
+    __u32 event_id = 21;
 
     __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
     void *addr_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
@@ -701,7 +701,7 @@ int trace_sys_enter_connect(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_connect")
 int trace_sys_exit_connect(struct trace_event_raw_sys_exit *ctx) {
-    __u32 event_id = 21;
+    __u32 event_id = 22;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
     struct current_task ct = get_task_struct();
@@ -727,7 +727,7 @@ int trace_sys_exit_connect(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_shutdown")
 int trace_sys_enter_shutdown(struct trace_event_raw_sys_enter *ctx) {
-    __u32 event_id = 22;
+    __u32 event_id = 23;
 
     __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
     __s32 how = BPF_CORE_READ(ctx, args[1]);
@@ -752,7 +752,7 @@ int trace_sys_enter_shutdown(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_shutdown")
 int trace_sys_exit_shutdown(struct trace_event_raw_sys_exit *ctx) {
-    __u32 event_id = 23;
+    __u32 event_id = 24;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
     struct current_task ct = get_task_struct();
@@ -778,7 +778,7 @@ int trace_sys_exit_shutdown(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_recvfrom")
 int trace_sys_enter_recvfrom(struct trace_event_raw_sys_enter *ctx) {
-    __u32 event_id = 24;
+    __u32 event_id = 25;
 
     __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
     __u32 len = BPF_CORE_READ(ctx, args[2]);
@@ -819,7 +819,7 @@ int trace_sys_enter_recvfrom(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_recvfrom")
 int trace_sys_exit_recvfrom(struct trace_event_raw_sys_exit *ctx) {
-    __u32 event_id = 25;
+    __u32 event_id = 26;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
     struct current_task ct = get_task_struct();
@@ -845,7 +845,7 @@ int trace_sys_exit_recvfrom(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_recvmsg")
 int trace_sys_enter_recvmsg(struct trace_event_raw_sys_enter *ctx) {
-    __u32 event_id = 26;
+    __u32 event_id = 27;
 
     __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
     void *msg_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
@@ -878,7 +878,7 @@ int trace_sys_enter_recvmsg(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_recvmsg")
 int trace_sys_exit_recvmsg(struct trace_event_raw_sys_exit *ctx) {
-    __u32 event_id = 27;
+    __u32 event_id = 28;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
     struct current_task ct = get_task_struct();
@@ -904,7 +904,7 @@ int trace_sys_exit_recvmsg(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_recvmmsg")
 int trace_sys_enter_recvmmsg(struct trace_event_raw_sys_enter *ctx) {
-    __u32 event_id = 28;
+    __u32 event_id = 29;
 
     __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
     void *msgvec_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
@@ -939,7 +939,7 @@ int trace_sys_enter_recvmmsg(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_recvmmsg")
 int trace_sys_exit_recvmmsg(struct trace_event_raw_sys_exit *ctx) {
-    __u32 event_id = 29;
+    __u32 event_id = 30;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
     struct current_task ct = get_task_struct();
@@ -965,7 +965,7 @@ int trace_sys_exit_recvmmsg(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_sendto")
 int trace_sys_enter_sendto(struct trace_event_raw_sys_enter *ctx) {
-    __u32 event_id = 30;
+    __u32 event_id = 31;
 
     __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
     void *buf_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
@@ -1005,7 +1005,7 @@ int trace_sys_enter_sendto(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_sendto")
 int trace_sys_exit_sendto(struct trace_event_raw_sys_exit *ctx) {
-    __u32 event_id = 31;
+    __u32 event_id = 32;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
     struct current_task ct = get_task_struct();
@@ -1031,7 +1031,7 @@ int trace_sys_exit_sendto(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_sendmsg")
 int trace_sys_enter_sendmsg(struct trace_event_raw_sys_enter *ctx) {
-    __u32 event_id = 32;
+    __u32 event_id = 33;
 
     __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
     void *msg_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
@@ -1064,7 +1064,7 @@ int trace_sys_enter_sendmsg(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_sendmsg")
 int trace_sys_exit_sendmsg(struct trace_event_raw_sys_exit *ctx) {
-    __u32 event_id = 33;
+    __u32 event_id = 34;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
     struct current_task ct = get_task_struct();
@@ -1090,7 +1090,7 @@ int trace_sys_exit_sendmsg(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_sendmmsg")
 int trace_sys_enter_sendmmsg(struct trace_event_raw_sys_enter *ctx) {
-    __u32 event_id = 34;
+    __u32 event_id = 35;
 
     __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
     void *msgvec_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
@@ -1124,7 +1124,7 @@ int trace_sys_enter_sendmmsg(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_sendmmsg")
 int trace_sys_exit_sendmmsg(struct trace_event_raw_sys_exit *ctx) {
-    __u32 event_id = 35;
+    __u32 event_id = 36;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
     struct current_task ct = get_task_struct();
@@ -1150,7 +1150,7 @@ int trace_sys_exit_sendmmsg(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_sethostname")
 int trace_sys_enter_sethostname(struct trace_event_raw_sys_enter *ctx) {
-    __u32 event_id = 36;
+    __u32 event_id = 37;
 
     char *name = (char *)BPF_CORE_READ(ctx, args[0]);
     __u32 len = BPF_CORE_READ(ctx, args[1]);
@@ -1182,7 +1182,7 @@ int trace_sys_enter_sethostname(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_sethostname")
 int trace_sys_exit_sethostname(struct trace_event_raw_sys_exit *ctx) {
-    __u32 event_id = 37;
+    __u32 event_id = 38;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
     struct current_task ct = get_task_struct();
@@ -1208,7 +1208,7 @@ int trace_sys_exit_sethostname(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_setdomainname")
 int trace_sys_enter_setdomainname(struct trace_event_raw_sys_enter *ctx) {
-    __u32 event_id = 38;
+    __u32 event_id = 39;
 
     char *name = (char *)BPF_CORE_READ(ctx, args[0]);
     __u32 len = BPF_CORE_READ(ctx, args[1]);
@@ -1240,7 +1240,7 @@ int trace_sys_enter_setdomainname(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_setdomainname")
 int trace_sys_exit_setdomainname(struct trace_event_raw_sys_exit *ctx) {
-    __u32 event_id = 39;
+    __u32 event_id = 40;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
     struct current_task ct = get_task_struct();
@@ -1257,6 +1257,56 @@ int trace_sys_exit_setdomainname(struct trace_event_raw_sys_exit *ctx) {
                 bpf_printk("Exit setdomainname: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit setdomainname: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_close")
+int trace_sys_enter_close(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 41;
+
+    __s32 fd = BPF_CORE_READ(ctx, args[0]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            bpf_printk("Enter close: ns_id=%llu, pid=%u, fd=%d\n", 
+                    ct.ns_id, ct.pid, fd);
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_close")
+int trace_sys_exit_close(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 42;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit close: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit close: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
     }
