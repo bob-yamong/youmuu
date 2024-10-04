@@ -5,6 +5,7 @@
 #define MAX_FILENAME_LEN 256
 #define MAX_ARGS 3
 #define MAX_ARG_LEN 128
+#define MAX_CGROUP_NAME_LEN 64  // cgroup 이름의 최대 길이 정의
 
 struct event {
     __u32 pid;
@@ -17,6 +18,8 @@ struct event {
     __u64 args[6];
     char filename[MAX_FILENAME_LEN];
     char argv[MAX_ARGS][MAX_ARG_LEN];
+    __u64 cgroup_id;
+    char cgroup_name[MAX_CGROUP_NAME_LEN];  // cgroup 이름 추가
 } __attribute__((packed));
 
 #endif // EVENT_H

@@ -46,6 +46,43 @@ static inline int my_memcmp(const void* s1, const void* s2, size_t n) {
     return 0;
 }
 
+static __always_inline __u64 get_cgroup_id() {
+    struct task_struct *cur_tsk = (struct task_struct *)bpf_get_current_task();
+    if (cur_tsk == NULL) {
+        bpf_printk("failed to get cur task\n");
+        return 0;
+    }
+
+    int mem_cgrp_id = memory_cgrp_id;
+
+    __u64 cgroup_id = BPF_CORE_READ(cur_tsk, cgroups, subsys[mem_cgrp_id], cgroup, kn, id);
+    bpf_printk("cgroup_id: %llu\n", cgroup_id);
+
+    return cgroup_id;
+}
+
+static __always_inline int get_cgroup_name(char *buf, size_t sz) {
+    struct task_struct *cur_tsk = (struct task_struct *)bpf_get_current_task();
+    if (cur_tsk == NULL) {
+        bpf_printk("failed to get cur task\n");
+        return -1;
+    }
+
+    int cgrp_id = memory_cgrp_id;
+
+
+    // failed when use BPF_PROBE_READ
+    const char *name = BPF_CORE_READ(cur_tsk, cgroups, subsys[cgrp_id], cgroup, kn, name);
+    // bpf_printk("name: %s\n", name);
+    if (bpf_probe_read_kernel_str(buf, sz, name) < 0) {
+        bpf_printk("failed to get kernfs node name: %s\n", buf);
+        return -1;
+    }
+    bpf_printk("cgroup name: %s\n", buf);
+
+    return 0;
+}
+
 SEC("tracepoint/raw_syscalls/sys_enter")
 int sys_enter(struct trace_event_raw_sys_enter *ctx)
 {
@@ -96,7 +133,7 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     e->args[4] = ctx->args[4];
     e->args[5] = ctx->args[5];
 
-    // execve 시스템 콜인 경우 filename과 argv 읽기
+    // execve 시��템 콜인 경우 filename과 argv 읽기
     // if (syscall_nr == __NR_execve)
     if (syscall_name && my_memcmp(syscall_name, "execve", 6) == 0) {
         const char *filename_ptr = (const char *)ctx->args[0];
@@ -116,6 +153,18 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
             e->argv[i][0] = '\0';
         }
     }
+
+    // // cgroup 이름 가져오기
+    char cgroup_name[MAX_CGROUP_NAME_LEN] = {0};
+    if (get_cgroup_name(cgroup_name, sizeof(cgroup_name)) == 0) {
+        __builtin_memcpy(e->cgroup_name, cgroup_name, sizeof(e->cgroup_name));
+    } else {
+        __builtin_memcpy(e->cgroup_name, "Unknown", 8);
+    }
+
+    // cgroup id 가져오기
+    __u64 cgroup_id = get_cgroup_id();
+    e->cgroup_id = cgroup_id;
 
     bpf_ringbuf_submit(e, 0);
 
