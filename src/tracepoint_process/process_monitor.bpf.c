@@ -5,13 +5,6 @@
 #include <bpf/bpf_core_read.h>
 #include "event.h"
 
-// 시스템 콜 번호 정의
-// Todo: memcmp를 사용하지 않고 비교하려면 아래 내용을 아키텍쳐 별로 정의해야함 
-#ifndef __NR_execve
-#define __NR_execve 59  // x86_64 아키텍처의 execve 시스템 콜 번호
-#endif
-
-#define TASK_COMM_LEN 16
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
