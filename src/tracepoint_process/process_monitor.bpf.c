@@ -133,7 +133,7 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     e->args[4] = ctx->args[4];
     e->args[5] = ctx->args[5];
 
-    // execve 시��템 콜인 경우 filename과 argv 읽기
+    // execve 시스템 콜인 경우 filename과 argv 읽기
     // if (syscall_nr == __NR_execve)
     if (syscall_name && my_memcmp(syscall_name, "execve", 6) == 0) {
         const char *filename_ptr = (const char *)ctx->args[0];
