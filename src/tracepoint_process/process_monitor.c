@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 
 #define MAX_SYSCALL_ENTRIES 256
+#define MAX_ARGS 10
 
 static volatile bool exiting = false;
 
@@ -549,7 +550,110 @@ static int handle_event(void *ctx, void *data, size_t data_sz)
             printf("Sockfd: %lld, Level: %lld, Optname: %lld, Optval: 0x%llx, Optlen: 0x%llx\n",
                    e->args[0], e->args[1], e->args[2], e->args[3], e->args[4]);
             break;
-        // ... (이전에 있던 case문들)
+        case __NR_fork:
+        case __NR_vfork:
+            printf("New process creation\n");
+            break;
+
+        case __NR_execve:
+        case __NR_execveat:
+            printf("Filename: %s\n", e->filename);
+            printf("Arguments:");
+            for (int i = 0; i < MAX_ARGS && e->argv[i][0] != '\0'; i++) {
+                printf(" %s", e->argv[i]);
+            }
+            printf("\n");
+            break;
+
+        case __NR_chdir:
+        case __NR_fchdir:
+            printf("Changing directory to: %s\n", e->filename);
+            break;
+
+        case __NR_chmod:
+        case __NR_fchmod:
+        case __NR_fchmodat:
+            printf("Changing file mode: %s, Mode: 0%llo\n", e->filename, e->args[1]);
+            break;
+
+        case __NR_chown:
+        case __NR_fchown:
+        case __NR_lchown:
+        case __NR_fchownat:
+            printf("Changing ownership: %s, UID: %lld, GID: %lld\n", e->filename, e->args[1], e->args[2]);
+            break;
+
+        case __NR_rename:
+        case __NR_renameat:
+        case __NR_renameat2:
+            printf("Renaming file from: %s, to: 0x%llx\n", e->filename, e->args[1]);
+            break;
+
+        case __NR_unlink:
+        case __NR_unlinkat:
+            printf("Deleting file: %s\n", e->filename);
+            break;
+
+        case __NR_symlink:
+        case __NR_symlinkat:
+            printf("Creating symlink from: %s, to: 0x%llx\n", e->filename, e->args[1]);
+            break;
+
+        case __NR_mount:
+            printf("Mounting filesystem, source: 0x%llx, target: 0x%llx, fstype: 0x%llx\n", e->args[0], e->args[1], e->args[2]);
+            break;
+
+        case __NR_umount:
+        case __NR_umount2:
+            printf("Unmounting filesystem: 0x%llx\n", e->args[0]);
+            break;
+
+        case __NR_ptrace:
+            {
+                const char *ptrace_requests[] = {
+                    "PTRACE_TRACEME", "PTRACE_PEEKTEXT", "PTRACE_PEEKDATA", "PTRACE_PEEKUSER",
+                    "PTRACE_POKETEXT", "PTRACE_POKEDATA", "PTRACE_POKEUSER", "PTRACE_CONT",
+                    "PTRACE_KILL", "PTRACE_SINGLESTEP"
+                };
+                const char *request = (e->args[0] < 10) ? ptrace_requests[e->args[0]] : "UNKNOWN";
+                printf("Ptrace request: %s, pid: %lld, addr: 0x%llx, data: 0x%llx\n",
+                       request, e->args[1], e->args[2], e->args[3]);
+            }
+            break;
+
+        case __NR_seccomp:
+            printf("Seccomp operation: %lld, flags: 0x%llx, addr: 0x%llx\n", e->args[0], e->args[1], e->args[2]);
+            break;
+
+        case __NR_prctl:
+            {
+                const char *prctl_options[] = {
+                    "PR_SET_PDEATHSIG", "PR_GET_PDEATHSIG", "PR_GET_DUMPABLE", "PR_SET_DUMPABLE",
+                    "PR_GET_UNALIGN", "PR_SET_UNALIGN", "PR_GET_KEEPCAPS", "PR_SET_KEEPCAPS",
+                    "PR_GET_FPEMU", "PR_SET_FPEMU", "PR_GET_FPEXC", "PR_SET_FPEXC",
+                    "PR_GET_TIMING", "PR_SET_TIMING", "PR_SET_NAME", "PR_GET_NAME"
+                };
+                const char *option = (e->args[0] < 16) ? prctl_options[e->args[0]] : "UNKNOWN";
+                printf("Prctl option: %s, arg2: 0x%llx, arg3: 0x%llx, arg4: 0x%llx, arg5: 0x%llx\n",
+                       option, e->args[1], e->args[2], e->args[3], e->args[4]);
+            }
+            break;
+
+        case __NR_mknod:
+        case __NR_mknodat:
+            printf("Creating special file: %s, Mode: 0%llo, Dev: 0x%llx\n", e->filename, e->args[1], e->args[2]);
+            break;
+
+        case __NR_link:
+        case __NR_linkat:
+            printf("Creating hard link from: %s, to: 0x%llx\n", e->filename, e->args[1]);
+            break;
+
+        case __NR_socketpair:
+            printf("Creating socket pair: Domain: %lld, Type: %lld, Protocol: %lld, Sv: 0x%llx\n",
+                   e->args[0], e->args[1], e->args[2], e->args[3]);
+            break;
+
         default:
             printf("Args: 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx\n",
                    e->args[0], e->args[1], e->args[2], e->args[3], e->args[4], e->args[5]);
