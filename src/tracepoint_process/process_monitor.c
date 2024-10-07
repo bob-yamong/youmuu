@@ -35,8 +35,27 @@ void init_syscall_map(struct process_monitor_bpf *skel)
         { __NR_exit, "exit" },
         { __NR_exit_group, "exit_group" },
         { __NR_wait4, "wait4" },
+        { __NR_waitid, "waitid" },
         { __NR_kill, "kill" },
+        { __NR_tkill, "tkill" },
+        { __NR_tgkill, "tgkill" },
         { __NR_ptrace, "ptrace" },
+        { __NR_setpgid, "setpgid" },
+        { __NR_setsid, "setsid" },
+        { __NR_setuid, "setuid" },
+        { __NR_setgid, "setgid" },
+        { __NR_setreuid, "setreuid" },
+        { __NR_setregid, "setregid" },
+        { __NR_setresuid, "setresuid" },
+        { __NR_setresgid, "setresgid" },
+        { __NR_setgroups, "setgroups" },
+        { __NR_prctl, "prctl" },
+        { __NR_capset, "capset" },
+        { __NR_setpriority, "setpriority" },
+        { __NR_sched_setscheduler, "sched_setscheduler" },
+        { __NR_sched_setparam, "sched_setparam" },
+        { __NR_sched_setaffinity, "sched_setaffinity" },
+        { __NR_sched_yield, "sched_yield" },
 
         // 파일 시스템 관련
         { __NR_open, "open" },
@@ -175,6 +194,54 @@ static int handle_event(void *ctx, void *data, size_t data_sz)
         case __NR_setsockopt:
         case __NR_getsockopt:
             printf("%s socket option\n", e->syscall_nr == __NR_setsockopt ? "Setting" : "Getting");
+            break;
+
+        case __NR_waitid:
+            printf("Waiting for child process (waitid)\n");
+            break;
+        case __NR_tkill:
+            printf("Sending signal %lld to thread %lld\n", e->args[1], e->args[0]);
+            break;
+        case __NR_tgkill:
+            printf("Sending signal %lld to thread %lld in thread group %lld\n", e->args[2], e->args[1], e->args[0]);
+            break;
+        case __NR_setpgid:
+            printf("Setting process group ID: pid %lld, pgid %lld\n", e->args[0], e->args[1]);
+            break;
+        case __NR_setsid:
+            printf("Creating new session\n");
+            break;
+        case __NR_setuid:
+        case __NR_setgid:
+        case __NR_setreuid:
+        case __NR_setregid:
+        case __NR_setresuid:
+        case __NR_setresgid:
+            printf("Changing process UID/GID\n");
+            break;
+        case __NR_setgroups:
+            printf("Setting supplementary group IDs\n");
+            break;
+        case __NR_prctl:
+            printf("Process control operation: %lld\n", e->args[0]);
+            break;
+        case __NR_capset:
+            printf("Setting process capabilities\n");
+            break;
+        case __NR_setpriority:
+            printf("Setting process priority: %lld for process %lld\n", e->args[2], e->args[1]);
+            break;
+        case __NR_sched_setscheduler:
+            printf("Setting scheduling policy and parameters for process %lld\n", e->args[0]);
+            break;
+        case __NR_sched_setparam:
+            printf("Setting scheduling parameters for process %lld\n", e->args[0]);
+            break;
+        case __NR_sched_setaffinity:
+            printf("Setting CPU affinity for process %lld\n", e->args[0]);
+            break;
+        case __NR_sched_yield:
+            printf("Yielding processor\n");
             break;
     }
 
