@@ -6,16 +6,13 @@
 #include <bpf/bpf_core_read.h>
 #include "event.h"
 
-// 기존의 #include <linux/bpf.h> 라인을 제거하거나 주석 처리합니다.
-// #include <linux/bpf.h>
-
 typedef unsigned int u32;
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 1024);
     __type(key, u32);
-    __type(value, char[16]);  // 16바이트로 변경
+    __type(value, char[16]);
 } syscall_map SEC(".maps");
 
 struct {
@@ -71,7 +68,6 @@ static __always_inline int get_cgroup_name(char *buf, size_t sz) {
 
     // failed when use BPF_PROBE_READ
     const char *name = BPF_CORE_READ(cur_tsk, cgroups, subsys[cgrp_id], cgroup, kn, name);
-    // bpf_printk("name: %s\n", name);
     if (bpf_probe_read_kernel_str(buf, sz, name) < 0) {
         bpf_printk("failed to get kernfs node name: %s\n", buf);
         return -1;
@@ -81,21 +77,9 @@ static __always_inline int get_cgroup_name(char *buf, size_t sz) {
     return 0;
 }
 
-static __always_inline int should_monitor(u32 pid, u32 ppid) {
-    u32 *monitored;
-    u32 zero = 0;
-
-    monitored = bpf_map_lookup_elem(&container_pids, &pid);
-    if (monitored)
-        return 1;
-    
-    monitored = bpf_map_lookup_elem(&container_pids, &ppid);
-    if (monitored)
-        return 1;
-
-    // 0을 키로 사용하여 모든 프로세스 모니터링 여부 확인
-    monitored = bpf_map_lookup_elem(&container_pids, &zero);
-    return monitored != NULL;
+static __always_inline int should_monitor(u32 pid) {
+    u32 *monitored = bpf_map_lookup_elem(&container_pids, &pid);
+    return monitored ? 1 : 0;
 }
 
 SEC("tracepoint/raw_syscalls/sys_enter")
@@ -109,7 +93,7 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
 
-    if (!should_monitor(pid, ppid)) {
+    if (!should_monitor(pid)) {
         return 0;
     }
 
