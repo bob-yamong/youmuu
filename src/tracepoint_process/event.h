@@ -3,7 +3,7 @@
 
 #define TASK_COMM_LEN 16
 #define MAX_FILENAME_LEN 256
-#define MAX_ARGS 6
+#define MAX_ARGS 10
 #define MAX_ARG_LEN 128
 #define MAX_CGROUP_NAME_LEN 64  // cgroup 이름의 최대 길이 정의
 
