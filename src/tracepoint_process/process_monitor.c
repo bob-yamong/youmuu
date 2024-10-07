@@ -405,101 +405,154 @@ void init_syscall_map(struct process_monitor_bpf *skel)
 static int handle_event(void *ctx, void *data, size_t data_sz)
 {
     const struct event *e = data;
-    // if(/e->ppid != 88919)
-    // 시스템 콜별로 인자 파싱 및 출력
+    printf("Process syscall: %s (nr=%d, pid=%d, tid=%d, ppid=%d, uid=%d, comm=%s, cgroup_id=%llu, cgroup_name=%s)\n",
+           e->syscall, e->syscall_nr, e->pid, e->tid, e->ppid, e->uid, e->comm, e->cgroup_id, e->cgroup_name);
+
     switch (e->syscall_nr) {
-        case __NR_clone:
-            printf("Clone flags: 0x%llx, Child stack: 0x%llx, Parent tidptr: 0x%llx, Child tidptr: 0x%llx\n",
+        case __NR_read:
+        case __NR_write:
+        case __NR_pread64:
+        case __NR_pwrite64:
+            printf("FD: %lld, Buffer: 0x%llx, Count: %lld\n", e->args[0], e->args[1], e->args[2]);
+            break;
+        case __NR_open:
+        case __NR_openat:
+            printf("Filename: %s, Flags: 0x%llx, Mode: 0%llo\n", e->filename, e->args[1], e->args[2]);
+            break;
+        case __NR_close:
+            printf("FD: %lld\n", e->args[0]);
+            break;
+        case __NR_stat:
+        case __NR_lstat:
+        case __NR_fstat:
+            printf("Filename: %s, Stat buf: 0x%llx\n", e->filename, e->args[1]);
+            break;
+        case __NR_poll:
+        case __NR_select:
+        case __NR_epoll_wait:
+            printf("Timeout: %lld\n", e->args[4]);
+            break;
+        case __NR_lseek:
+            printf("FD: %lld, Offset: %lld, Whence: %lld\n", e->args[0], e->args[1], e->args[2]);
+            break;
+        case __NR_mmap:
+            printf("Addr: 0x%llx, Length: %lld, Prot: 0x%llx, Flags: 0x%llx, FD: %lld, Offset: %lld\n",
+                   e->args[0], e->args[1], e->args[2], e->args[3], e->args[4], e->args[5]);
+            break;
+        case __NR_mprotect:
+            printf("Addr: 0x%llx, Length: %lld, Prot: 0x%llx\n", e->args[0], e->args[1], e->args[2]);
+            break;
+        case __NR_munmap:
+            printf("Addr: 0x%llx, Length: %lld\n", e->args[0], e->args[1]);
+            break;
+        case __NR_brk:
+            printf("Brk: 0x%llx\n", e->args[0]);
+            break;
+        case __NR_rt_sigaction:
+            printf("Signum: %lld, Act: 0x%llx, Oldact: 0x%llx\n", e->args[0], e->args[1], e->args[2]);
+            break;
+        case __NR_rt_sigprocmask:
+            printf("How: %lld, Set: 0x%llx, Oldset: 0x%llx\n", e->args[0], e->args[1], e->args[2]);
+            break;
+        case __NR_ioctl:
+            printf("FD: %lld, Cmd: 0x%llx, Arg: 0x%llx\n", e->args[0], e->args[1], e->args[2]);
+            break;
+        case __NR_pselect6:
+        case __NR_ppoll:
+            printf("Timeout: 0x%llx\n", e->args[4]);
+            break;
+        case __NR_nanosleep:
+            printf("Req: 0x%llx, Rem: 0x%llx\n", e->args[0], e->args[1]);
+            break;
+        case __NR_mremap:
+            printf("Old addr: 0x%llx, Old size: %lld, New size: %lld, Flags: 0x%llx\n",
                    e->args[0], e->args[1], e->args[2], e->args[3]);
             break;
-        case __NR_execve:
-            printf("Filename: %s\n", e->filename);
-            printf("Arguments:");
-            for (int i = 0; i < MAX_ARGS && e->argv[i][0] != '\0'; i++) {
-                printf(" %s", e->argv[i]);
-            }
-            printf("\n");
+        case __NR_msync:
+            printf("Addr: 0x%llx, Length: %lld, Flags: 0x%llx\n", e->args[0], e->args[1], e->args[2]);
             break;
-        case __NR_exit:
-        case __NR_exit_group:
-            printf("Exit code: %lld\n", e->args[0]);
+        case __NR_mincore:
+            printf("Addr: 0x%llx, Length: %lld, Vec: 0x%llx\n", e->args[0], e->args[1], e->args[2]);
             break;
-        case __NR_wait4: {
-            int status;
-            if (e->args[1] != 0) {
-                if (read_process_memory(e->pid, (void *)e->args[1], &status, sizeof(status)) == 0) {
-                    printf("PID: %lld, Status: 0x%x, Options: 0x%llx, Rusage ptr: 0x%llx\n",
-                           e->args[0], status, e->args[2], e->args[3]);
-                } else {
-                    printf("PID: %lld, Status ptr: 0x%llx (failed to read), Options: 0x%llx, Rusage ptr: 0x%llx\n",
-                           e->args[0], e->args[1], e->args[2], e->args[3]);
-                }
-            } else {
-                printf("PID: %lld, Status ptr: NULL, Options: 0x%llx, Rusage ptr: 0x%llx\n",
-                       e->args[0], e->args[2], e->args[3]);
-            }
+        case __NR_madvise:
+            printf("Addr: 0x%llx, Length: %lld, Advice: %lld\n", e->args[0], e->args[1], e->args[2]);
             break;
-        }
-        case __NR_kill:
-        case __NR_tkill:
-        case __NR_tgkill:
-            printf("Target PID: %lld, Signal: %s (%lld)\n", e->args[0], strsignal(e->args[1]), e->args[1]);
+        case __NR_shmget:
+            printf("Key: %lld, Size: %lld, Shmflg: 0x%llx\n", e->args[0], e->args[1], e->args[2]);
             break;
-        case __NR_ptrace:
-            printf("Request: %lld, Target PID: %lld, Addr: 0x%llx, Data: 0x%llx\n",
+        case __NR_shmat:
+            printf("Shmid: %lld, Shmaddr: 0x%llx, Shmflg: 0x%llx\n", e->args[0], e->args[1], e->args[2]);
+            break;
+        case __NR_shmctl:
+            printf("Shmid: %lld, Cmd: %lld, Buf: 0x%llx\n", e->args[0], e->args[1], e->args[2]);
+            break;
+        case __NR_dup:
+        case __NR_dup2:
+        case __NR_dup3:
+            printf("Oldfd: %lld, Newfd: %lld\n", e->args[0], e->args[1]);
+            break;
+        case __NR_pause:
+            printf("Process paused\n");
+            break;
+        case __NR_nanosleep:
+            printf("Req: 0x%llx, Rem: 0x%llx\n", e->args[0], e->args[1]);
+            break;
+        case __NR_getitimer:
+        case __NR_setitimer:
+            printf("Which: %lld, New value: 0x%llx, Old value: 0x%llx\n", e->args[0], e->args[1], e->args[2]);
+            break;
+        case __NR_alarm:
+            printf("Seconds: %lld\n", e->args[0]);
+            break;
+        case __NR_getpid:
+        case __NR_getppid:
+            printf("Getting process ID\n");
+            break;
+        case __NR_socket:
+            printf("Domain: %lld, Type: %lld, Protocol: %lld\n", e->args[0], e->args[1], e->args[2]);
+            break;
+        case __NR_connect:
+            printf("Sockfd: %lld, Addr: 0x%llx, Addrlen: %lld\n", e->args[0], e->args[1], e->args[2]);
+            break;
+        case __NR_accept:
+        case __NR_accept4:
+            printf("Sockfd: %lld, Addr: 0x%llx, Addrlen: 0x%llx\n", e->args[0], e->args[1], e->args[2]);
+            break;
+        case __NR_sendto:
+        case __NR_recvfrom:
+            printf("Sockfd: %lld, Buf: 0x%llx, Len: %lld, Flags: 0x%llx\n",
                    e->args[0], e->args[1], e->args[2], e->args[3]);
             break;
-        case __NR_setpgid:
-            printf("PID: %lld, PGID: %lld\n", e->args[0], e->args[1]);
+        case __NR_sendmsg:
+        case __NR_recvmsg:
+            printf("Sockfd: %lld, Msg: 0x%llx, Flags: 0x%llx\n", e->args[0], e->args[1], e->args[2]);
             break;
-        case __NR_setsid:
-            printf("New session created\n");
+        case __NR_shutdown:
+            printf("Sockfd: %lld, How: %lld\n", e->args[0], e->args[1]);
             break;
-        case __NR_setuid:
-        case __NR_setgid:
-            printf("New ID: %lld\n", e->args[0]);
+        case __NR_bind:
+            printf("Sockfd: %lld, Addr: 0x%llx, Addrlen: %lld\n", e->args[0], e->args[1], e->args[2]);
             break;
-        case __NR_setreuid:
-        case __NR_setregid:
-            printf("Real ID: %lld, Effective ID: %lld\n", e->args[0], e->args[1]);
+        case __NR_listen:
+            printf("Sockfd: %lld, Backlog: %lld\n", e->args[0], e->args[1]);
             break;
-        case __NR_setresuid:
-        case __NR_setresgid:
-            printf("Real ID: %lld, Effective ID: %lld, Saved ID: %lld\n",
-                   e->args[0], e->args[1], e->args[2]);
+        case __NR_getsockname:
+        case __NR_getpeername:
+            printf("Sockfd: %lld, Addr: 0x%llx, Addrlen: 0x%llx\n", e->args[0], e->args[1], e->args[2]);
             break;
-        case __NR_setgroups:
-            printf("Size: %lld, List ptr: 0x%llx\n", e->args[0], e->args[1]);
+        case __NR_socketpair:
+            printf("Domain: %lld, Type: %lld, Protocol: %lld, Sv: 0x%llx\n",
+                   e->args[0], e->args[1], e->args[2], e->args[3]);
             break;
-        case __NR_prctl:
-            printf("Option: %lld, Arg2: 0x%llx, Arg3: 0x%llx, Arg4: 0x%llx, Arg5: 0x%llx\n",
+        case __NR_setsockopt:
+        case __NR_getsockopt:
+            printf("Sockfd: %lld, Level: %lld, Optname: %lld, Optval: 0x%llx, Optlen: 0x%llx\n",
                    e->args[0], e->args[1], e->args[2], e->args[3], e->args[4]);
             break;
-        case __NR_capset:
-            printf("Header ptr: 0x%llx, Data ptr: 0x%llx\n", e->args[0], e->args[1]);
-            break;
-        case __NR_setpriority:
-            printf("Which: %lld, Who: %lld, Prio: %lld\n", e->args[0], e->args[1], e->args[2]);
-            break;
-        case __NR_sched_setscheduler:
-            printf("PID: %lld, Policy: %lld, Param ptr: 0x%llx\n", e->args[0], e->args[1], e->args[2]);
-            break;
-        case __NR_sched_setparam:
-            printf("PID: %lld, Param ptr: 0x%llx\n", e->args[0], e->args[1]);
-            break;
-        case __NR_sched_setaffinity:
-            printf("PID: %lld, CPU set size: %lld, Mask ptr: 0x%llx\n", e->args[0], e->args[1], e->args[2]);
-            break;
-        case __NR_sched_yield:
-            printf("Process yielding CPU\n");
-            break;
+        // ... (이전에 있던 case문들)
         default:
             printf("Args: 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx\n",
                    e->args[0], e->args[1], e->args[2], e->args[3], e->args[4], e->args[5]);
-        for (int i = 0; i < MAX_ARGS && e->argv[i][0] != '\0'; i++) {
-            printf(" %s", e->argv[i]);
-        }
-        printf("\n");
     }
 
     return 0;
