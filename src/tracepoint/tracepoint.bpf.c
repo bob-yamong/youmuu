@@ -67,12 +67,12 @@ int trace_sys_enter_socket(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             bpf_printk("Enter socket: ns_id=%llu, pid=%u domain=%d, type=%d, protocol=%d\n", 
@@ -90,12 +90,12 @@ int trace_sys_exit_socket(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
     
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -120,12 +120,12 @@ int trace_sys_enter_socketpair(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             __s32 sv[2];
@@ -150,12 +150,12 @@ int trace_raw_sys_exit_socketpair(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
     
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -181,12 +181,12 @@ int trace_sys_enter_setsockopt(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             __u32 optval;
@@ -211,12 +211,12 @@ int trace_sys_exit_setsockopt(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
     
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -242,12 +242,12 @@ int trace_sys_enter_getsockopt(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             __u32 optval;
@@ -274,12 +274,12 @@ int trace_sys_exit_getsockopt(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
     
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -303,12 +303,12 @@ int trace_sys_enter_getsockname(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             struct sockaddr_in addr;
@@ -339,12 +339,12 @@ int trace_sys_exit_getsockname(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
     
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -368,12 +368,12 @@ int trace_sys_enter_getpeername(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             struct sockaddr_in addr;
@@ -404,12 +404,12 @@ int trace_sys_exit_getpeername(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
     
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -433,12 +433,12 @@ int trace_sys_enter_bind(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             struct sockaddr_in addr;
@@ -467,12 +467,12 @@ int trace_sys_exit_bind(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
     
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -495,12 +495,12 @@ int trace_sys_enter_listen(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             bpf_printk("Enter listen: ns_id=%llu, pid=%u sockfd=%d, backlog=%d\n", 
@@ -518,12 +518,12 @@ int trace_sys_exit_listen(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
     
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -547,12 +547,12 @@ int trace_sys_enter_accept(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             struct sockaddr_in addr;
@@ -583,12 +583,12 @@ int trace_sys_exit_accept(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
     
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -613,12 +613,12 @@ int trace_sys_enter_accept4(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             struct sockaddr_in addr;
@@ -649,12 +649,12 @@ int trace_sys_exit_accept4(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
     
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -678,12 +678,12 @@ int trace_sys_enter_connect(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             struct sockaddr_in addr;
@@ -712,12 +712,12 @@ int trace_sys_exit_connect(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
     
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -740,12 +740,12 @@ int trace_sys_enter_shutdown(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             bpf_printk("Enter shutdown: ns_id=%llu, pid=%u sockfd=%d, how=%d\n", 
@@ -763,12 +763,12 @@ int trace_sys_exit_shutdown(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
     
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -794,12 +794,12 @@ int trace_sys_enter_recvfrom(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             struct sockaddr_in src_addr;
@@ -830,12 +830,12 @@ int trace_sys_exit_recvfrom(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
     
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -859,12 +859,12 @@ int trace_sys_enter_recvmsg(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             struct msghdr msg;
@@ -889,12 +889,12 @@ int trace_sys_exit_recvmsg(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
     
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -920,12 +920,12 @@ int trace_sys_enter_recvmmsg(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             struct mmsghdr msgvec;
@@ -950,12 +950,12 @@ int trace_sys_exit_recvmmsg(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
     
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -982,12 +982,12 @@ int trace_sys_enter_sendto(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             struct sockaddr_in dest_addr;
@@ -1016,12 +1016,12 @@ int trace_sys_exit_sendto(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
     
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -1045,12 +1045,12 @@ int trace_sys_enter_sendmsg(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             struct msghdr msg;
@@ -1075,12 +1075,12 @@ int trace_sys_exit_sendmsg(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
     
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -1105,12 +1105,12 @@ int trace_sys_enter_sendmmsg(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             struct mmsghdr msgvec;
@@ -1135,12 +1135,12 @@ int trace_sys_exit_sendmmsg(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
     
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -1163,12 +1163,12 @@ int trace_sys_enter_sethostname(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             char hostname[64];
@@ -1193,12 +1193,12 @@ int trace_sys_exit_sethostname(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
     
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -1221,12 +1221,12 @@ int trace_sys_enter_setdomainname(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             char domainname[64];
@@ -1251,12 +1251,12 @@ int trace_sys_exit_setdomainname(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
     
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -1278,12 +1278,12 @@ int trace_sys_enter_close(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             bpf_printk("Enter close: ns_id=%llu, pid=%u, fd=%d\n", 
@@ -1301,12 +1301,12 @@ int trace_sys_exit_close(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -1329,12 +1329,12 @@ int trace_sys_enter_creat(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             __u32 key = 0;
@@ -1362,12 +1362,12 @@ int trace_sys_exit_creat(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -1391,12 +1391,12 @@ int trace_sys_enter_open(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             __u32 key = 0;
@@ -1424,12 +1424,12 @@ int trace_sys_exit_open(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -1454,12 +1454,12 @@ int trace_sys_enter_openat(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             __u32 key = 0;
@@ -1487,12 +1487,12 @@ int trace_sys_exit_openat(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -1518,12 +1518,12 @@ int trace_sys_enter_openat2(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             __u32 key = 0;
@@ -1551,12 +1551,12 @@ int trace_sys_exit_openat2(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -1582,12 +1582,12 @@ int trace_sys_enter_name_to_handle_at(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             __u32 key = 0;
@@ -1622,12 +1622,12 @@ int trace_sys_exit_name_to_handle_at(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -1651,12 +1651,12 @@ int trace_sys_enter_open_by_handle_at(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             struct file_handle handle;
@@ -1681,12 +1681,12 @@ int trace_sys_exit_open_by_handle_at(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -1709,12 +1709,12 @@ int trace_sys_enter_memfd_create(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             char memfd_name[64];
@@ -1739,12 +1739,12 @@ int trace_sys_exit_memfd_create(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
@@ -1771,12 +1771,12 @@ int trace_sys_enter_mmap(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             bpf_printk("Enter mmap: ns_id=%llu, pid=%u, addr=%p, len=%u, prot=%u, flags=%u, fd=%d, offset=%u\n", 
@@ -1794,12 +1794,12 @@ int trace_sys_exit_mmap(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             if (ret == 0) {
@@ -1822,12 +1822,12 @@ int trace_sys_enter_munmap(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             bpf_printk("Enter munmap: ns_id=%llu, pid=%u, addr=%p, len=%u\n", 
@@ -1845,13 +1845,13 @@ int trace_sys_exit_munmap(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
     
     if (ret == 0) {
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
         if (watched) {
             if (*watched == LOGGING) {
                 bpf_printk("Exit munmap: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
@@ -1872,12 +1872,12 @@ int trace_sys_enter_mprotect(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             bpf_printk("Enter mprotect: ns_id=%llu, pid=%u, addr=%p, len=%u, prot=%u\n", 
@@ -1896,12 +1896,12 @@ int trace_sys_exit_mprotect(struct trace_event_raw_sys_exit *ctx) {
     if (ret == 0) {
         struct current_task ct = get_task_struct();
 
-        struct event_key key = {
+        struct event_key event_key = {
             .ns_id = ct.ns_id,
             .event_id = event_id,
         };
         
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
         if (watched) {
             if (*watched == LOGGING) {
                 bpf_printk("Exit mprotect: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
@@ -1923,12 +1923,12 @@ int trace_sys_enter_pkey_mprotect(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             bpf_printk("Enter pkey_mprotect: ns_id=%llu, pid=%u, addr=%p, len=%u, prot=%u, pkey=%u\n", 
@@ -1947,12 +1947,12 @@ int trace_sys_exit_pkey_mprotect(struct trace_event_raw_sys_exit *ctx) {
     if (ret == 0) {
         struct current_task ct = get_task_struct();
 
-        struct event_key key = {
+        struct event_key event_key = {
             .ns_id = ct.ns_id,
             .event_id = event_id,
         };
         
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
         if (watched) {
             if (*watched == LOGGING) {
                 bpf_printk("Exit pkey_mprotect: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
@@ -1973,12 +1973,12 @@ int trace_sys_enter_mknod(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             __u32 key = 0;
@@ -2007,12 +2007,12 @@ int trace_sys_exit_mknod(struct trace_event_raw_sys_exit *ctx) {
     if (ret == 0) {
         struct current_task ct = get_task_struct();
 
-        struct event_key key = {
+        struct event_key event_key = {
             .ns_id = ct.ns_id,
             .event_id = event_id,
         };
         
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
         if (watched) {
             if (*watched == LOGGING) {
                 bpf_printk("Exit mknod: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
@@ -2034,12 +2034,12 @@ int trace_sys_enter_mknodat(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             __u32 key = 0;
@@ -2068,12 +2068,12 @@ int trace_sys_exit_mknodat(struct trace_event_raw_sys_exit *ctx) {
     if (ret == 0) {
         struct current_task ct = get_task_struct();
 
-        struct event_key key = {
+        struct event_key event_key = {
             .ns_id = ct.ns_id,
             .event_id = event_id,
         };
         
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
         if (watched) {
             if (*watched == LOGGING) {
                 bpf_printk("Exit mknodat: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
@@ -2093,12 +2093,12 @@ int trace_sys_enter_rename(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             __u32 old_key = 0;
@@ -2130,12 +2130,12 @@ int trace_sys_exit_rename(struct trace_event_raw_sys_exit *ctx) {
     if (ret == 0) {
         struct current_task ct = get_task_struct();
 
-        struct event_key key = {
+        struct event_key event_key = {
             .ns_id = ct.ns_id,
             .event_id = event_id,
         };
         
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
         if (watched) {
             if (*watched == LOGGING) {
                 bpf_printk("Exit rename: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
@@ -2158,12 +2158,12 @@ int trace_sys_enter_renameat(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             __u32 old_key = 0;
@@ -2195,12 +2195,12 @@ int trace_sys_exit_renameat(struct trace_event_raw_sys_exit *ctx) {
     if (ret == 0) {
         struct current_task ct = get_task_struct();
 
-        struct event_key key = {
+        struct event_key event_key = {
             .ns_id = ct.ns_id,
             .event_id = event_id,
         };
         
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
         if (watched) {
             if (*watched == LOGGING) {
                 bpf_printk("Exit renameat: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
@@ -2223,12 +2223,12 @@ int trace_sys_enter_renameat2(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             __u32 old_key = 0;
@@ -2260,12 +2260,12 @@ int trace_sys_exit_renameat2(struct trace_event_raw_sys_exit *ctx) {
     if (ret == 0) {
         struct current_task ct = get_task_struct();
 
-        struct event_key key = {
+        struct event_key event_key = {
             .ns_id = ct.ns_id,
             .event_id = event_id,
         };
         
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
         if (watched) {
             if (*watched == LOGGING) {
                 bpf_printk("Exit renameat2: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
@@ -2285,12 +2285,12 @@ int trace_sys_enter_truncate(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             __u32 key = 0;
@@ -2319,12 +2319,12 @@ int trace_sys_exit_truncate(struct trace_event_raw_sys_exit *ctx) {
     if (ret == 0) {
         struct current_task ct = get_task_struct();
 
-        struct event_key key = {
+        struct event_key event_key = {
             .ns_id = ct.ns_id,
             .event_id = event_id,
         };
         
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
         if (watched) {
             if (*watched == LOGGING) {
                 bpf_printk("Exit truncate: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
@@ -2344,12 +2344,12 @@ int trace_sys_enter_ftruncate(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             bpf_printk("Enter ftruncate: ns_id=%llu, pid=%u, fd=%d, length=%u\n", 
@@ -2368,12 +2368,12 @@ int trace_sys_exit_ftruncate(struct trace_event_raw_sys_exit *ctx) {
     if (ret == 0) {
         struct current_task ct = get_task_struct();
 
-        struct event_key key = {
+        struct event_key event_key = {
             .ns_id = ct.ns_id,
             .event_id = event_id,
         };
         
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
         if (watched) {
             if (*watched == LOGGING) {
                 bpf_printk("Exit ftruncate: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
@@ -2395,12 +2395,12 @@ int trace_sys_enter_fallocate(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key key = {
+    struct event_key event_key = {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
             bpf_printk("Enter fallocate: ns_id=%llu, pid=%u, fd=%d, mode=%u, offset=%u, len=%u\n", 
@@ -2419,12 +2419,12 @@ int trace_sys_exit_fallocate(struct trace_event_raw_sys_exit *ctx) {
     if (ret == 0) {
         struct current_task ct = get_task_struct();
 
-        struct event_key key = {
+        struct event_key event_key = {
             .ns_id = ct.ns_id,
             .event_id = event_id,
         };
         
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
         if (watched) {
             if (*watched == LOGGING) {
                 bpf_printk("Exit fallocate: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
