@@ -4,7 +4,6 @@
 #include <bpf/bpf_core_read.h>
 #include <bpf/bpf_endian.h>
 
-#define AF_INET 2
 #define ALLOW 0
 #define BLOCK 1
 #define LOGGING 2
@@ -29,7 +28,7 @@ struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __type(key, __u32);
     __type(value, char[256]);
-    __uint(max_entries, 1);
+    __uint(max_entries, 10);
 } path_map SEC(".maps");
 
 struct event_key {
@@ -1500,6 +1499,935 @@ int trace_sys_exit_openat(struct trace_event_raw_sys_exit *ctx) {
                 bpf_printk("Exit openat: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit openat: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_openat2")
+int trace_sys_enter_openat2(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 49;
+
+    __s32 dirfd = BPF_CORE_READ(ctx, args[0]);
+    char *pathname = (char *)BPF_CORE_READ(ctx, args[1]);
+    __u32 flags = BPF_CORE_READ(ctx, args[2]);
+    __u32 mode = BPF_CORE_READ(ctx, args[3]);
+    __u32 resolve = BPF_CORE_READ(ctx, args[4]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            __u32 key = 0;
+            char *path = bpf_map_lookup_elem(&path_map, &key);
+            if (path) {
+                long err = bpf_probe_read_user(path, sizeof(char) * 256, pathname);
+                if (err == 0) {
+                    bpf_printk("Enter openat2: ns_id=%llu, pid=%u, dirfd=%d, pathname=%s, flags=%u, mode=%u, resolve=%u\n", 
+                            ct.ns_id, ct.pid, dirfd, path, flags, mode, resolve);
+                } else {
+                    bpf_printk("Enter openat2: ns_id=%llu, pid=%u, dirfd=%d, failed to read pathname\n", 
+                            ct.ns_id, ct.pid, dirfd);
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_openat2")
+int trace_sys_exit_openat2(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 50;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit openat2: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit openat2: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_name_to_handle_at")
+int trace_sys_enter_name_to_handle_at(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 51;
+
+    __s32 dirfd = BPF_CORE_READ(ctx, args[0]);
+    char *pathname = (char *)BPF_CORE_READ(ctx, args[1]);
+    void *handle_ptr = (void *)BPF_CORE_READ(ctx, args[2]);
+    __u32 mount_id = BPF_CORE_READ(ctx, args[3]);
+    __u32 flags = BPF_CORE_READ(ctx, args[4]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            __u32 key = 0;
+            char *path = bpf_map_lookup_elem(&path_map, &key);
+            if (path) {
+                long err = bpf_probe_read_user(path, sizeof(char) * 256, pathname);
+                if (err == 0) {
+                    struct file_handle handle;
+                    long err = bpf_probe_read_user(&handle, sizeof(handle), handle_ptr);
+                    if (err == 0) {
+                        bpf_printk("Enter name_to_handle_at: ns_id=%llu, pid=%u, dirfd=%d, pathname=%s, mount_id=%u, flags=%u\n", 
+                                ct.ns_id, ct.pid, dirfd, path, mount_id, flags);
+                    } else {
+                        bpf_printk("Enter name_to_handle_at: ns_id=%llu, pid=%u, dirfd=%d, failed to read handle\n", 
+                                ct.ns_id, ct.pid, dirfd);
+                    }
+                } else {
+                    bpf_printk("Enter name_to_handle_at: ns_id=%llu, pid=%u, dirfd=%d, failed to read pathname\n", 
+                            ct.ns_id, ct.pid, dirfd);
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_name_to_handle_at")
+int trace_sys_exit_name_to_handle_at(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 52;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit name_to_handle_at: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit name_to_handle_at: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_open_by_handle_at")
+int trace_sys_enter_open_by_handle_at(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 53;
+
+    __s32 mount_fd = BPF_CORE_READ(ctx, args[0]);
+    void *handle_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
+    __u32 flags = BPF_CORE_READ(ctx, args[2]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            struct file_handle handle;
+            long err = bpf_probe_read_user(&handle, sizeof(handle), handle_ptr);
+            if (err == 0) {
+                bpf_printk("Enter open_by_handle_at: ns_id=%llu, pid=%u, mount_fd=%d, flags=%u\n", 
+                        ct.ns_id, ct.pid, mount_fd, flags);
+            } else {
+                bpf_printk("Enter open_by_handle_at: ns_id=%llu, pid=%u, mount_fd=%d, failed to read handle\n", 
+                        ct.ns_id, ct.pid, mount_fd);
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_open_by_handle_at")
+int trace_sys_exit_open_by_handle_at(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 54;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit open_by_handle_at: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit open_by_handle_at: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_memfd_create")
+int trace_sys_enter_memfd_create(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 55;
+
+    char *name = (char *)BPF_CORE_READ(ctx, args[0]);
+    __u32 flags = BPF_CORE_READ(ctx, args[1]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            char memfd_name[64];
+            long err = bpf_probe_read_user(memfd_name, sizeof(memfd_name), name);
+            if (err == 0) {
+                bpf_printk("Enter memfd_create: ns_id=%llu, pid=%u, name=%s, flags=%u\n", 
+                        ct.ns_id, ct.pid, memfd_name, flags);
+            } else {
+                bpf_printk("Enter memfd_create: ns_id=%llu, pid=%u, failed to read name\n", 
+                        ct.ns_id, ct.pid);
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_memfd_create")
+int trace_sys_exit_memfd_create(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 56;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit memfd_create: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit memfd_create: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_mmap")
+int trace_sys_enter_mmap(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 57;
+
+    void *addr = (void *)BPF_CORE_READ(ctx, args[0]);
+    __u32 len = BPF_CORE_READ(ctx, args[1]);
+    __u32 prot = BPF_CORE_READ(ctx, args[2]);
+    __u32 flags = BPF_CORE_READ(ctx, args[3]);
+    __s32 fd = BPF_CORE_READ(ctx, args[4]);
+    __u32 offset = BPF_CORE_READ(ctx, args[5]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            bpf_printk("Enter mmap: ns_id=%llu, pid=%u, addr=%p, len=%u, prot=%u, flags=%u, fd=%d, offset=%u\n", 
+                    ct.ns_id, ct.pid, addr, len, prot, flags, fd, offset);
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_mmap")
+int trace_sys_exit_mmap(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 58;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret == 0) {
+                bpf_printk("Exit mmap: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit mmap: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_munmap")
+int trace_sys_enter_munmap(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 59;
+
+    void *addr = (void *)BPF_CORE_READ(ctx, args[0]);
+    __u32 len = BPF_CORE_READ(ctx, args[1]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            bpf_printk("Enter munmap: ns_id=%llu, pid=%u, addr=%p, len=%u\n", 
+                    ct.ns_id, ct.pid, addr, len);
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_munmap")
+int trace_sys_exit_munmap(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 60;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    if (ret == 0) {
+        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+        if (watched) {
+            if (*watched == LOGGING) {
+                bpf_printk("Exit munmap: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_mprotect")
+int trace_sys_enter_mprotect(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 61;
+
+    void *addr = (void *)BPF_CORE_READ(ctx, args[0]);
+    __u32 len = BPF_CORE_READ(ctx, args[1]);
+    __u32 prot = BPF_CORE_READ(ctx, args[2]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            bpf_printk("Enter mprotect: ns_id=%llu, pid=%u, addr=%p, len=%u, prot=%u\n", 
+                    ct.ns_id, ct.pid, addr, len, prot);
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_mprotect")
+int trace_sys_exit_mprotect(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 62;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    if (ret == 0) {
+        struct current_task ct = get_task_struct();
+
+        struct event_key key = {
+            .ns_id = ct.ns_id,
+            .event_id = event_id,
+        };
+        
+        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+        if (watched) {
+            if (*watched == LOGGING) {
+                bpf_printk("Exit mprotect: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_pkey_mprotect")
+int trace_sys_enter_pkey_mprotect(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 63;
+
+    void *addr = (void *)BPF_CORE_READ(ctx, args[0]);
+    __u32 len = BPF_CORE_READ(ctx, args[1]);
+    __u32 prot = BPF_CORE_READ(ctx, args[2]);
+    __u32 pkey = BPF_CORE_READ(ctx, args[3]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            bpf_printk("Enter pkey_mprotect: ns_id=%llu, pid=%u, addr=%p, len=%u, prot=%u, pkey=%u\n", 
+                    ct.ns_id, ct.pid, addr, len, prot, pkey);
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_pkey_mprotect")
+int trace_sys_exit_pkey_mprotect(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 64;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    if (ret == 0) {
+        struct current_task ct = get_task_struct();
+
+        struct event_key key = {
+            .ns_id = ct.ns_id,
+            .event_id = event_id,
+        };
+        
+        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+        if (watched) {
+            if (*watched == LOGGING) {
+                bpf_printk("Exit pkey_mprotect: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_mknod")
+int trace_sys_enter_mknod(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 65;
+
+    char *pathname = (char *)BPF_CORE_READ(ctx, args[0]);
+    __u32 mode = BPF_CORE_READ(ctx, args[1]);
+    __u32 dev = BPF_CORE_READ(ctx, args[2]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            __u32 key = 0;
+            char *path = bpf_map_lookup_elem(&path_map, &key);
+            if (path) {
+                long err = bpf_probe_read_user(path, sizeof(char) * 256, pathname);
+                if (err == 0) {
+                    bpf_printk("Enter mknod: ns_id=%llu, pid=%u, pathname=%s, mode=%u, dev=%u\n", 
+                            ct.ns_id, ct.pid, path, mode, dev);
+                } else {
+                    bpf_printk("Enter mknod: ns_id=%llu, pid=%u, failed to read pathname\n", 
+                            ct.ns_id, ct.pid);
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_mknod")
+int trace_sys_exit_mknod(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 66;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    if (ret == 0) {
+        struct current_task ct = get_task_struct();
+
+        struct event_key key = {
+            .ns_id = ct.ns_id,
+            .event_id = event_id,
+        };
+        
+        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+        if (watched) {
+            if (*watched == LOGGING) {
+                bpf_printk("Exit mknod: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_mknodat")
+int trace_sys_enter_mknodat(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 67;
+
+    __s32 dirfd = BPF_CORE_READ(ctx, args[0]);
+    char *pathname = (char *)BPF_CORE_READ(ctx, args[1]);
+    __u32 mode = BPF_CORE_READ(ctx, args[2]);
+    __u32 dev = BPF_CORE_READ(ctx, args[3]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            __u32 key = 0;
+            char *path = bpf_map_lookup_elem(&path_map, &key);
+            if (path) {
+                long err = bpf_probe_read_user(path, sizeof(char) * 256, pathname);
+                if (err == 0) {
+                    bpf_printk("Enter mknodat: ns_id=%llu, pid=%u, dirfd=%d, pathname=%s, mode=%u, dev=%u\n", 
+                            ct.ns_id, ct.pid, dirfd, path, mode, dev);
+                } else {
+                    bpf_printk("Enter mknodat: ns_id=%llu, pid=%u, dirfd=%d, failed to read pathname\n", 
+                            ct.ns_id, ct.pid, dirfd);
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_mknodat")
+int trace_sys_exit_mknodat(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 68;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    if (ret == 0) {
+        struct current_task ct = get_task_struct();
+
+        struct event_key key = {
+            .ns_id = ct.ns_id,
+            .event_id = event_id,
+        };
+        
+        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+        if (watched) {
+            if (*watched == LOGGING) {
+                bpf_printk("Exit mknodat: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_rename")
+int trace_sys_enter_rename(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 69;
+
+    char *oldpath = (char *)BPF_CORE_READ(ctx, args[0]);
+    char *newpath = (char *)BPF_CORE_READ(ctx, args[1]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            __u32 old_key = 0;
+            __u32 new_key = 1;
+            char *old_path = bpf_map_lookup_elem(&path_map, &old_key);
+            char *new_path = bpf_map_lookup_elem(&path_map, &new_key);
+            if (old_path && new_path) {
+                long old_err = bpf_probe_read_user(old_path, sizeof(char) * 256, oldpath);
+                long new_err = bpf_probe_read_user(new_path, sizeof(char) * 256, newpath);
+                if (old_err == 0 && new_err == 0) {
+                    bpf_printk("Enter rename: ns_id=%llu, pid=%u, oldpath=%s, newpath=%s\n", 
+                            ct.ns_id, ct.pid, old_path, new_path);
+                } else {
+                    bpf_printk("Enter rename: ns_id=%llu, pid=%u, failed to read pathname\n", 
+                            ct.ns_id, ct.pid);
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_rename")
+int trace_sys_exit_rename(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 70;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    if (ret == 0) {
+        struct current_task ct = get_task_struct();
+
+        struct event_key key = {
+            .ns_id = ct.ns_id,
+            .event_id = event_id,
+        };
+        
+        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+        if (watched) {
+            if (*watched == LOGGING) {
+                bpf_printk("Exit rename: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_renameat")
+int trace_sys_enter_renameat(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 71;
+
+    __s32 olddirfd = BPF_CORE_READ(ctx, args[0]);
+    char *oldpath = (char *)BPF_CORE_READ(ctx, args[1]);
+    __s32 newdirfd = BPF_CORE_READ(ctx, args[2]);
+    char *newpath = (char *)BPF_CORE_READ(ctx, args[3]);
+    __u32 flags = BPF_CORE_READ(ctx, args[4]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            __u32 old_key = 0;
+            __u32 new_key = 1;
+            char *old_path = bpf_map_lookup_elem(&path_map, &old_key);
+            char *new_path = bpf_map_lookup_elem(&path_map, &new_key);
+            if (old_path && new_path) {
+                long old_err = bpf_probe_read_user(old_path, sizeof(char) * 256, oldpath);
+                long new_err = bpf_probe_read_user(new_path, sizeof(char) * 256, newpath);
+                if (old_err == 0 && new_err == 0) {
+                    bpf_printk("Enter renameat: ns_id=%llu, pid=%u, olddirfd=%d, oldpath=%s, newdirfd=%d, newpath=%s, flags=%u\n", 
+                            ct.ns_id, ct.pid, olddirfd, old_path, newdirfd, new_path, flags);
+                } else {
+                    bpf_printk("Enter renameat: ns_id=%llu, pid=%u, failed to read pathname\n", 
+                            ct.ns_id, ct.pid);
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_renameat")
+int trace_sys_exit_renameat(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 72;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    if (ret == 0) {
+        struct current_task ct = get_task_struct();
+
+        struct event_key key = {
+            .ns_id = ct.ns_id,
+            .event_id = event_id,
+        };
+        
+        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+        if (watched) {
+            if (*watched == LOGGING) {
+                bpf_printk("Exit renameat: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_renameat2")
+int trace_sys_enter_renameat2(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 73;
+
+    __s32 olddirfd = BPF_CORE_READ(ctx, args[0]);
+    char *oldpath = (char *)BPF_CORE_READ(ctx, args[1]);
+    __s32 newdirfd = BPF_CORE_READ(ctx, args[2]);
+    char *newpath = (char *)BPF_CORE_READ(ctx, args[3]);
+    __u32 flags = BPF_CORE_READ(ctx, args[4]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            __u32 old_key = 0;
+            __u32 new_key = 1;
+            char *old_path = bpf_map_lookup_elem(&path_map, &old_key);
+            char *new_path = bpf_map_lookup_elem(&path_map, &new_key);
+            if (old_path && new_path) {
+                long old_err = bpf_probe_read_user(old_path, sizeof(char) * 256, oldpath);
+                long new_err = bpf_probe_read_user(new_path, sizeof(char) * 256, newpath);
+                if (old_err == 0 && new_err == 0) {
+                    bpf_printk("Enter renameat2: ns_id=%llu, pid=%u, olddirfd=%d, oldpath=%s, newdirfd=%d, newpath=%s, flags=%u\n", 
+                            ct.ns_id, ct.pid, olddirfd, old_path, newdirfd, new_path, flags);
+                } else {
+                    bpf_printk("Enter renameat2: ns_id=%llu, pid=%u, failed to read pathname\n", 
+                            ct.ns_id, ct.pid);
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_renameat2")
+int trace_sys_exit_renameat2(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 74;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    if (ret == 0) {
+        struct current_task ct = get_task_struct();
+
+        struct event_key key = {
+            .ns_id = ct.ns_id,
+            .event_id = event_id,
+        };
+        
+        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+        if (watched) {
+            if (*watched == LOGGING) {
+                bpf_printk("Exit renameat2: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_truncate")
+int trace_sys_enter_truncate(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 75;
+
+    char *path = (char *)BPF_CORE_READ(ctx, args[0]);
+    __u32 length = BPF_CORE_READ(ctx, args[1]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            __u32 key = 0;
+            char *path = bpf_map_lookup_elem(&path_map, &key);
+            if (path) {
+                long err = bpf_probe_read_user(path, sizeof(char) * 256, path);
+                if (err == 0) {
+                    bpf_printk("Enter truncate: ns_id=%llu, pid=%u, path=%s, length=%u\n", 
+                            ct.ns_id, ct.pid, path, length);
+                } else {
+                    bpf_printk("Enter truncate: ns_id=%llu, pid=%u, failed to read pathname\n", 
+                            ct.ns_id, ct.pid);
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_truncate")
+int trace_sys_exit_truncate(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 76;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    if (ret == 0) {
+        struct current_task ct = get_task_struct();
+
+        struct event_key key = {
+            .ns_id = ct.ns_id,
+            .event_id = event_id,
+        };
+        
+        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+        if (watched) {
+            if (*watched == LOGGING) {
+                bpf_printk("Exit truncate: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_ftruncate")
+int trace_sys_enter_ftruncate(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 77;
+
+    __s32 fd = BPF_CORE_READ(ctx, args[0]);
+    __u32 length = BPF_CORE_READ(ctx, args[1]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            bpf_printk("Enter ftruncate: ns_id=%llu, pid=%u, fd=%d, length=%u\n", 
+                    ct.ns_id, ct.pid, fd, length);
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_ftruncate")
+int trace_sys_exit_ftruncate(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 78;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    if (ret == 0) {
+        struct current_task ct = get_task_struct();
+
+        struct event_key key = {
+            .ns_id = ct.ns_id,
+            .event_id = event_id,
+        };
+        
+        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+        if (watched) {
+            if (*watched == LOGGING) {
+                bpf_printk("Exit ftruncate: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_fallocate")
+int trace_sys_enter_fallocate(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 79;
+
+    __s32 fd = BPF_CORE_READ(ctx, args[0]);
+    __u32 mode = BPF_CORE_READ(ctx, args[1]);
+    __u32 offset = BPF_CORE_READ(ctx, args[2]);
+    __u32 len = BPF_CORE_READ(ctx, args[3]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            bpf_printk("Enter fallocate: ns_id=%llu, pid=%u, fd=%d, mode=%u, offset=%u, len=%u\n", 
+                    ct.ns_id, ct.pid, fd, mode, offset, len);
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_fallocate")
+int trace_sys_exit_fallocate(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 80;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    if (ret == 0) {
+        struct current_task ct = get_task_struct();
+
+        struct event_key key = {
+            .ns_id = ct.ns_id,
+            .event_id = event_id,
+        };
+        
+        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &key);
+        if (watched) {
+            if (*watched == LOGGING) {
+                bpf_printk("Exit fallocate: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
     }
