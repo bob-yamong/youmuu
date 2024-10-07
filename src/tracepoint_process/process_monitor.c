@@ -11,11 +11,19 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <curl/curl.h>
+#include <json-c/json.h>
 
 #define MAX_SYSCALL_ENTRIES 256
-#define MAX_CONTAINERS 10
+#define MAX_CONTAINERS 100  // MAX_CONTAINERS를 100으로 변경
 #define MAX_CMD_LEN 1024
 #define MAX_OUTPUT_LEN 256
+
+// string 구조체 정의 추가
+struct string {
+    char *ptr;
+    size_t len;
+};
 
 static volatile bool exiting = false;
 
@@ -132,7 +140,99 @@ int get_container_pid(const char* container_name) {
     }
 }
 
+#define DOCKER_SOCKET "/var/run/docker.sock"
+#define MAX_CONTAINERS 100
 
+struct container_info {
+    char id[64];
+    int pid;
+};
+
+struct container_info containers[MAX_CONTAINERS];
+int container_count = 0;
+
+size_t write_callback(void *contents, size_t size, size_t nmemb, void *userp) {
+    size_t realsize = size * nmemb;
+    struct string *mem = (struct string *)userp;
+
+    char *ptr = realloc(mem->ptr, mem->len + realsize + 1);
+    if (!ptr) {
+        printf("메모리 할당 실패\n");
+        return 0;
+    }
+
+    mem->ptr = ptr;
+    memcpy(&(mem->ptr[mem->len]), contents, realsize);
+    mem->len += realsize;
+    mem->ptr[mem->len] = 0;
+
+    return realsize;
+}
+
+int get_container_pids() {
+    CURL *curl;
+    CURLcode res;
+    struct string s;
+    s.len = 0;
+    s.ptr = malloc(1);
+    s.ptr[0] = '\0';
+
+    curl = curl_easy_init();
+    if (curl) {
+        curl_easy_setopt(curl, CURLOPT_UNIX_SOCKET_PATH, DOCKER_SOCKET);
+        curl_easy_setopt(curl, CURLOPT_URL, "http://localhost/containers/json");
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&s);
+
+        res = curl_easy_perform(curl);
+        if (res != CURLE_OK) {
+            fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+        } else {
+            json_object *jobj = json_tokener_parse(s.ptr);
+            if (jobj) {
+                int array_len = json_object_array_length(jobj);
+                for (int i = 0; i < array_len && i < MAX_CONTAINERS; i++) {
+                    json_object *container = json_object_array_get_idx(jobj, i);
+                    json_object *id;
+                    if (json_object_object_get_ex(container, "Id", &id)) {
+                        strncpy(containers[i].id, json_object_get_string(id), sizeof(containers[i].id) - 1);
+                        containers[i].id[sizeof(containers[i].id) - 1] = '\0';
+
+                        char inspect_url[256];
+                        snprintf(inspect_url, sizeof(inspect_url), "http://localhost/containers/%s/json", containers[i].id);
+                        
+                        struct string inspect_s;
+                        inspect_s.len = 0;
+                        inspect_s.ptr = malloc(1);
+                        inspect_s.ptr[0] = '\0';
+
+                        curl_easy_setopt(curl, CURLOPT_URL, inspect_url);
+                        curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&inspect_s);
+                        res = curl_easy_perform(curl);
+                        if (res == CURLE_OK) {
+                            json_object *inspect_jobj = json_tokener_parse(inspect_s.ptr);
+                            if (inspect_jobj) {
+                                json_object *state, *pid;
+                                if (json_object_object_get_ex(inspect_jobj, "State", &state) &&
+                                    json_object_object_get_ex(state, "Pid", &pid)) {
+                                    containers[i].pid = json_object_get_int(pid);
+                                    container_count++;
+                                }
+                                json_object_put(inspect_jobj);
+                            }
+                        }
+                        free(inspect_s.ptr);
+                    }
+                }
+                json_object_put(jobj);
+            }
+        }
+        curl_easy_cleanup(curl);
+    }
+    free(s.ptr);
+
+    return container_count;
+}
 
 void init_syscall_map(struct process_monitor_bpf *skel)
 {
@@ -406,35 +506,28 @@ int main(int argc, char **argv)
 
     printf("성공적으로 BPF 프로그램을 시작했습니다! 프로세스 모니터링을 시작합니다...\n");
 
-    // 컨테이너 이름 입력 받기
-    char container_name[256];
-    printf("모니터링할 컨테이너 이름을 입력하세요: ");
-    if (fgets(container_name, sizeof(container_name), stdin) == NULL) {
-        fprintf(stderr, "컨테이너 이름 입력 실패\n");
+    printf("컨테이너 PID 자동 감지 중...\n");
+    int detected_containers = get_container_pids();
+    if (detected_containers <= 0) {
+        fprintf(stderr, "실행 중인 컨테이너를 찾을 수 없습니다.\n");
         goto cleanup;
     }
-    container_name[strcspn(container_name, "\n")] = 0;  // 개행 문자 제거
+    printf("%d개의 컨테이너를 감지했습니다.\n", detected_containers);
 
-    // 컨테이너 PID 가져오기
-    int container_pid = get_container_pid(container_name);
-    if (container_pid < 0) {
-        fprintf(stderr, "컨테이너 PID를 가져오는데 실패했습니다\n");
-        goto cleanup;
-    }
-
-    printf("모니터링 중인 컨테이너 PID: %d\n", container_pid);
-
-    // 컨테이너 PID를 BPF 맵에 추가
-    __u32 key = container_pid;
-    __u32 value = 1;
-    err = bpf_map__update_elem(skel->maps.container_pids, &key, sizeof(key), &value, sizeof(value), BPF_ANY);
-    if (err) {
-        fprintf(stderr, "컨테이너 PID를 맵에 추가하는데 실패했습니다: %d\n", err);
-        goto cleanup;
+    for (int i = 0; i < detected_containers; i++) {
+        __u32 key = containers[i].pid;
+        __u32 value = 1;
+        err = bpf_map__update_elem(skel->maps.container_pids, &key, sizeof(key), &value, sizeof(value), BPF_ANY);
+        if (err) {
+            fprintf(stderr, "컨테이너 PID %d를 맵에 추가하는데 실패했습니다: %d\n", containers[i].pid, err);
+        } else {
+            printf("컨테이너 ID: %s, PID: %d를 모니터링 중\n", containers[i].id, containers[i].pid);
+        }
     }
 
     // 컨테이너의 자식 프로세스들도 모니터링하기 위해 0을 키로 추가
-    key = 0;
+    __u32 key = 0;
+    __u32 value = 1;
     err = bpf_map__update_elem(skel->maps.container_pids, &key, sizeof(key), &value, sizeof(value), BPF_ANY);
     if (err) {
         fprintf(stderr, "0 PID를 맵에 추가하는데 실패했습니다: %d\n", err);

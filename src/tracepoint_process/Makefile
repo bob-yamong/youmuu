@@ -21,6 +21,9 @@ INCLUDES := -I$(OUTPUT) -I../../libbpf/include/uapi -I$(dir $(VMLINUX))
 CFLAGS := -g -Wall
 ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS)
 
+# 다음 줄 추가_추후 삭제
+LIBS := -lelf -lz -lcurl -ljson-c
+
 APPS = process_monitor
 
 # Get Clang's default includes on this system. We'll explicitly add these dirs
@@ -101,7 +104,7 @@ $(OUTPUT)/%.o: %.c $(wildcard %.h) | $(OUTPUT)
 # Build application binary
 $(APPS): %: $(OUTPUT)/%.o $(LIBBPF_OBJ) | $(OUTPUT)
 	$(call msg,BINARY,$@)
-	$(Q)$(CC) $(CFLAGS) $^ $(ALL_LDFLAGS) -lelf -lz -o $@
+	$(Q)$(CC) $(CFLAGS) $^ $(ALL_LDFLAGS) $(LIBS) -o $@
 
 # delete failed targets
 .DELETE_ON_ERROR:
