@@ -1,16 +1,21 @@
-// SPDX-License-Identifier: GPL-2.0
+#define __KERNEL__
 #include "vmlinux.h"
+#undef __KERNEL__
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
 #include <bpf/bpf_core_read.h>
 #include "event.h"
 
+// 기존의 #include <linux/bpf.h> 라인을 제거하거나 주석 처리합니다.
+// #include <linux/bpf.h>
+
+typedef unsigned int u32;
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 1024);  // 512에서 1024로 증가
+    __uint(max_entries, 1024);
     __type(key, u32);
-    __type(value, char[16]);
+    __type(value, char[16]);  // 16바이트로 변경
 } syscall_map SEC(".maps");
 
 struct {
@@ -18,13 +23,13 @@ struct {
     __uint(max_entries, 1 << 24);
 } events SEC(".maps");
 
-// 현재 프로세스의 PID를 저장할 맵
+
 struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
-    __uint(max_entries, 1);
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 1024);
     __type(key, u32);
     __type(value, u32);
-} current_pid SEC(".maps");
+} container_pids SEC(".maps");
 
 // memcmp 함수 직접 구현
 static inline int my_memcmp(const void* s1, const void* s2, size_t n) {
@@ -76,18 +81,35 @@ static __always_inline int get_cgroup_name(char *buf, size_t sz) {
     return 0;
 }
 
+static __always_inline int should_monitor(u32 pid, u32 ppid) {
+    u32 *monitored;
+    u32 zero = 0;
+
+    monitored = bpf_map_lookup_elem(&container_pids, &pid);
+    if (monitored)
+        return 1;
+    
+    monitored = bpf_map_lookup_elem(&container_pids, &ppid);
+    if (monitored)
+        return 1;
+
+    // 0을 키로 사용하여 모든 프로세스 모니터링 여부 확인
+    monitored = bpf_map_lookup_elem(&container_pids, &zero);
+    return monitored != NULL;
+}
+
 SEC("tracepoint/raw_syscalls/sys_enter")
 int sys_enter(struct trace_event_raw_sys_enter *ctx)
 {
     u64 id = bpf_get_current_pid_tgid();
     u32 pid = id >> 32;
     u32 tid = id;
+    u32 uid = bpf_get_current_uid_gid();
     
-    // 현재 프로세스의 PID 확인
-    u32 key = 0;
-    u32 *current_pid_ptr = bpf_map_lookup_elem(&current_pid, &key);
-    if (current_pid_ptr && *current_pid_ptr == pid) {
-        // 현재 프로세스의 시스템 콜이면 무시
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+
+    if (!should_monitor(pid, ppid)) {
         return 0;
     }
 
@@ -100,10 +122,6 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
         return 0;
     }
 
-    u32 uid = bpf_get_current_uid_gid();
-    
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
 
     struct event *e;
     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
