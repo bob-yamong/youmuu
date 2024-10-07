@@ -454,7 +454,7 @@ int main(int argc, char **argv)
 
     // 메인 루프
     while (!exiting) {
-        err = ring_buffer__poll(rb, 100);  // 100ms 타임아웃으로 폴링
+        err = ring_buffer__poll(rb, 50);  // 100ms 타임아웃으로 폴링
         if (err == -EINTR) {
             err = 0;
             break;
