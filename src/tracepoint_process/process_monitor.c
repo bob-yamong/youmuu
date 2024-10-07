@@ -35,113 +35,22 @@ static void sig_handler(int sig)
     exiting = true;
 }
 
-typedef enum {
-    RUNTIME_UNKNOWN,
-    RUNTIME_DOCKER,
-    RUNTIME_CONTAINERD,
-    RUNTIME_CRIO
-} ContainerRuntime;
+// 제거 또는 주석 처리
+// int get_docker_pid(const char* container_name)
+// int get_containerd_pid(const char* container_name)
+// int get_crio_pid(const char* container_name)
+// int get_container_pid(const char* container_name)
+// ContainerRuntime get_runtime_from_user()
 
-ContainerRuntime get_runtime_from_user() {
-    char input[20];
-    printf("컨테이너 런타임을 입력하세요 (docker/containerd/crio): ");
-    if (fgets(input, sizeof(input), stdin) == NULL) {
-        return RUNTIME_UNKNOWN;
-    }
-    input[strcspn(input, "\n")] = 0;
+// typedef enum {
+//     RUNTIME_UNKNOWN,
+//     RUNTIME_DOCKER,
+//     RUNTIME_CONTAINERD,
+//     RUNTIME_CRIO
+// } ContainerRuntime;
 
-    if (strcmp(input, "docker") == 0) return RUNTIME_DOCKER;
-    else if (strcmp(input, "containerd") == 0) return RUNTIME_CONTAINERD;
-    else if (strcmp(input, "crio") == 0) return RUNTIME_CRIO;
-    
-    return RUNTIME_UNKNOWN;
-}
-
-int get_docker_pid(const char* container_name) {
-    char cmd[MAX_CMD_LEN];
-    char output[MAX_OUTPUT_LEN];
-    FILE *fp;
-
-    snprintf(cmd, sizeof(cmd), "docker inspect -f '{{.State.Pid}}' %s", container_name);
-    fp = popen(cmd, "r");
-    if (fp == NULL) {
-        perror("도커 명령어 실행 실패");
-        return -1;
-    }
-
-    if (fgets(output, sizeof(output), fp) == NULL) {
-        pclose(fp);
-        return -1;
-    }
-    pclose(fp);
-
-    return atoi(output);
-}
-
-int get_containerd_pid(const char* container_name) {
-    char cmd[MAX_CMD_LEN];
-    char output[MAX_OUTPUT_LEN];
-    FILE *fp;
-
-    snprintf(cmd, sizeof(cmd), "ctr task ls | awk '$1 == \"%s\" {print $2}'", container_name);
-    fp = popen(cmd, "r");
-    if (fp == NULL) {
-        perror("ctr task info 명령어 실행 실패");
-        return -1;
-    }
-    if (fgets(output, sizeof(output), fp) == NULL) {
-        pclose(fp);
-        return -1;
-    }
-    pclose(fp);
-    output[strcspn(output, "\n")] = 0;
-
-    return atoi(output);
-}
-
-int get_crio_pid(const char* container_name) {
-    char cmd[MAX_CMD_LEN];
-    char output[MAX_OUTPUT_LEN];
-    FILE *fp;
-
-    snprintf(cmd, sizeof(cmd), "crictl inspect $(crictl ps | grep \"\\b%s\\b\" | awk '{print $1}') 2>/dev/null | grep -Po '\"pid\":\\s*\\K[0-9]+'", container_name);
-    fp = popen(cmd, "r");
-    if (fp == NULL) {
-        perror("crictl inspect 명령어 실행 실패");
-        return -1;
-    }
-
-    if (fgets(output, sizeof(output), fp) == NULL) {
-        pclose(fp);
-        return -1;
-    }
-    pclose(fp);
-    output[strcspn(output, "\n")] = 0;
-
-    return atoi(output);
-}
-
-int get_container_pid(const char* container_name) {
-    ContainerRuntime runtime = get_runtime_from_user();
-    
-    switch(runtime) {
-        case RUNTIME_DOCKER:
-            printf("도커 컨테이너 PID 가져오기\n");
-            return get_docker_pid(container_name);
-        case RUNTIME_CONTAINERD:
-            printf("containerd 컨테이너 PID 가져오기\n");
-            return get_containerd_pid(container_name);
-        case RUNTIME_CRIO:
-            printf("CRI-O 컨테이너 PID 가져오기\n");
-            return get_crio_pid(container_name);
-        default:
-            fprintf(stderr, "알 수 없거나 지원되지 않는 컨테이너 런타임\n");
-            return -1;
-    }
-}
-
+// 제거 (get_container_pids 함수에서 사용됨)
 #define DOCKER_SOCKET "/var/run/docker.sock"
-#define MAX_CONTAINERS 100
 
 struct container_info {
     char id[64];
@@ -349,7 +258,7 @@ static int handle_event(void *ctx, void *data, size_t data_sz)
             // 파일 시스템 관련
             case __NR_open:
             case __NR_openat:
-                printf("Opening file: %s\n", e->filename);
+                printf("Opening file: %lld\n", e->args[0]);
                 break;
             case __NR_close:
                 printf("Closing file descriptor: %lld\n", e->args[0]);
@@ -467,20 +376,20 @@ static int handle_event(void *ctx, void *data, size_t data_sz)
     return 0;
 }
 
-// 프로세스 메모리 읽기 함수 추가
-int read_process_memory(pid_t pid, void *addr, void *buf, size_t len)
-{
-    char path[32];
-    snprintf(path, sizeof(path), "/proc/%d/mem", pid);
-    
-    int fd = open(path, O_RDONLY);
-    if (fd == -1) return -1;
-    
-    ssize_t bytes_read = pread(fd, buf, len, (off_t)addr);
-    close(fd);
-    
-    return (bytes_read == len) ? 0 : -1;
-}
+// 제거 또는 주석 처리
+// int read_process_memory(pid_t pid, void *addr, void *buf, size_t len)
+// {
+//     char path[32];
+//     snprintf(path, sizeof(path), "/proc/%d/mem", pid);
+//     
+//     int fd = open(path, O_RDONLY);
+//     if (fd == -1) return -1;
+//     
+//     ssize_t bytes_read = pread(fd, buf, len, (off_t)addr);
+//     close(fd);
+//     
+//     return (bytes_read == len) ? 0 : -1;
+// }
 
 int main(int argc, char **argv)
 {
@@ -525,7 +434,8 @@ int main(int argc, char **argv)
         }
     }
 
-    // 컨테이너의 자식 프로세스들도 모니터링하기 위해 0을 키로 추가
+    // 주석 처리 (사용되지 않음)
+    // // 컨테이너의 자식 프로세스들도 모니터링하기 위해 0을 키로 추가
     // __u32 key = 0;
     // __u32 value = 1;
     // err = bpf_map__update_elem(skel->maps.container_pids, &key, sizeof(key), &value, sizeof(value), BPF_ANY);
