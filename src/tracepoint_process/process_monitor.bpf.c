@@ -8,7 +8,7 @@
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 512);
+    __uint(max_entries, 1024);  // 512에서 1024로 증가
     __type(key, u32);
     __type(value, char[16]);
 } syscall_map SEC(".maps");
