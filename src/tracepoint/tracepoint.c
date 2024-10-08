@@ -85,6 +85,9 @@ static const struct EventMapping event_mappings[] = {
     {"sys_exit_open_by_handle_at", 54},
     {"sys_enter_memfd_create", 55},
     {"sys_exit_memfd_create", 56},
+    // 메모리 관련 이벤트는 파일 시스템과 관련이 없을수도 있음, 검토 필요, 
+    // 메모리 보호를 변경하는 방식으로 공격을 시작하거나 공격 도중 사용하는 경우에는 메모리 관련 모니터링이 필요할 수 있지만, 
+    // 이는 메모리 내 데이터 보호나 악성 코드 실행 방지와 더 관련이 있음. 아마도 프로세스 모니터링 제어에서 참고할 수도? -> 실제로 프로세스 모니터링 제어에서 참고함
     {"sys_enter_mmap", 57},
     {"sys_exit_mmap", 58},
     {"sys_enter_munmap", 59},
@@ -93,6 +96,7 @@ static const struct EventMapping event_mappings[] = {
     {"sys_exit_mprotect", 62},
     {"sys_enter_pkey_mprotect", 63},
     {"sys_exit_pkey_mprotect", 64},
+    // 여기까지 
     {"sys_enter_mknod", 65},
     {"sys_exit_mknod", 66},
     {"sys_enter_mknodat", 67},
@@ -127,6 +131,22 @@ static const struct EventMapping event_mappings[] = {
     {"sys_exit_getdents", 96},
     {"sys_enter_getdents64", 97},
     {"sys_exit_getdents64", 98},
+    {"sys_enter_link", 99},
+    {"sys_exit_link", 100},
+    {"sys_enter_linkat", 101},
+    {"sys_exit_linkat", 102},
+    {"sys_enter_symlink", 103},
+    {"sys_exit_symlink", 104},
+    {"sys_enter_symlinkat", 105},
+    {"sys_exit_symlinkat", 106},
+    {"sys_enter_unlink", 107},
+    {"sys_exit_unlink", 108},
+    {"sys_enter_unlinkat", 109},
+    {"sys_exit_unlinkat", 110},
+    {"sys_enter_readlink", 111},
+    {"sys_exit_readlink", 112},
+    {"sys_enter_readlinkat", 113},
+    {"sys_exit_readlinkat", 114},
     // 새로운 이벤트를 여기에 추가
     {NULL, 0}  // 배열의 끝을 나타내는 센티널
 };
