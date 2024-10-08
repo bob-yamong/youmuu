@@ -99,7 +99,7 @@ int trace_sys_exit_socket(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit socket: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit socket: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit socket: success, ns_id=%llu, pid=%u fd=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -159,7 +159,7 @@ int trace_raw_sys_exit_socketpair(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit socketpair: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit socketpair: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit socketpair: success, ns_id=%llu, pid=%u fd=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -220,7 +220,7 @@ int trace_sys_exit_setsockopt(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit setsockopt: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit setsockopt: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit setsockopt: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -283,7 +283,7 @@ int trace_sys_exit_getsockopt(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit getsockopt: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit getsockopt: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit getsockopt: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -348,7 +348,7 @@ int trace_sys_exit_getsockname(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit getsockname: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit getsockname: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit getsockname: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -413,7 +413,7 @@ int trace_sys_exit_getpeername(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit getpeername: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit getpeername: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit getpeername: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -476,7 +476,7 @@ int trace_sys_exit_bind(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit bind: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit bind: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit bind: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -527,7 +527,7 @@ int trace_sys_exit_listen(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit listen: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit listen: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit listen: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -592,7 +592,7 @@ int trace_sys_exit_accept(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit accept: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit accept: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit accept: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -658,7 +658,7 @@ int trace_sys_exit_accept4(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit accept4: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit accept4: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit accept4: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -721,7 +721,7 @@ int trace_sys_exit_connect(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit connect: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit connect: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit connect: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -772,7 +772,7 @@ int trace_sys_exit_shutdown(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit shutdown: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit shutdown: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit shutdown: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -839,7 +839,7 @@ int trace_sys_exit_recvfrom(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit recvfrom: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit recvfrom: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit recvfrom: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -898,7 +898,7 @@ int trace_sys_exit_recvmsg(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit recvmsg: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit recvmsg: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit recvmsg: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -959,7 +959,7 @@ int trace_sys_exit_recvmmsg(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit recvmmsg: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit recvmmsg: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit recvmmsg: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -1025,7 +1025,7 @@ int trace_sys_exit_sendto(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit sendto: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit sendto: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit sendto: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -1084,7 +1084,7 @@ int trace_sys_exit_sendmsg(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit sendmsg: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit sendmsg: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit sendmsg: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -1144,7 +1144,7 @@ int trace_sys_exit_sendmmsg(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit sendmmsg: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit sendmmsg: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit sendmmsg: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -1205,7 +1205,7 @@ int trace_sys_exit_sethostname(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit sethostname: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit sethostname: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit sethostname: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -1263,7 +1263,7 @@ int trace_sys_exit_setdomainname(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit setdomainname: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit setdomainname: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit setdomainname: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -1313,7 +1313,7 @@ int trace_sys_exit_close(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit close: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit close: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit close: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -1374,7 +1374,7 @@ int trace_sys_exit_creat(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit creat: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit creat: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit creat: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -1436,7 +1436,7 @@ int trace_sys_exit_open(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit open: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit open: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit open: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -1499,7 +1499,7 @@ int trace_sys_exit_openat(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit openat: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit openat: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit openat: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -1563,7 +1563,7 @@ int trace_sys_exit_openat2(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit openat2: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit openat2: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit openat2: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -1634,7 +1634,7 @@ int trace_sys_exit_name_to_handle_at(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit name_to_handle_at: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit name_to_handle_at: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit name_to_handle_at: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -1693,7 +1693,7 @@ int trace_sys_exit_open_by_handle_at(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit open_by_handle_at: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit open_by_handle_at: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit open_by_handle_at: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -1751,7 +1751,7 @@ int trace_sys_exit_memfd_create(struct trace_event_raw_sys_exit *ctx) {
     if (watched) {
         if (*watched == LOGGING) {
             if (ret < 0) {
-                bpf_printk("Exit memfd_create: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit memfd_create: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
                 bpf_printk("Exit memfd_create: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
@@ -1805,10 +1805,10 @@ int trace_sys_exit_mmap(struct trace_event_raw_sys_exit *ctx) {
     __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
     if (watched) {
         if (*watched == LOGGING) {
-            if (ret == 0) {
-                bpf_printk("Exit mmap: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            if (ret < 0) {
+                bpf_printk("Exit mmap: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
             } else {
-                bpf_printk("Exit mmap: failed, ns_id=%llu, pid=%u, error code: %ld\n", ct.ns_id, ct.pid, ret);
+                bpf_printk("Exit mmap: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
     }
@@ -1852,11 +1852,12 @@ int trace_sys_exit_munmap(struct trace_event_raw_sys_exit *ctx) {
         .ns_id = ct.ns_id,
         .event_id = event_id,
     };
-    
-    if (ret == 0) {
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-        if (watched) {
-            if (*watched == LOGGING) {
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit munmap: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
                 bpf_printk("Exit munmap: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
@@ -1896,17 +1897,19 @@ int trace_sys_exit_mprotect(struct trace_event_raw_sys_exit *ctx) {
     __u32 event_id = 62;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
-    if (ret == 0) {
-        struct current_task ct = get_task_struct();
+    struct current_task ct = get_task_struct();
 
-        struct event_key event_key = {
-            .ns_id = ct.ns_id,
-            .event_id = event_id,
-        };
-        
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-        if (watched) {
-            if (*watched == LOGGING) {
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit mprotect: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
                 bpf_printk("Exit mprotect: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
@@ -1946,18 +1949,20 @@ SEC("tracepoint/syscalls/sys_exit_pkey_mprotect")
 int trace_sys_exit_pkey_mprotect(struct trace_event_raw_sys_exit *ctx) {
     __u32 event_id = 64;
     __s64 ret = BPF_CORE_READ(ctx, ret);
-    
-    if (ret == 0) {
-        struct current_task ct = get_task_struct();
 
-        struct event_key event_key = {
-            .ns_id = ct.ns_id,
-            .event_id = event_id,
-        };
-        
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-        if (watched) {
-            if (*watched == LOGGING) {
+    struct current_task ct = get_task_struct();
+
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit pkey_mprotect: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
                 bpf_printk("Exit pkey_mprotect: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
@@ -2007,17 +2012,19 @@ int trace_sys_exit_mknod(struct trace_event_raw_sys_exit *ctx) {
     __u32 event_id = 66;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
-    if (ret == 0) {
-        struct current_task ct = get_task_struct();
+    struct current_task ct = get_task_struct();
 
-        struct event_key event_key = {
-            .ns_id = ct.ns_id,
-            .event_id = event_id,
-        };
-        
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-        if (watched) {
-            if (*watched == LOGGING) {
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit mknod: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
                 bpf_printk("Exit mknod: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
@@ -2067,18 +2074,20 @@ SEC("tracepoint/syscalls/sys_exit_mknodat")
 int trace_sys_exit_mknodat(struct trace_event_raw_sys_exit *ctx) {
     __u32 event_id = 68;
     __s64 ret = BPF_CORE_READ(ctx, ret);
-    
-    if (ret == 0) {
-        struct current_task ct = get_task_struct();
 
-        struct event_key event_key = {
-            .ns_id = ct.ns_id,
-            .event_id = event_id,
-        };
-        
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-        if (watched) {
-            if (*watched == LOGGING) {
+    struct current_task ct = get_task_struct();
+
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit mknodat: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
                 bpf_printk("Exit mknodat: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
@@ -2130,17 +2139,19 @@ int trace_sys_exit_rename(struct trace_event_raw_sys_exit *ctx) {
     __u32 event_id = 70;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
-    if (ret == 0) {
-        struct current_task ct = get_task_struct();
+    struct current_task ct = get_task_struct();
 
-        struct event_key event_key = {
-            .ns_id = ct.ns_id,
-            .event_id = event_id,
-        };
-        
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-        if (watched) {
-            if (*watched == LOGGING) {
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit rename: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
                 bpf_printk("Exit rename: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
@@ -2195,17 +2206,19 @@ int trace_sys_exit_renameat(struct trace_event_raw_sys_exit *ctx) {
     __u32 event_id = 72;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
-    if (ret == 0) {
-        struct current_task ct = get_task_struct();
+    struct current_task ct = get_task_struct();
 
-        struct event_key event_key = {
-            .ns_id = ct.ns_id,
-            .event_id = event_id,
-        };
-        
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-        if (watched) {
-            if (*watched == LOGGING) {
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit renameat: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
                 bpf_printk("Exit renameat: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
@@ -2260,17 +2273,19 @@ int trace_sys_exit_renameat2(struct trace_event_raw_sys_exit *ctx) {
     __u32 event_id = 74;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
-    if (ret == 0) {
-        struct current_task ct = get_task_struct();
+    struct current_task ct = get_task_struct();
 
-        struct event_key event_key = {
-            .ns_id = ct.ns_id,
-            .event_id = event_id,
-        };
-        
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-        if (watched) {
-            if (*watched == LOGGING) {
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit renameat2: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
                 bpf_printk("Exit renameat2: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
@@ -2319,17 +2334,19 @@ int trace_sys_exit_truncate(struct trace_event_raw_sys_exit *ctx) {
     __u32 event_id = 76;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
-    if (ret == 0) {
-        struct current_task ct = get_task_struct();
+    struct current_task ct = get_task_struct();
 
-        struct event_key event_key = {
-            .ns_id = ct.ns_id,
-            .event_id = event_id,
-        };
-        
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-        if (watched) {
-            if (*watched == LOGGING) {
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit truncate: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
                 bpf_printk("Exit truncate: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
@@ -2368,17 +2385,19 @@ int trace_sys_exit_ftruncate(struct trace_event_raw_sys_exit *ctx) {
     __u32 event_id = 78;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
-    if (ret == 0) {
-        struct current_task ct = get_task_struct();
+    struct current_task ct = get_task_struct();
 
-        struct event_key event_key = {
-            .ns_id = ct.ns_id,
-            .event_id = event_id,
-        };
-        
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-        if (watched) {
-            if (*watched == LOGGING) {
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit ftruncate: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
                 bpf_printk("Exit ftruncate: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
@@ -2419,17 +2438,19 @@ int trace_sys_exit_fallocate(struct trace_event_raw_sys_exit *ctx) {
     __u32 event_id = 80;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
-    if (ret == 0) {
-        struct current_task ct = get_task_struct();
+    struct current_task ct = get_task_struct();
 
-        struct event_key event_key = {
-            .ns_id = ct.ns_id,
-            .event_id = event_id,
-        };
-        
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-        if (watched) {
-            if (*watched == LOGGING) {
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit fallocate: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
                 bpf_printk("Exit fallocate: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
@@ -2478,17 +2499,19 @@ int trace_sys_exit_mkdir(struct trace_event_raw_sys_exit *ctx) {
     __u32 event_id = 82;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
-    if (ret == 0) {
-        struct current_task ct = get_task_struct();
+    struct current_task ct = get_task_struct();
 
-        struct event_key event_key = {
-            .ns_id = ct.ns_id,
-            .event_id = event_id,
-        };
-        
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-        if (watched) {
-            if (*watched == LOGGING) {
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit mkdir: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
                 bpf_printk("Exit mkdir: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
@@ -2538,17 +2561,19 @@ int trace_sys_exit_mkdirat(struct trace_event_raw_sys_exit *ctx) {
     __u32 event_id = 84;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
-    if (ret == 0) {
-        struct current_task ct = get_task_struct();
+    struct current_task ct = get_task_struct();
 
-        struct event_key event_key = {
-            .ns_id = ct.ns_id,
-            .event_id = event_id,
-        };
-        
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-        if (watched) {
-            if (*watched == LOGGING) {
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit mkdirat: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
                 bpf_printk("Exit mkdirat: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
@@ -2595,17 +2620,19 @@ int trace_sys_exit_rmdir(struct trace_event_raw_sys_exit *ctx) {
     __u32 event_id = 86;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
-    if (ret == 0) {
-        struct current_task ct = get_task_struct();
+    struct current_task ct = get_task_struct();
 
-        struct event_key event_key = {
-            .ns_id = ct.ns_id,
-            .event_id = event_id,
-        };
-        
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-        if (watched) {
-            if (*watched == LOGGING) {
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit rmdir: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
                 bpf_printk("Exit rmdir: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
@@ -2644,17 +2671,19 @@ int trace_sys_exit_getcwd(struct trace_event_raw_sys_exit *ctx) {
     __u32 event_id = 88;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
-    if (ret >= 0) {
-        struct current_task ct = get_task_struct();
+    struct current_task ct = get_task_struct();
 
-        struct event_key event_key = {
-            .ns_id = ct.ns_id,
-            .event_id = event_id,
-        };
-        
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-        if (watched) {
-            if (*watched == LOGGING) {
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit getcwd: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
                 bpf_printk("Exit getcwd: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
@@ -2701,17 +2730,19 @@ int trace_sys_exit_chdir(struct trace_event_raw_sys_exit *ctx) {
     __u32 event_id = 90;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
-    if (ret >= 0) {
-        struct current_task ct = get_task_struct();
+    struct current_task ct = get_task_struct();
 
-        struct event_key event_key = {
-            .ns_id = ct.ns_id,
-            .event_id = event_id,
-        };
-        
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-        if (watched) {
-            if (*watched == LOGGING) {
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit chdir: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
                 bpf_printk("Exit chdir: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
@@ -2748,17 +2779,19 @@ int trace_sys_exit_fchdir(struct trace_event_raw_sys_exit *ctx) {
     __u32 event_id = 92;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
-    if (ret >= 0) {
-        struct current_task ct = get_task_struct();
+    struct current_task ct = get_task_struct();
 
-        struct event_key event_key = {
-            .ns_id = ct.ns_id,
-            .event_id = event_id,
-        };
-        
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-        if (watched) {
-            if (*watched == LOGGING) {
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit fchdir: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
                 bpf_printk("Exit fchdir: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
@@ -2805,17 +2838,19 @@ int trace_sys_exit_chroot(struct trace_event_raw_sys_exit *ctx) {
     __u32 event_id = 94;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
-    if (ret >= 0) {
-        struct current_task ct = get_task_struct();
+    struct current_task ct = get_task_struct();
 
-        struct event_key event_key = {
-            .ns_id = ct.ns_id,
-            .event_id = event_id,
-        };
-        
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-        if (watched) {
-            if (*watched == LOGGING) {
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit chroot: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
                 bpf_printk("Exit chroot: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
@@ -2854,17 +2889,19 @@ int trace_sys_exit_getdents(struct trace_event_raw_sys_exit *ctx) {
     __u32 event_id = 96;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
-    if (ret >= 0) {
-        struct current_task ct = get_task_struct();
+    struct current_task ct = get_task_struct();
 
-        struct event_key event_key = {
-            .ns_id = ct.ns_id,
-            .event_id = event_id,
-        };
-        
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-        if (watched) {
-            if (*watched == LOGGING) {
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit getdents: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
                 bpf_printk("Exit getdents: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
@@ -2903,18 +2940,150 @@ int trace_sys_exit_getdents64(struct trace_event_raw_sys_exit *ctx) {
     __u32 event_id = 98;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
-    if (ret >= 0) {
-        struct current_task ct = get_task_struct();
+    struct current_task ct = get_task_struct();
 
-        struct event_key event_key = {
-            .ns_id = ct.ns_id,
-            .event_id = event_id,
-        };
-        
-        __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-        if (watched) {
-            if (*watched == LOGGING) {
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit getdents64: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
                 bpf_printk("Exit getdents64: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_link")
+int trace_sys_enter_link(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 99;
+
+    char *oldpath = (char *)BPF_CORE_READ(ctx, args[0]);
+    char *newpath = (char *)BPF_CORE_READ(ctx, args[1]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            __u32 old_key = 0;
+            __u32 new_key = 1;
+            char *old_path = bpf_map_lookup_elem(&buf_map, &old_key);
+            char *new_path = bpf_map_lookup_elem(&buf_map, &new_key);
+            if (old_path && new_path) {
+                long old_err = bpf_probe_read_user(old_path, sizeof(char) * 256, oldpath);
+                long new_err = bpf_probe_read_user(new_path, sizeof(char) * 256, newpath);
+                if (old_err == 0 && new_err == 0) {
+                    bpf_printk("Enter link: ns_id=%llu, pid=%u, oldpath=%s, newpath=%s\n", 
+                            ct.ns_id, ct.pid, old_path, new_path);
+                } else {
+                    bpf_printk("Enter link: ns_id=%llu, pid=%u, failed to read pathname\n", 
+                            ct.ns_id, ct.pid);
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_link")
+int trace_sys_exit_link(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 100;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit link: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit link: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_linkat")
+int trace_sys_enter_linkat(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = 101;
+
+    __s32 olddirfd = BPF_CORE_READ(ctx, args[0]);
+    char *oldpath = (char *)BPF_CORE_READ(ctx, args[1]);
+    __s32 newdirfd = BPF_CORE_READ(ctx, args[2]);
+    char *newpath = (char *)BPF_CORE_READ(ctx, args[3]);
+    __u32 flags = BPF_CORE_READ(ctx, args[4]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            __u32 old_key = 0;
+            __u32 new_key = 1;
+            char *old_path = bpf_map_lookup_elem(&buf_map, &old_key);
+            char *new_path = bpf_map_lookup_elem(&buf_map, &new_key);
+            if (old_path && new_path) {
+                long old_err = bpf_probe_read_user(old_path, sizeof(char) * 256, oldpath);
+                long new_err = bpf_probe_read_user(new_path, sizeof(char) * 256, newpath);
+                if (old_err == 0 && new_err == 0) {
+                    bpf_printk("Enter linkat: ns_id=%llu, pid=%u, olddirfd=%d, oldpath=%s, newdirfd=%d, newpath=%s, flags=%u\n", 
+                            ct.ns_id, ct.pid, olddirfd, old_path, newdirfd, new_path, flags);
+                } else {
+                    bpf_printk("Enter linkat: ns_id=%llu, pid=%u, failed to read pathname\n", 
+                            ct.ns_id, ct.pid);
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_linkat")
+int trace_sys_exit_linkat(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = 102;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit linkat: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit linkat: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
             }
         }
     }
