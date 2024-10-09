@@ -58,7 +58,6 @@ static __always_inline __u64 get_cgroup_id() {
     int mem_cgrp_id = memory_cgrp_id;
 
     __u64 cgroup_id = BPF_CORE_READ(cur_tsk, cgroups, subsys[mem_cgrp_id], cgroup, kn, id);
-    bpf_printk("cgroup_id: %llu\n", cgroup_id);
 
     return cgroup_id;
 }
@@ -79,7 +78,6 @@ static __always_inline int get_cgroup_name(char *buf, size_t sz) {
         bpf_printk("failed to get kernfs node name: %s\n", buf);
         return -1;
     }
-    bpf_printk("cgroup name: %s\n", buf);
 
     return 0;
 }
