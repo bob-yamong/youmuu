@@ -9,10 +9,12 @@
 #include <linux/types.h>
 #include <bpf/libbpf.h>
 #include "tracepoint.skel.h"
+#include "event.h"
 
 #define MAX_CMD_LEN 1024
 #define MAX_OUTPUT_LEN 256
 #define MAX_PATH 256
+#define MAX_EVENTS 4096
 #define ALLOW 0
 #define BLOCK 1
 #define LOGGING 2
@@ -23,133 +25,156 @@ struct event_key {
     char argument[256];
 };
 
-struct EventMapping {
+struct EventEntry {
     const char *name;
     __u32 id;
 };
 
-static const struct EventMapping event_mappings[] = {
-    {"sys_enter_socket", 1},
-    {"sys_exit_socket", 2},
-    {"sys_enter_socketpair", 3},
-    {"sys_exit_socketpair", 4},
-    {"sys_enter_setsockopt", 5},
-    {"sys_exit_setsockopt", 6},
-    {"sys_enter_getsockopt", 7},
-    {"sys_exit_getsockopt", 8},
-    {"sys_enter_getsockname", 9},
-    {"sys_exit_getsockname", 10},
-    {"sys_enter_getpeername", 11},
-    {"sys_exit_getpeername", 12},
-    {"sys_enter_bind", 13},
-    {"sys_exit_bind", 14},
-    {"sys_enter_listen", 15},
-    {"sys_exit_listen", 16},
-    {"sys_enter_accept", 17},
-    {"sys_exit_accept", 18},
-    {"sys_enter_accept4", 19},
-    {"sys_exit_accept4", 20},
-    {"sys_enter_connect", 21},
-    {"sys_exit_connect", 22},
-    {"sys_enter_shutdown", 23},
-    {"sys_exit_shutdown", 24},
-    {"sys_enter_recvfrom", 25},
-    {"sys_exit_recvfrom", 26},
-    {"sys_enter_recvmsg", 27},
-    {"sys_exit_recvmsg", 28},
-    {"sys_enter_recvmmsg", 29},
-    {"sys_exit_recvmmsg", 30},
-    {"sys_enter_sendto", 31},
-    {"sys_exit_sendto", 32},
-    {"sys_enter_sendmsg", 33},
-    {"sys_exit_sendmsg", 34},
-    {"sys_enter_sendmmsg", 35},
-    {"sys_exit_sendmmsg", 36},
-    {"sys_enter_sethostname", 37},
-    {"sys_exit_sethostname", 38},
-    {"sys_enter_setdomainname", 39},
-    {"sys_exit_setdomianname", 40},
-    {"sys_enter_close", 41},
-    {"sys_exit_close", 42},
-    {"sys_enter_creat", 43},
-    {"sys_exit_creat", 44},
-    {"sys_enter_open", 45},
-    {"sys_exit_open", 46},
-    {"sys_enter_openat", 47},
-    {"sys_exit_openat", 48},
-    {"sys_enter_openat2", 49},
-    {"sys_exit_openat2", 50},
-    {"sys_enter_name_to_handle_at", 51},
-    {"sys_exit_name_to_handle_at", 52},
-    {"sys_enter_open_by_handle_at", 53},
-    {"sys_exit_open_by_handle_at", 54},
-    {"sys_enter_memfd_create", 55},
-    {"sys_exit_memfd_create", 56},
-    // 메모리 관련 이벤트는 파일 시스템과 관련이 없을수도 있음, 검토 필요, 
-    // 메모리 보호를 변경하는 방식으로 공격을 시작하거나 공격 도중 사용하는 경우에는 메모리 관련 모니터링이 필요할 수 있지만, 
-    // 이는 메모리 내 데이터 보호나 악성 코드 실행 방지와 더 관련이 있음. 아마도 프로세스 모니터링 제어에서 참고할 수도? -> 실제로 프로세스 모니터링 제어에서 참고함
-    {"sys_enter_mmap", 57},
-    {"sys_exit_mmap", 58},
-    {"sys_enter_munmap", 59},
-    {"sys_exit_munmap", 60},
-    {"sys_enter_mprotect", 61},
-    {"sys_exit_mprotect", 62},
-    {"sys_enter_pkey_mprotect", 63},
-    {"sys_exit_pkey_mprotect", 64},
-    // 여기까지 
-    {"sys_enter_mknod", 65},
-    {"sys_exit_mknod", 66},
-    {"sys_enter_mknodat", 67},
-    {"sys_exit_mknodat", 68},
-    {"sys_enter_rename", 69},
-    {"sys_exit_rename", 70},
-    {"sys_enter_renameat", 71},
-    {"sys_exit_renameat", 72},
-    {"sys_enter_renameat2", 73},
-    {"sys_exit_renameat2", 74},
-    {"sys_enter_truncate", 75},
-    {"sys_exit_truncate", 76},
-    {"sys_enter_ftruncate", 77},
-    {"sys_exit_ftruncate", 78},
-    {"sys_enter_fallocate", 79},
-    {"sys_exit_fallocate", 80},
-    {"sys_enter_mkdir", 81},
-    {"sys_exit_mkdir", 82},
-    {"sys_enter_mkdirat", 83},
-    {"sys_exit_mkdirat", 84},
-    {"sys_enter_rmdir", 85},
-    {"sys_exit_rmdir", 86},
-    {"sys_enter_getcwd", 87},
-    {"sys_exit_getcwd", 88},
-    {"sys_enter_chdir", 89},
-    {"sys_exit_chdir", 90},
-    {"sys_enter_fchdir", 91},
-    {"sys_exit_fchdir", 92},
-    {"sys_enter_chroot", 93},
-    {"sys_exit_chroot", 94},
-    {"sys_enter_getdents", 95},
-    {"sys_exit_getdents", 96},
-    {"sys_enter_getdents64", 97},
-    {"sys_exit_getdents64", 98},
-    {"sys_enter_link", 99},
-    {"sys_exit_link", 100},
-    {"sys_enter_linkat", 101},
-    {"sys_exit_linkat", 102},
-    {"sys_enter_symlink", 103},
-    {"sys_exit_symlink", 104},
-    {"sys_enter_symlinkat", 105},
-    {"sys_exit_symlinkat", 106},
-    {"sys_enter_unlink", 107},
-    {"sys_exit_unlink", 108},
-    {"sys_enter_unlinkat", 109},
-    {"sys_exit_unlinkat", 110},
-    {"sys_enter_readlink", 111},
-    {"sys_exit_readlink", 112},
-    {"sys_enter_readlinkat", 113},
-    {"sys_exit_readlinkat", 114},
-    // 새로운 이벤트를 여기에 추가
-    {NULL, 0}  // 배열의 끝을 나타내는 센티널
-};
+static struct EventEntry event_table[MAX_EVENTS];
+
+static __u32 hash(const char* str) {
+    __u32 hash = 5381;
+    int c;
+    while ((c = *str++))
+        hash = ((hash << 5) + hash) + c;
+    return hash % MAX_EVENTS;
+}
+
+void init_event_table() {
+    memset(event_table, 0, sizeof(event_table));
+
+    #define ADD_EVENT(name_str, id_val) do { \
+        __u32 index = hash(name_str); \
+        while (event_table[index].name != NULL) \
+            index = (index + 1) % MAX_EVENTS; \
+        event_table[index] = (struct EventEntry){.name = name_str, .id = id_val}; \
+    } while(0)
+
+    ADD_EVENT("sys_enter_socket", SYS_ENTER_SOCKET);
+    ADD_EVENT("sys_exit_socket", SYS_EXIT_SOCKET);
+    ADD_EVENT("sys_enter_socketpair", SYS_ENTER_SOCKETPAIR);
+    ADD_EVENT("sys_exit_socketpair", SYS_EXIT_SOCKETPAIR);
+    ADD_EVENT("sys_enter_setsockopt", SYS_ENTER_SETSOCKOPT);
+    ADD_EVENT("sys_exit_setsockopt", SYS_EXIT_SETSOCKOPT);
+    ADD_EVENT("sys_enter_getsockopt", SYS_ENTER_GETSOCKOPT);
+    ADD_EVENT("sys_exit_getsockopt", SYS_EXIT_GETSOCKOPT);
+    ADD_EVENT("sys_enter_getsockname", SYS_ENTER_GETSOCKNAME);
+    ADD_EVENT("sys_exit_getsockname", SYS_EXIT_GETSOCKNAME);
+    ADD_EVENT("sys_enter_getpeername", SYS_ENTER_GETPEERNAME);
+    ADD_EVENT("sys_exit_getpeername", SYS_EXIT_GETPEERNAME);
+    ADD_EVENT("sys_enter_bind", SYS_ENTER_BIND);
+    ADD_EVENT("sys_exit_bind", SYS_EXIT_BIND);
+    ADD_EVENT("sys_enter_listen", SYS_ENTER_LISTEN);
+    ADD_EVENT("sys_exit_listen", SYS_EXIT_LISTEN);
+    ADD_EVENT("sys_enter_accept", SYS_ENTER_ACCEPT);
+    ADD_EVENT("sys_exit_accept", SYS_EXIT_ACCEPT);
+    ADD_EVENT("sys_enter_accept4", SYS_ENTER_ACCEPT4);
+    ADD_EVENT("sys_exit_accept4", SYS_EXIT_ACCEPT4);
+    ADD_EVENT("sys_enter_connect", SYS_ENTER_CONNECT);
+    ADD_EVENT("sys_exit_connect", SYS_EXIT_CONNECT);
+    ADD_EVENT("sys_enter_shutdown", SYS_ENTER_SHUTDOWN);
+    ADD_EVENT("sys_exit_shutdown", SYS_EXIT_SHUTDOWN);
+    ADD_EVENT("sys_enter_recvfrom", SYS_ENTER_RECVFROM);
+    ADD_EVENT("sys_exit_recvfrom", SYS_EXIT_RECVFROM);
+    ADD_EVENT("sys_enter_recvmsg", SYS_ENTER_RECVMSG);
+    ADD_EVENT("sys_exit_recvmsg", SYS_EXIT_RECVMSG);
+    ADD_EVENT("sys_enter_recvmmsg", SYS_ENTER_RECVMMSG);
+    ADD_EVENT("sys_exit_recvmmsg", SYS_EXIT_RECVMMSG);
+    ADD_EVENT("sys_enter_sendto", SYS_ENTER_SENDTO);
+    ADD_EVENT("sys_exit_sendto", SYS_EXIT_SENDTO);
+    ADD_EVENT("sys_enter_sendmsg", SYS_ENTER_SENDMSG);
+    ADD_EVENT("sys_exit_sendmsg", SYS_EXIT_SENDMSG);
+    ADD_EVENT("sys_enter_sendmmsg", SYS_ENTER_SENDMMSG);
+    ADD_EVENT("sys_exit_sendmmsg", SYS_EXIT_SENDMMSG);
+    ADD_EVENT("sys_enter_sethostname", SYS_ENTER_SETHOSTNAME);
+    ADD_EVENT("sys_exit_sethostname", SYS_EXIT_SETHOSTNAME);
+    ADD_EVENT("sys_enter_setdomainname", SYS_ENTER_SETDOMAINNAME);
+    ADD_EVENT("sys_exit_setdomainname", SYS_EXIT_SETDOMAINNAME);
+    ADD_EVENT("sys_enter_close", SYS_ENTER_CLOSE);
+    ADD_EVENT("sys_exit_close", SYS_EXIT_CLOSE);
+    ADD_EVENT("sys_enter_creat", SYS_ENTER_CREAT);
+    ADD_EVENT("sys_exit_creat", SYS_EXIT_CREAT);
+    ADD_EVENT("sys_enter_open", SYS_ENTER_OPEN);
+    ADD_EVENT("sys_exit_open", SYS_EXIT_OPEN);
+    ADD_EVENT("sys_enter_openat", SYS_ENTER_OPENAT);
+    ADD_EVENT("sys_exit_openat", SYS_EXIT_OPENAT);
+    ADD_EVENT("sys_enter_openat2", SYS_ENTER_OPENAT2);
+    ADD_EVENT("sys_exit_openat2", SYS_EXIT_OPENAT2);
+    ADD_EVENT("sys_enter_name_to_handle_at", SYS_ENTER_NAME_TO_HANDLE_AT);
+    ADD_EVENT("sys_exit_name_to_handle_at", SYS_EXIT_NAME_TO_HANDLE_AT);
+    ADD_EVENT("sys_enter_open_by_handle_at", SYS_ENTER_OPEN_BY_HANDLE_AT);
+    ADD_EVENT("sys_exit_open_by_handle_at", SYS_EXIT_OPEN_BY_HANDLE_AT);
+    ADD_EVENT("sys_enter_memfd_create", SYS_ENTER_MEMFD_CREATE);
+    ADD_EVENT("sys_exit_memfd_create", SYS_EXIT_MEMFD_CREATE);
+    ADD_EVENT("sys_enter_mknod", SYS_ENTER_MKNOD);
+    ADD_EVENT("sys_exit_mknod", SYS_EXIT_MKNOD);
+    ADD_EVENT("sys_enter_mknodat", SYS_ENTER_MKNODAT);
+    ADD_EVENT("sys_exit_mknodat", SYS_EXIT_MKNODAT);
+    ADD_EVENT("sys_enter_rename", SYS_ENTER_RENAME);
+    ADD_EVENT("sys_exit_rename", SYS_EXIT_RENAME);
+    ADD_EVENT("sys_enter_renameat", SYS_ENTER_RENAMEAT);
+    ADD_EVENT("sys_exit_renameat", SYS_EXIT_RENAMEAT);
+    ADD_EVENT("sys_enter_renameat2", SYS_ENTER_RENAMEAT2);
+    ADD_EVENT("sys_exit_renameat2", SYS_EXIT_RENAMEAT2);
+    ADD_EVENT("sys_enter_truncate", SYS_ENTER_TRUNCATE);
+    ADD_EVENT("sys_exit_truncate", SYS_EXIT_TRUNCATE);
+    ADD_EVENT("sys_enter_ftruncate", SYS_ENTER_FTRUNCATE);
+    ADD_EVENT("sys_exit_ftruncate", SYS_EXIT_FTRUNCATE);
+    ADD_EVENT("sys_enter_fallocate", SYS_ENTER_FALLOCATE);
+    ADD_EVENT("sys_exit_fallocate", SYS_EXIT_FALLOCATE);
+    ADD_EVENT("sys_enter_mkdir", SYS_ENTER_MKDIR);
+    ADD_EVENT("sys_exit_mkdir", SYS_EXIT_MKDIR);
+    ADD_EVENT("sys_enter_mkdirat", SYS_ENTER_MKDIRAT);
+    ADD_EVENT("sys_exit_mkdirat", SYS_EXIT_MKDIRAT);
+    ADD_EVENT("sys_enter_rmdir", SYS_ENTER_RMDIR);
+    ADD_EVENT("sys_exit_rmdir", SYS_EXIT_RMDIR);
+    ADD_EVENT("sys_enter_getcwd", SYS_ENTER_GETCWD);
+    ADD_EVENT("sys_exit_getcwd", SYS_EXIT_GETCWD);
+    ADD_EVENT("sys_enter_chdir", SYS_ENTER_CHDIR);
+    ADD_EVENT("sys_exit_chdir", SYS_EXIT_CHDIR);
+    ADD_EVENT("sys_enter_fchdir", SYS_ENTER_FCHDIR);
+    ADD_EVENT("sys_exit_fchdir", SYS_EXIT_FCHDIR);
+    ADD_EVENT("sys_enter_chroot", SYS_ENTER_CHROOT);
+    ADD_EVENT("sys_exit_chroot", SYS_EXIT_CHROOT);
+    ADD_EVENT("sys_enter_getdents", SYS_ENTER_GETDENTS);
+    ADD_EVENT("sys_exit_getdents", SYS_EXIT_GETDENTS);
+    ADD_EVENT("sys_enter_getdents64", SYS_ENTER_GETDENTS64);
+    ADD_EVENT("sys_exit_getdents64", SYS_EXIT_GETDENTS64);
+    ADD_EVENT("sys_enter_link", SYS_ENTER_LINK);
+    ADD_EVENT("sys_exit_link", SYS_EXIT_LINK);
+    ADD_EVENT("sys_enter_linkat", SYS_ENTER_LINKAT);
+    ADD_EVENT("sys_exit_linkat", SYS_EXIT_LINKAT);
+    ADD_EVENT("sys_enter_symlink", SYS_ENTER_SYMLINK);
+    ADD_EVENT("sys_exit_symlink", SYS_EXIT_SYMLINK);
+    ADD_EVENT("sys_enter_symlinkat", SYS_ENTER_SYMLINKAT);
+    ADD_EVENT("sys_exit_symlinkat", SYS_EXIT_SYMLINKAT);
+    ADD_EVENT("sys_enter_unlink", SYS_ENTER_UNLINK);
+    ADD_EVENT("sys_exit_unlink", SYS_EXIT_UNLINK);
+    ADD_EVENT("sys_enter_unlinkat", SYS_ENTER_UNLINKAT);
+    ADD_EVENT("sys_exit_unlinkat", SYS_EXIT_UNLINKAT);
+    ADD_EVENT("sys_enter_readlink", SYS_ENTER_READLINK);
+    ADD_EVENT("sys_exit_readlink", SYS_EXIT_READLINK);
+    ADD_EVENT("sys_enter_readlinkat", SYS_ENTER_READLINKAT);
+    ADD_EVENT("sys_exit_readlinkat", SYS_EXIT_READLINKAT);
+    ADD_EVENT("sys_enter_umask", SYS_ENTER_UMASK);
+    ADD_EVENT("sys_exit_umask", SYS_EXIT_UMASK);
+    // 다른 이벤트들도 여기에 추가
+
+
+
+
+    // 메모리 관련 이벤트(프로세스에 추가 예정)
+    ADD_EVENT("sys_enter_mmap", SYS_ENTER_MMAP);
+    ADD_EVENT("sys_exit_mmap", SYS_EXIT_MMAP);
+    ADD_EVENT("sys_enter_munmap", SYS_ENTER_MUNMAP);
+    ADD_EVENT("sys_exit_munmap", SYS_EXIT_MUNMAP);
+    ADD_EVENT("sys_enter_mprotect", SYS_ENTER_MPROTECT);
+    ADD_EVENT("sys_exit_mprotect", SYS_EXIT_MPROTECT);
+    ADD_EVENT("sys_enter_pkey_mprotect", SYS_ENTER_PKEY_MPROTECT);
+    ADD_EVENT("sys_exit_pkey_mprotect", SYS_EXIT_PKEY_MPROTECT);
+
+    #undef ADD_EVENT
+}
 
 typedef enum {
     RUNTIME_UNKNOWN,
@@ -290,13 +315,14 @@ __u64 get_namespace_id(int container_pid) {
     return ns_id;
 }
 
-__u32 get_event_id(const char *event_str) {
-    for (int i = 0; event_mappings[i].name != NULL; i++) {
-        if (strcmp(event_str, event_mappings[i].name) == 0) {
-            return event_mappings[i].id;
-        }
+__u32 get_event_id(const char* event_str) {
+    __u32 index = hash(event_str);
+    while (event_table[index].name != NULL) {
+        if (strcmp(event_table[index].name, event_str) == 0)
+            return event_table[index].id;
+        index = (index + 1) % MAX_EVENTS;
     }
-    return (uint32_t)-1;  // 알 수 없는 이벤트
+    return -1;  // 알 수 없는 이벤트
 }
 
 void get_user_input(struct tracepoint_bpf *skel, __u64 ns_id, __u32 event_id) {
@@ -330,6 +356,7 @@ int main(int argc, char **argv) {
     __u64 ns_id;
     int err;
 
+    init_event_table();
     skel = tracepoint_bpf__open();
     if (!skel) {
         fprintf(stderr, "Failed to open and load BPF skeleton\n");
@@ -389,7 +416,7 @@ container_name:
         if (strcmp(event_str, "quit") == 0) goto container_name;
 
         __u32 event_id = get_event_id(event_str);
-        if (event_id == (uint32_t)-1) {
+        if (event_id == -1) {
             fprintf(stderr, "Unknown event\n");
             continue;
         }
