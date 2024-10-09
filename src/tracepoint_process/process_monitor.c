@@ -35,21 +35,6 @@ static void sig_handler(int sig)
     exiting = true;
 }
 
-// 제거 또는 주석 처리
-// int get_docker_pid(const char* container_name)
-// int get_containerd_pid(const char* container_name)
-// int get_crio_pid(const char* container_name)
-// int get_container_pid(const char* container_name)
-// ContainerRuntime get_runtime_from_user()
-
-// typedef enum {
-//     RUNTIME_UNKNOWN,
-//     RUNTIME_DOCKER,
-//     RUNTIME_CONTAINERD,
-//     RUNTIME_CRIO
-// } ContainerRuntime;
-
-// 제거 (get_container_pids 함수에서 사용됨)
 #define DOCKER_SOCKET "/var/run/docker.sock"
 
 struct container_info {
@@ -222,9 +207,8 @@ static int handle_event(void *ctx, void *data, size_t data_sz)
     __u64 key = e->cgroup_id;
     __u64 value;
 
-    // container_pids 맵에서 현재 프로세스의 PPID를 찾습니다.
+    // container_cgroup_id 맵에서 현재 프로세스의 Cgroup_id를 찾습니다.
     if (bpf_map__lookup_elem(skel->maps.container_cgroup_id, &key, sizeof(key), &value, sizeof(value), 0) == 0 ) {
-        // PPID가 맵에 있으면 로깅을 수행합니다.
         printf("Process syscall: %s (nr=%d, pid=%d, tid=%d, ppid=%d, uid=%d, comm=%s, cgroup_id=%llu, cgroup_name=%s)\n",
                e->syscall, e->syscall_nr, e->pid, e->tid, e->ppid, e->uid, e->comm, e->cgroup_id, e->cgroup_name);
 
@@ -434,15 +418,6 @@ int main(int argc, char **argv)
         }
     }
 
-    // 주석 처리 (사용되지 않음)
-    // // 컨테이너의 자식 프로세스들도 모니터링하기 위해 0을 키로 추가
-    // __u32 key = 0;
-    // __u32 value = 1;
-    // err = bpf_map__update_elem(skel->maps.container_pids, &key, sizeof(key), &value, sizeof(value), BPF_ANY);
-    // if (err) {
-    //     fprintf(stderr, "0 PID를 맵에 추가하는데 실패했습니다: %d\n", err);
-    //     goto cleanup;
-    // }
 
     init_syscall_map(skel);
 
@@ -454,7 +429,7 @@ int main(int argc, char **argv)
 
     // 메인 루프
     while (!exiting) {
-        err = ring_buffer__poll(rb, 50);  // 100ms 타임아웃으로 폴링
+        err = ring_buffer__poll(rb, 50); 
         if (err == -EINTR) {
             err = 0;
             break;
