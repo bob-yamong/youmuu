@@ -6,9 +6,6 @@
 #include <bpf/bpf_core_read.h>
 #include "event.h"
 
-// 기존의 #include <linux/bpf.h> 라인을 제거하거나 주석 처리합니다.
-// #include <linux/bpf.h>
-
 typedef unsigned int u32;
 
 struct {
@@ -78,7 +75,6 @@ static __always_inline int get_cgroup_name(char *buf, size_t sz) {
 
     // failed when use BPF_PROBE_READ
     const char *name = BPF_CORE_READ(cur_tsk, cgroups, subsys[cgrp_id], cgroup, kn, name);
-    // bpf_printk("name: %s\n", name);
     if (bpf_probe_read_kernel_str(buf, sz, name) < 0) {
         bpf_printk("failed to get kernfs node name: %s\n", buf);
         return -1;
@@ -101,10 +97,6 @@ static __always_inline int should_monitor(u32 ppid, u64 cgroup_id) {
         return 1;
     
     return 0;
-
-    // // 0을 키로 사용하여 모든 프로세스 모니터링 여부 확인
-    // monitored = bpf_map_lookup_elem(&container_pids, &zero);
-    // return monitored != NULL;
 }
 
 SEC("tracepoint/raw_syscalls/sys_enter")
@@ -122,7 +114,7 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
 
     // cgroup id 가져오기
     __u64 cgroup_id = get_cgroup_id();
-    bpf_printk("%d %d %d\n", ppid, pid, cgroup_id);
+
     if (!should_monitor(ppid, cgroup_id)) {
         return 0;
     }
@@ -134,8 +126,6 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
 
     u64 syscall_nr = ctx->id;
     
-    // 디버그 출력 추가
-    bpf_printk("Detected syscall: %d\n", syscall_nr);
 
     // 시스템 콜 맵에서 해당 시스템 콜 번호가 있는지 확인
     char *syscall_name = bpf_map_lookup_elem(&syscall_map, &syscall_nr);
@@ -188,7 +178,7 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
         }
     }
 
-    // // cgroup 이름 가져오기
+    // cgroup 이름 가져오기
     char cgroup_name[MAX_CGROUP_NAME_LEN] = {0};
     if (get_cgroup_name(cgroup_name, sizeof(cgroup_name)) == 0) {
         __builtin_memcpy(e->cgroup_name, cgroup_name, sizeof(e->cgroup_name));
