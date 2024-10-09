@@ -31,6 +31,13 @@ struct {
     __type(value, u32);
 } container_pids SEC(".maps");
 
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 1024);
+    __type(key, u64);
+    __type(value, u64);
+} container_cgroup_id SEC(".maps");
+
 // memcmp 함수 직접 구현
 static inline int my_memcmp(const void* s1, const void* s2, size_t n) {
     const unsigned char *p1 = s1, *p2 = s2;
@@ -81,13 +88,13 @@ static __always_inline int get_cgroup_name(char *buf, size_t sz) {
     return 0;
 }
 
-static __always_inline int should_monitor(u32 ppid) {
+static __always_inline int should_monitor(u32 ppid, u64 cgroup_id) {
     u32 *monitored;
     // u32 zero = 0;
 
-    // monitored = bpf_map_lookup_elem(&container_pids, &pid);
-    // if (monitored)
-    //     return 1;
+    monitored = bpf_map_lookup_elem(&container_cgroup_id, &cgroup_id);
+    if (monitored)
+        return 1;
     
     monitored = bpf_map_lookup_elem(&container_pids, &ppid);
     if (monitored)
@@ -111,8 +118,18 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
 
-    if (!should_monitor(ppid)) {
+    
+
+    // cgroup id 가져오기
+    __u64 cgroup_id = get_cgroup_id();
+
+    if (!should_monitor(ppid, cgroup_id)) {
         return 0;
+    }
+
+    u64 *existing_cgroup_id = bpf_map_lookup_elem(&container_cgroup_id, &cgroup_id);
+    if (!existing_cgroup_id) {
+        bpf_map_update_elem(&container_cgroup_id, &cgroup_id, &cgroup_id, BPF_ANY);
     }
 
     u64 syscall_nr = ctx->id;
@@ -135,6 +152,7 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     e->ppid = ppid;
     e->uid = uid;
     e->syscall_nr = syscall_nr;
+    e->cgroup_id = cgroup_id;
     bpf_get_current_comm(&e->comm, sizeof(e->comm));
 
     __builtin_memcpy(&e->syscall, syscall_name, sizeof(e->syscall));
@@ -174,10 +192,6 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     } else {
         __builtin_memcpy(e->cgroup_name, "Unknown", 8);
     }
-
-    // cgroup id 가져오기
-    __u64 cgroup_id = get_cgroup_id();
-    e->cgroup_id = cgroup_id;
 
     bpf_ringbuf_submit(e, 0);
 
