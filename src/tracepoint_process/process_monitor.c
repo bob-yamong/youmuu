@@ -219,11 +219,11 @@ void init_syscall_map(struct process_monitor_bpf *skel)
 static int handle_event(void *ctx, void *data, size_t data_sz)
 {
     const struct event *e = data;
-    __u32 key = e->ppid;
-    __u32 value;
+    __u64 key = e->cgroup_id;
+    __u64 value;
 
     // container_pids 맵에서 현재 프로세스의 PPID를 찾습니다.
-    if (bpf_map__lookup_elem(skel->maps.container_pids, &key, sizeof(key), &value, sizeof(value), 0) == 0) {
+    if (bpf_map__lookup_elem(skel->maps.container_cgroup_id, &key, sizeof(key), &value, sizeof(value), 0) == 0 ) {
         // PPID가 맵에 있으면 로깅을 수행합니다.
         printf("Process syscall: %s (nr=%d, pid=%d, tid=%d, ppid=%d, uid=%d, comm=%s, cgroup_id=%llu, cgroup_name=%s)\n",
                e->syscall, e->syscall_nr, e->pid, e->tid, e->ppid, e->uid, e->comm, e->cgroup_id, e->cgroup_name);

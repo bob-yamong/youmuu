@@ -122,7 +122,7 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
 
     // cgroup id 가져오기
     __u64 cgroup_id = get_cgroup_id();
-
+    bpf_printk("%d %d %d\n", ppid, pid, cgroup_id);
     if (!should_monitor(ppid, cgroup_id)) {
         return 0;
     }
@@ -134,6 +134,9 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
 
     u64 syscall_nr = ctx->id;
     
+    // 디버그 출력 추가
+    bpf_printk("Detected syscall: %d\n", syscall_nr);
+
     // 시스템 콜 맵에서 해당 시스템 콜 번호가 있는지 확인
     char *syscall_name = bpf_map_lookup_elem(&syscall_map, &syscall_nr);
     if (!syscall_name) {
