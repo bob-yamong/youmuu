@@ -158,6 +158,48 @@ void init_event_table() {
     ADD_EVENT("sys_exit_readlinkat", SYS_EXIT_READLINKAT);
     ADD_EVENT("sys_enter_umask", SYS_ENTER_UMASK);
     ADD_EVENT("sys_exit_umask", SYS_EXIT_UMASK);
+    ADD_EVENT("sys_enter_newstat", SYS_ENTER_NEWSTAT);
+    ADD_EVENT("sys_exit_newstat", SYS_EXIT_NEWSTAT);
+    ADD_EVENT("sys_enter_newlstat", SYS_ENTER_NEWLSTAT);
+    ADD_EVENT("sys_exit_newlstat", SYS_EXIT_NEWLSTAT);
+    ADD_EVENT("sys_enter_newfstat", SYS_ENTER_NEWFSTAT);
+    ADD_EVENT("sys_exit_newfstat", SYS_EXIT_NEWFSTAT);
+    ADD_EVENT("sys_enter_newfstatat", SYS_ENTER_NEWFSTATAT);
+    ADD_EVENT("sys_exit_newfstatat", SYS_EXIT_NEWFSTATAT);
+    ADD_EVENT("sys_enter_statx", SYS_ENTER_STATX);
+    ADD_EVENT("sys_exit_statx", SYS_EXIT_STATX);
+    ADD_EVENT("sys_enter_statfs", SYS_ENTER_STATFS);
+    ADD_EVENT("sys_exit_statfs", SYS_EXIT_STATFS);
+    ADD_EVENT("sys_enter_fstatfs", SYS_ENTER_FSTATFS);
+    ADD_EVENT("sys_exit_fstatfs", SYS_EXIT_FSTATFS);
+    ADD_EVENT("sys_enter_chmod", SYS_ENTER_CHMOD);
+    ADD_EVENT("sys_exit_chmod", SYS_EXIT_CHMOD);
+    ADD_EVENT("sys_enter_fchmod", SYS_ENTER_FCHMOD);
+    ADD_EVENT("sys_exit_fchmod", SYS_EXIT_FCHMOD);
+    ADD_EVENT("sys_enter_fchmodat", SYS_ENTER_FCHMODAT);
+    ADD_EVENT("sys_exit_fchmodat", SYS_EXIT_FCHMODAT);
+    ADD_EVENT("sys_enter_chown", SYS_ENTER_CHOWN);
+    ADD_EVENT("sys_exit_chown", SYS_EXIT_CHOWN);
+    ADD_EVENT("sys_enter_lchown", SYS_ENTER_LCHOWN);
+    ADD_EVENT("sys_exit_lchown", SYS_EXIT_LCHOWN);
+    ADD_EVENT("sys_enter_fchown", SYS_ENTER_FCHOWN);
+    ADD_EVENT("sys_exit_fchown", SYS_EXIT_FCHOWN);
+    ADD_EVENT("sys_enter_fchownat", SYS_ENTER_FCHOWNAT);
+    ADD_EVENT("sys_exit_fchownat", SYS_EXIT_FCHOWNAT);
+    ADD_EVENT("sys_enter_utime", SYS_ENTER_UTIME);
+    ADD_EVENT("sys_exit_utime", SYS_EXIT_UTIME);
+    ADD_EVENT("sys_enter_utimes", SYS_ENTER_UTIMES);
+    ADD_EVENT("sys_exit_utimes", SYS_EXIT_UTIMES);
+    ADD_EVENT("sys_enter_futimesat", SYS_ENTER_FUTIMESAT);
+    ADD_EVENT("sys_exit_futimesat", SYS_EXIT_FUTIMESAT);
+    ADD_EVENT("sys_enter_utimensat", SYS_ENTER_UTIMENSAT);
+    ADD_EVENT("sys_exit_utimensat", SYS_EXIT_UTIMENSAT);
+    ADD_EVENT("sys_enter_access", SYS_ENTER_ACCESS);
+    ADD_EVENT("sys_exit_access", SYS_EXIT_ACCESS);
+    ADD_EVENT("sys_enter_faccessat", SYS_ENTER_FACCESSAT);
+    ADD_EVENT("sys_exit_faccessat", SYS_EXIT_FACCESSAT);
+
+    
     // 다른 이벤트들도 여기에 추가
 
 
