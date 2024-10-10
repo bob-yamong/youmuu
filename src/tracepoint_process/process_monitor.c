@@ -13,11 +13,15 @@
 #include <sys/stat.h>
 #include <curl/curl.h>
 #include <json-c/json.h>
+#include <glob.h>
+#include <limits.h>
+#include <stdlib.h>
 
 #define MAX_SYSCALL_ENTRIES 256
 #define MAX_CONTAINERS 100  // MAX_CONTAINERS를 100으로 변경
 #define MAX_CMD_LEN 1024
 #define MAX_OUTPUT_LEN 256
+
 
 // string 구조체 정의 추가
 struct string {
@@ -128,6 +132,32 @@ int get_container_pids() {
     return container_count;
 }
 
+unsigned long get_container_inode(const char *container_id) {
+    char pattern[PATH_MAX];
+    snprintf(pattern, sizeof(pattern), "/sys/fs/cgroup/system.slice/docker-%s*", container_id);
+
+    glob_t globbuf;
+    unsigned long inode = 0;
+
+    if (glob(pattern, 0, NULL, &globbuf) == 0) {
+        if (globbuf.gl_pathc > 0) {
+            struct stat sb;
+            if (stat(globbuf.gl_pathv[0], &sb) == 0) {
+                inode = (unsigned long)sb.st_ino;
+            } else {
+                fprintf(stderr, "Failed to get inode for container ID: %s\n", container_id);
+            }
+        } else {
+            fprintf(stderr, "No matching files for container ID: %s\n", container_id);
+        }
+        globfree(&globbuf);
+    } else {
+        fprintf(stderr, "Failed to perform glob for pattern: %s\n", pattern);
+    }
+
+    return inode;
+}
+
 void init_syscall_map(struct process_monitor_bpf *skel)
 {
     struct {
@@ -206,7 +236,7 @@ static int handle_event(void *ctx, void *data, size_t data_sz)
     const struct event *e = data;
     __u64 key = e->cgroup_id;
     __u64 value;
-
+    // printf("Cgroup ID: %llu\n", e->cgroup_id);
     // container_cgroup_id 맵에서 현재 프로세스의 Cgroup_id를 찾습니다.
     if (bpf_map__lookup_elem(skel->maps.container_cgroup_id, &key, sizeof(key), &value, sizeof(value), 0) == 0 ) {
         printf("Process syscall: %s (nr=%d, pid=%d, tid=%d, ppid=%d, uid=%d, comm=%s, cgroup_id=%llu, cgroup_name=%s)\n",
@@ -414,7 +444,11 @@ int main(int argc, char **argv)
         if (err) {
             fprintf(stderr, "컨테이너 PID %d를 맵에 추가하는데 실패했습니다: %d\n", containers[i].pid, err);
         } else {
-            printf("컨테이너 ID: %s, PID: %d를 모니터링 중\n", containers[i].id, containers[i].pid);
+            unsigned long inode = get_container_inode(containers[i].id);
+            // printf("컨테이너 ID: %s, PID: %d를 모니터링 중\n", containers[i].id, containers[i].pid);
+            printf("컨테이너 ID: %s, PID: %d, inode: %lu를 모니터링 중\n", containers[i].id, containers[i].pid, inode);
+
+             
         }
     }
 
