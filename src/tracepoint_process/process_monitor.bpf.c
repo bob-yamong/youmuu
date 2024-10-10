@@ -111,7 +111,7 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     
 
     // cgroup id 가져오기
-    __u64 cgroup_id = get_cgroup_id();
+    __u64 cgroup_id = bpf_get_current_cgroup_id();
 
     if (!should_monitor(ppid, cgroup_id)) {
         return 0;

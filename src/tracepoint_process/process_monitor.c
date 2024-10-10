@@ -235,7 +235,7 @@ static int handle_event(void *ctx, void *data, size_t data_sz)
 {
     const struct event *e = data;
     __u64 key = e->cgroup_id;
-    __u64 value;
+    __u64 value = 1;
     // printf("Cgroup ID: %llu\n", e->cgroup_id);
     // container_cgroup_id 맵에서 현재 프로세스의 Cgroup_id를 찾습니다.
     if (bpf_map__lookup_elem(skel->maps.container_cgroup_id, &key, sizeof(key), &value, sizeof(value), 0) == 0 ) {
@@ -438,15 +438,19 @@ int main(int argc, char **argv)
     printf("%d개의 컨테이너를 감지했습니다.\n", detected_containers);
 
     for (int i = 0; i < detected_containers; i++) {
-        __u32 key = containers[i].pid;
-        __u32 value = 1;
-        err = bpf_map__update_elem(skel->maps.container_pids, &key, sizeof(key), &value, sizeof(value), BPF_ANY);
-        if (err) {
-            fprintf(stderr, "컨테이너 PID %d를 맵에 추가하는데 실패했습니다: %d\n", containers[i].pid, err);
+        __u32 key_pid = containers[i].pid;
+        __u32 value_pid = 1;
+        __u64 key_inode = get_container_inode(containers[i].id);
+        __u64 value_inode = 1;
+
+        int err_pid = bpf_map__update_elem(skel->maps.container_pids, &key_pid, sizeof(key_pid), &value_pid, sizeof(value_pid), BPF_ANY);
+        int err_inode = bpf_map__update_elem(skel->maps.container_cgroup_id, &key_inode, sizeof(key_inode), &value_inode, sizeof(value_inode), BPF_ANY);
+        if (err_pid || err_inode) {
+            fprintf(stderr, "컨테이너 PID %d를 맵에 추가하는데 실패했습니다: %d\n", containers[i].pid, err_pid);
+            fprintf(stderr, "컨테이너 inode %llu를 맵에 추가하는데 실패했습니다: %d\n", key_inode, err_inode);
         } else {
-            unsigned long inode = get_container_inode(containers[i].id);
             // printf("컨테이너 ID: %s, PID: %d를 모니터링 중\n", containers[i].id, containers[i].pid);
-            printf("컨테이너 ID: %s, PID: %d, inode: %lu를 모니터링 중\n", containers[i].id, containers[i].pid, inode);
+            printf("컨테이너 ID: %s, PID: %d, inode: %llu를 모니터링 중\n", containers[i].id, containers[i].pid, key_inode);
 
              
         }
