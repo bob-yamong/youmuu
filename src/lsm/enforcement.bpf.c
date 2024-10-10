@@ -10,7 +10,7 @@ char LICENSE[] SEC("license") = "GPL";
 SEC("lsm/bprm_check_security")
 int BPF_PROG(bprm_check_security, struct linux_binprm *bprm)
 {
-    handle_bprm_check_security(bprm);
+    // handle_bprm_check_security(bprm);
 	bpf_printk("lsm_hook: exec: bprm_check_security\n");
 	return 0;
 }

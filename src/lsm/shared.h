@@ -1,7 +1,10 @@
-#include "vmlinux.h"
+#ifndef __SHARED_H
+#define __SHARED_H
+
 #include <bpf/bpf_core_read.h>
-#include <bpf/bpf_helpers.h>
-#include <bpf/bpf_tracing.h>
+
+#define BPF_FS_PATH "/sys/fs/bpf"
+#define MAP_PIN_PATH "/sys/fs/bpf/policy_map"
 
 #define MAX_CONTAINERS 1000
 #define MAX_POLICY_SIZE 1024
@@ -15,8 +18,8 @@ enum policy_type {
 };
 
 struct policy_key {
-    u32 pid_ns_id;
-    u32 mnt_ns_id;
+    __u32 pid_ns_id;
+    __u32 mnt_ns_id;
 };
 
 // 일반 정책 플래그
@@ -35,7 +38,7 @@ struct policy_key {
 #define POLICY_FILE_DELETE  (1 << 5)   // 파일 삭제 허용
 struct file_policy {
     char path[MAX_PATH_LENGTH];
-    u32 flags;
+    __u32 flags;
 };
 
 // 네트워크 관련 플래그
@@ -47,8 +50,8 @@ struct file_policy {
 struct network_policy {
     __be32 ip;
     __be16 port;
-    u8 protocol;
-    u32 flags;
+    __u8 protocol;
+    __u32 flags;
 };
 
 // 프로세스 관련 플래그
@@ -58,13 +61,13 @@ struct network_policy {
 #define POLICY_PROC_PTRACE  (1 << 3)  // ptrace 사용 허용
 struct process_policy {
     char comm[16];
-    u32 flags;
+    __u32 flags;
 };
 
 struct policy_value {
-    u32 num_file_policies;
-    u32 num_network_policies;
-    u32 num_process_policies;
+    __u32 num_file_policies;
+    __u32 num_network_policies;
+    __u32 num_process_policies;
     struct file_policy file_policies[MAX_POLICIES_PER_CONTAINER];
     struct network_policy network_policies[MAX_POLICIES_PER_CONTAINER];
     struct process_policy process_policies[MAX_POLICIES_PER_CONTAINER];
@@ -76,12 +79,13 @@ struct {
     __uint(max_entries, MAX_CONTAINERS);
     __type(key, struct policy_key);
     __type(value, struct policy_value);
+    __uint(pinning, LIBBPF_PIN_BY_NAME);
 } policy_map SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __uint(max_entries, 1);
-    __type(key, u32);
+    __type(key, __u32);
     __type(value, char[MAX_PATH_LENGTH]);
 } path_buffer SEC(".maps");
 
@@ -163,9 +167,11 @@ static __always_inline int get_process_path(struct task_struct *task, char *path
 }
 
 static __always_inline u32 get_task_pid_ns_id(struct task_struct *task) {
-  return BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns).inum;
+    return BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
 }
 
 static __always_inline u32 get_task_mnt_ns_id(struct task_struct *task) {
-  return BPF_CORE_READ(task, nsproxy, mnt_ns, ns).inum;
+    return BPF_CORE_READ(task, nsproxy, mnt_ns, ns.inum);
 }
+
+#endif /* __SHARED_H */
