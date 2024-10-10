@@ -198,6 +198,31 @@ void init_event_table() {
     ADD_EVENT("sys_exit_access", SYS_EXIT_ACCESS);
     ADD_EVENT("sys_enter_faccessat", SYS_ENTER_FACCESSAT);
     ADD_EVENT("sys_exit_faccessat", SYS_EXIT_FACCESSAT);
+    ADD_EVENT("sys_enter_setxattr", SYS_ENTER_SETXATTR);
+    ADD_EVENT("sys_exit_setxattr", SYS_EXIT_SETXATTR);
+    ADD_EVENT("sys_enter_lsetxattr", SYS_ENTER_LSETXATTR);
+    ADD_EVENT("sys_exit_lsetxattr", SYS_EXIT_LSETXATTR);
+    ADD_EVENT("sys_enter_fsetxattr", SYS_ENTER_FSETXATTR);
+    ADD_EVENT("sys_exit_fsetxattr", SYS_EXIT_FSETXATTR);
+    ADD_EVENT("sys_enter_getxattr", SYS_ENTER_GETXATTR);
+    ADD_EVENT("sys_exit_getxattr", SYS_EXIT_GETXATTR);
+    ADD_EVENT("sys_enter_lgetxattr", SYS_ENTER_LGETXATTR);
+    ADD_EVENT("sys_exit_lgetxattr", SYS_EXIT_LGETXATTR);
+    ADD_EVENT("sys_enter_fgetxattr", SYS_ENTER_FGETXATTR);
+    ADD_EVENT("sys_exit_fgetxattr", SYS_EXIT_FGETXATTR);
+    ADD_EVENT("sys_enter_listxattr", SYS_ENTER_LISTXATTR);
+    ADD_EVENT("sys_exit_listxattr", SYS_EXIT_LISTXATTR);
+    ADD_EVENT("sys_enter_llistxattr", SYS_ENTER_LLISTXATTR);
+    ADD_EVENT("sys_exit_llistxattr", SYS_EXIT_LLISTXATTR);
+    ADD_EVENT("sys_enter_flistxattr", SYS_ENTER_FLISTXATTR);
+    ADD_EVENT("sys_exit_flistxattr", SYS_EXIT_FLISTXATTR);
+    ADD_EVENT("sys_enter_removexattr", SYS_ENTER_REMOVEXATTR);
+    ADD_EVENT("sys_exit_removexattr", SYS_EXIT_REMOVEXATTR);
+    ADD_EVENT("sys_enter_lremovexattr", SYS_ENTER_LREMOVEXATTR);
+    ADD_EVENT("sys_exit_lremovexattr", SYS_EXIT_LREMOVEXATTR);
+    ADD_EVENT("sys_enter_fremovexattr", SYS_ENTER_FREMOVEXATTR);
+    ADD_EVENT("sys_exit_fremovexattr", SYS_EXIT_FREMOVEXATTR);
+
 
     
     // 다른 이벤트들도 여기에 추가
