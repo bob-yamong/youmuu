@@ -236,9 +236,8 @@ static int handle_event(void *ctx, void *data, size_t data_sz)
     const struct event *e = data;
     __u64 key = e->cgroup_id;
     __u64 value = 1;
-    // printf("Cgroup ID: %llu\n", e->cgroup_id);
-    // container_cgroup_id 맵에서 현재 프로세스의 Cgroup_id를 찾습니다.
-    if (bpf_map__lookup_elem(skel->maps.container_cgroup_id, &key, sizeof(key), &value, sizeof(value), 0) == 0 ) {
+
+    if (bpf_map__lookup_elem(skel->maps.container_cgroup_id, &key, sizeof(key), &value, sizeof(value), 0) == 0) {
         printf("Process syscall: %s (nr=%d, pid=%d, tid=%d, ppid=%d, uid=%d, comm=%s, cgroup_id=%llu, cgroup_name=%s)\n",
                e->syscall, e->syscall_nr, e->pid, e->tid, e->ppid, e->uid, e->comm, e->cgroup_id, e->cgroup_name);
 
@@ -260,10 +259,13 @@ static int handle_event(void *ctx, void *data, size_t data_sz)
                 printf("Process exit\n");
                 break;
             case __NR_wait4:
+            case __NR_waitid:
                 printf("Waiting for child process\n");
                 break;
             case __NR_kill:
-                printf("Sending signal %lld to process %lld\n", e->args[1], e->args[0]);
+            case __NR_tkill:
+            case __NR_tgkill:
+                printf("Sending signal %lld to process/thread\n", e->args[1]);
                 break;
             case __NR_ptrace:
                 printf("Ptrace call with request %lld\n", e->args[0]);
@@ -272,7 +274,33 @@ static int handle_event(void *ctx, void *data, size_t data_sz)
             // 파일 시스템 관련
             case __NR_open:
             case __NR_openat:
-                printf("Opening file: %lld\n", e->args[0]);
+            case __NR_unlink:
+            case __NR_unlinkat:
+            case __NR_mkdir:
+            case __NR_mkdirat:
+            case __NR_rmdir:
+            case __NR_renameat:
+            case __NR_renameat2:
+            case __NR_symlink:
+            case __NR_symlinkat:
+            case __NR_link:
+            case __NR_linkat:
+            case __NR_chmod:
+            case __NR_fchmodat:
+            case __NR_chown:
+            case __NR_lchown:
+            case __NR_fchownat:
+            case __NR_access:
+            case __NR_faccessat:
+            case __NR_stat:
+            case __NR_lstat:
+            case __NR_newfstatat:
+            case __NR_truncate:
+            case __NR_readlink:
+            case __NR_readlinkat:
+                if (e->filename[0] != '\0') {
+                    printf("File operation: %s on file: %s\n", e->syscall, e->filename);
+                }
                 break;
             case __NR_close:
                 printf("Closing file descriptor: %lld\n", e->args[0]);
@@ -281,27 +309,6 @@ static int handle_event(void *ctx, void *data, size_t data_sz)
             case __NR_write:
                 printf("%s operation on fd %lld, %lld bytes\n", 
                        e->syscall_nr == __NR_read ? "Read" : "Write", e->args[0], e->args[2]);
-                break;
-            case __NR_unlink:
-                printf("Deleting file: %s\n", e->filename);
-                break;
-            case __NR_rename:
-                printf("Renaming file\n");
-                break;
-            case __NR_mkdir:
-                printf("Creating directory: %s\n", e->filename);
-                break;
-            case __NR_rmdir:
-                printf("Removing directory: %s\n", e->filename);
-                break;
-            case __NR_chdir:
-                printf("Changing directory to: %s\n", e->filename);
-                break;
-            case __NR_chmod:
-                printf("Changing file mode: %s\n", e->filename);
-                break;
-            case __NR_chown:
-                printf("Changing file ownership: %s\n", e->filename);
                 break;
             case __NR_mount:
                 printf("Mounting filesystem\n");
@@ -337,52 +344,34 @@ static int handle_event(void *ctx, void *data, size_t data_sz)
                 printf("%s socket option\n", e->syscall_nr == __NR_setsockopt ? "Setting" : "Getting");
                 break;
 
-            case __NR_waitid:
-                printf("Waiting for child process (waitid)\n");
-                break;
-            case __NR_tkill:
-                printf("Sending signal %lld to thread %lld\n", e->args[1], e->args[0]);
-                break;
-            case __NR_tgkill:
-                printf("Sending signal %lld to thread %lld in thread group %lld\n", e->args[2], e->args[1], e->args[0]);
-                break;
+            // 프로세스 제어 관련
             case __NR_setpgid:
-                printf("Setting process group ID: pid %lld, pgid %lld\n", e->args[0], e->args[1]);
-                break;
             case __NR_setsid:
-                printf("Creating new session\n");
-                break;
             case __NR_setuid:
             case __NR_setgid:
             case __NR_setreuid:
             case __NR_setregid:
             case __NR_setresuid:
             case __NR_setresgid:
-                printf("Changing process UID/GID\n");
-                break;
             case __NR_setgroups:
-                printf("Setting supplementary group IDs\n");
+            case __NR_capset:
+                printf("Changing process attributes: %s\n", e->syscall);
                 break;
             case __NR_prctl:
                 printf("Process control operation: %lld\n", e->args[0]);
                 break;
-            case __NR_capset:
-                printf("Setting process capabilities\n");
-                break;
             case __NR_setpriority:
-                printf("Setting process priority: %lld for process %lld\n", e->args[2], e->args[1]);
-                break;
             case __NR_sched_setscheduler:
-                printf("Setting scheduling policy and parameters for process %lld\n", e->args[0]);
-                break;
             case __NR_sched_setparam:
-                printf("Setting scheduling parameters for process %lld\n", e->args[0]);
-                break;
             case __NR_sched_setaffinity:
-                printf("Setting CPU affinity for process %lld\n", e->args[0]);
+                printf("Changing process scheduling: %s\n", e->syscall);
                 break;
             case __NR_sched_yield:
                 printf("Yielding processor\n");
+                break;
+
+            default:
+                printf("Other system call: %s\n", e->syscall);
                 break;
         }
     }

@@ -5,6 +5,7 @@
 #include <bpf/bpf_tracing.h>
 #include <bpf/bpf_core_read.h>
 #include "event.h"
+#include "syscall_numbers.h"
 
 typedef unsigned int u32;
 
@@ -48,19 +49,19 @@ static inline int my_memcmp(const void* s1, const void* s2, size_t n) {
     return 0;
 }
 
-static __always_inline __u64 get_cgroup_id() {
-    struct task_struct *cur_tsk = (struct task_struct *)bpf_get_current_task();
-    if (cur_tsk == NULL) {
-        bpf_printk("failed to get cur task\n");
-        return 0;
-    }
+// static __always_inline __u64 get_cgroup_id() {
+//     struct task_struct *cur_tsk = (struct task_struct *)bpf_get_current_task();
+//     if (cur_tsk == NULL) {
+//         bpf_printk("failed to get cur task\n");
+//         return 0;
+//     }
 
-    int mem_cgrp_id = memory_cgrp_id;
+//     int mem_cgrp_id = memory_cgrp_id;
 
-    __u64 cgroup_id = BPF_CORE_READ(cur_tsk, cgroups, subsys[mem_cgrp_id], cgroup, kn, id);
+//     __u64 cgroup_id = BPF_CORE_READ(cur_tsk, cgroups, subsys[mem_cgrp_id], cgroup, kn, id);
 
-    return cgroup_id;
-}
+//     return cgroup_id;
+// }
 
 static __always_inline int get_cgroup_name(char *buf, size_t sz) {
     struct task_struct *cur_tsk = (struct task_struct *)bpf_get_current_task();
@@ -84,7 +85,6 @@ static __always_inline int get_cgroup_name(char *buf, size_t sz) {
 
 static __always_inline int should_monitor(u32 ppid, u64 cgroup_id) {
     u32 *monitored;
-    // u32 zero = 0;
 
     monitored = bpf_map_lookup_elem(&container_cgroup_id, &cgroup_id);
     if (monitored)
@@ -95,6 +95,26 @@ static __always_inline int should_monitor(u32 ppid, u64 cgroup_id) {
         return 1;
     
     return 0;
+}
+
+// 파일 이름을 첫 번째 인자로 가지는 시스템 콜 번호를 저장하는 배열
+static const int syscalls_with_filename[] = {
+    __NR_open, __NR_openat, __NR_unlink, __NR_unlinkat, __NR_execve, __NR_execveat,
+    __NR_mkdir, __NR_mkdirat, __NR_rmdir, __NR_renameat, __NR_renameat2,
+    __NR_symlink, __NR_symlinkat, __NR_link, __NR_linkat,
+    __NR_chmod, __NR_fchmodat, __NR_chown, __NR_lchown, __NR_fchownat,
+    __NR_access, __NR_faccessat, __NR_stat, __NR_lstat, __NR_newfstatat,
+    __NR_truncate, __NR_readlink, __NR_readlinkat
+};
+
+// 시스템 콜이 파일 이름을 첫 번째 인자로 가지는지 확인하는 함수
+static inline bool has_filename_arg(int syscall_nr) {
+    for (int i = 0; i < sizeof(syscalls_with_filename) / sizeof(syscalls_with_filename[0]); i++) {
+        if (syscall_nr == syscalls_with_filename[i]) {
+            return true;
+        }
+    }
+    return false;
 }
 
 SEC("tracepoint/raw_syscalls/sys_enter")
@@ -155,22 +175,25 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     e->args[4] = ctx->args[4];
     e->args[5] = ctx->args[5];
 
-    // execve 시스템 콜인 경우 filename과 argv 읽기
-    // if (syscall_nr == __NR_execve)
-    if (syscall_name && my_memcmp(syscall_name, "execve", 6) == 0) {
+    // 파일 이름을 첫 번째 인자로 가지는 시스템 콜 처리
+    if (has_filename_arg(syscall_nr)) {
         const char *filename_ptr = (const char *)ctx->args[0];
-        bpf_probe_read_str(e->filename, sizeof(e->filename), filename_ptr);
+        bpf_probe_read_user_str(e->filename, sizeof(e->filename), filename_ptr);
+    } else {
+        e->filename[0] = '\0';
+    }
 
+    // execve 시스템 콜인 경우 argv 읽기
+    if (syscall_nr == __NR_execve || syscall_nr == __NR_execveat) {
         const char **argv = (const char **)ctx->args[1];
         for (int i = 0; i < MAX_ARGS; i++) {
             const char *arg;
-            bpf_probe_read(&arg, sizeof(arg), &argv[i]);
+            bpf_probe_read_user(&arg, sizeof(arg), &argv[i]);
             if (!arg)
                 break;
-            bpf_probe_read_str(e->argv[i], sizeof(e->argv[i]), arg);
+            bpf_probe_read_user_str(e->argv[i], sizeof(e->argv[i]), arg);
         }
     } else {
-        e->filename[0] = '\0';
         for (int i = 0; i < MAX_ARGS; i++) {
             e->argv[i][0] = '\0';
         }
