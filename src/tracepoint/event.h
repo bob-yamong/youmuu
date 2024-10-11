@@ -188,6 +188,33 @@
 #define SYS_EXIT_DUP3 182
 #define SYS_ENTER_FLOCK 183
 #define SYS_EXIT_FLOCK 184
+#define SYS_ENTER_READ 185
+#define SYS_EXIT_READ 186
+#define SYS_ENTER_PREAD64 187   // pread(name changed to pread64)
+#define SYS_EXIT_PREAD64 188
+#define SYS_ENTER_READV 189
+#define SYS_EXIT_READV 190
+#define SYS_ENTER_PREADV 191
+#define SYS_EXIT_PREADV 192
+#define SYS_ENTER_PREADV2 193
+#define SYS_EXIT_PREADV2 194
+#define SYS_ENTER_WRITE 195
+#define SYS_EXIT_WRITE 196
+#define SYS_ENTER_PWRITE64 197  // pwrite(name changed to pwrite64)
+#define SYS_EXIT_PWRITE64 198
+#define SYS_ENTER_WRITEV 199
+#define SYS_EXIT_WRITEV 200
+#define SYS_ENTER_PWRITEV 201
+#define SYS_EXIT_PWRITEV 202
+#define SYS_ENTER_PWRITEV2 203
+#define SYS_EXIT_PWRITEV2 204
+#define SYS_ENTER_LSEEK 205
+#define SYS_EXIT_LSEEK 206
+#define SYS_ENTER_SENDFILE64 207    // sendfile(name changed to sendfile64)
+#define SYS_EXIT_SENDFILE64 208
+
+
+
 
 
 

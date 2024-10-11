@@ -234,6 +234,30 @@ void init_event_table() {
     ADD_EVENT("sys_exit_dup3", SYS_EXIT_DUP3);
     ADD_EVENT("sys_enter_flock", SYS_ENTER_FLOCK);
     ADD_EVENT("sys_exit_flock", SYS_EXIT_FLOCK);
+    ADD_EVENT("sys_enter_read", SYS_ENTER_READ);
+    ADD_EVENT("sys_exit_read", SYS_EXIT_READ);
+    ADD_EVENT("sys_enter_pread64", SYS_ENTER_PREAD64);
+    ADD_EVENT("sys_exit_pread64", SYS_EXIT_PREAD64);
+    ADD_EVENT("sys_enter_readv", SYS_ENTER_READV);
+    ADD_EVENT("sys_exit_readv", SYS_EXIT_READV);
+    ADD_EVENT("sys_enter_preadv", SYS_ENTER_PREADV);
+    ADD_EVENT("sys_exit_preadv", SYS_EXIT_PREADV);
+    ADD_EVENT("sys_enter_preadv2", SYS_ENTER_PREADV2);
+    ADD_EVENT("sys_exit_preadv2", SYS_EXIT_PREADV2);
+    ADD_EVENT("sys_enter_write", SYS_ENTER_WRITE);
+    ADD_EVENT("sys_exit_write", SYS_EXIT_WRITE);
+    ADD_EVENT("sys_enter_pwrite64", SYS_ENTER_PWRITE64);
+    ADD_EVENT("sys_exit_pwrite64", SYS_EXIT_PWRITE64);
+    ADD_EVENT("sys_enter_writev", SYS_ENTER_WRITEV);
+    ADD_EVENT("sys_exit_writev", SYS_EXIT_WRITEV);
+    ADD_EVENT("sys_enter_pwritev", SYS_ENTER_PWRITEV);
+    ADD_EVENT("sys_exit_pwritev", SYS_EXIT_PWRITEV);
+    ADD_EVENT("sys_enter_pwritev2", SYS_ENTER_PWRITEV2);
+    ADD_EVENT("sys_exit_pwritev2", SYS_EXIT_PWRITEV2);
+    ADD_EVENT("sys_enter_lseek", SYS_ENTER_LSEEK);
+    ADD_EVENT("sys_exit_lseek", SYS_EXIT_LSEEK);
+    ADD_EVENT("sys_enter_sendfile64", SYS_ENTER_SENDFILE64);
+    ADD_EVENT("sys_exit_sendfile64", SYS_EXIT_SENDFILE64);
 
 
     
