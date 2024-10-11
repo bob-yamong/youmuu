@@ -222,6 +222,18 @@ void init_event_table() {
     ADD_EVENT("sys_exit_lremovexattr", SYS_EXIT_LREMOVEXATTR);
     ADD_EVENT("sys_enter_fremovexattr", SYS_ENTER_FREMOVEXATTR);
     ADD_EVENT("sys_exit_fremovexattr", SYS_EXIT_FREMOVEXATTR);
+    ADD_EVENT("sys_enter_ioctl", SYS_ENTER_IOCTL);
+    ADD_EVENT("sys_exit_ioctl", SYS_EXIT_IOCTL);
+    ADD_EVENT("sys_enter_fcntl", SYS_ENTER_FCNTL);
+    ADD_EVENT("sys_exit_fcntl", SYS_EXIT_FCNTL);
+    ADD_EVENT("sys_enter_dup", SYS_ENTER_DUP);
+    ADD_EVENT("sys_exit_dup", SYS_EXIT_DUP);
+    ADD_EVENT("sys_enter_dup2", SYS_ENTER_DUP2);
+    ADD_EVENT("sys_exit_dup2", SYS_EXIT_DUP2);
+    ADD_EVENT("sys_enter_dup3", SYS_ENTER_DUP3);
+    ADD_EVENT("sys_exit_dup3", SYS_EXIT_DUP3);
+    ADD_EVENT("sys_enter_flock", SYS_ENTER_FLOCK);
+    ADD_EVENT("sys_exit_flock", SYS_EXIT_FLOCK);
 
 
     
