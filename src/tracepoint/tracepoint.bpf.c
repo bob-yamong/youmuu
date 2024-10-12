@@ -6366,10 +6366,336 @@ int trace_sys_exit_sendfile64(struct trace_event_raw_sys_exit *ctx) {
     return 0;
 }
 
+SEC("tracepoint/syscalls/sys_enter_inotify_init")
+int trace_sys_enter_inotify_init(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = SYS_ENTER_INOTIFY_INIT;
 
+    struct current_task ct = get_task_struct();
 
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
 
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            bpf_printk("Enter inotify_init: ns_id=%llu, pid=%u\n", 
+                    ct.ns_id, ct.pid);
+        }
+    }
 
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_inotify_init")
+int trace_sys_exit_inotify_init(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = SYS_EXIT_INOTIFY_INIT;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit inotify_init: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit inotify_init: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_inotify_init1")
+int trace_sys_enter_inotify_init1(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = SYS_ENTER_INOTIFY_INIT1;
+
+    __u32 flags = BPF_CORE_READ(ctx, args[0]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            bpf_printk("Enter inotify_init1: ns_id=%llu, pid=%u, flags=%u\n", 
+                    ct.ns_id, ct.pid, flags);
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_inotify_init1")
+int trace_sys_exit_inotify_init1(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = SYS_EXIT_INOTIFY_INIT1;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit inotify_init1: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit inotify_init1: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_inotify_add_watch")
+int trace_sys_enter_inotify_add_watch(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = SYS_ENTER_INOTIFY_ADD_WATCH;
+
+    __s32 fd = BPF_CORE_READ(ctx, args[0]);
+    char *pathname = (char *)BPF_CORE_READ(ctx, args[1]);
+    __u32 mask = BPF_CORE_READ(ctx, args[2]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            __u32 buf_key = 0;
+            char *buf_buf = bpf_map_lookup_elem(&buf_map, &buf_key);
+            if (buf_buf) {
+                long buf_err = bpf_probe_read_user(buf_buf, sizeof(char) * 256, pathname);
+                if (buf_err == 0) {
+                    bpf_printk("Enter inotify_add_watch: ns_id=%llu, pid=%u, fd=%d, pathname=%s, mask=%u\n", 
+                        ct.ns_id, ct.pid, fd, buf_buf, mask);
+                } else {
+                    bpf_printk("Enter inotify_add_watch: ns_id=%llu, pid=%u, failed to read pathname. Errors: pathname=%ld\n", 
+                        ct.ns_id, ct.pid, buf_err);
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_inotify_add_watch")
+int trace_sys_exit_inotify_add_watch(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = SYS_EXIT_INOTIFY_ADD_WATCH;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit inotify_add_watch: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit inotify_add_watch: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_inotify_rm_watch")
+int trace_sys_enter_inotify_rm_watch(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = SYS_ENTER_INOTIFY_RM_WATCH;
+
+    __s32 fd = BPF_CORE_READ(ctx, args[0]);
+    __s32 wd = BPF_CORE_READ(ctx, args[1]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+        bpf_printk("Enter inotify_rm_watch: ns_id=%llu, pid=%u, fd=%d, wd=%d\n", 
+            ct.ns_id, ct.pid, fd, wd);
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_inotify_rm_watch")
+int trace_sys_exit_inotify_rm_watch(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = SYS_EXIT_INOTIFY_RM_WATCH;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit inotify_rm_watch: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit inotify_rm_watch: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_fanotify_init")
+int trace_sys_enter_fanotify_init(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = SYS_ENTER_FANOTIFY_INIT;
+
+    __u32 flags = BPF_CORE_READ(ctx, args[0]);
+    __u32 event_f_flags = BPF_CORE_READ(ctx, args[1]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            bpf_printk("Enter fanotify_init: ns_id=%llu, pid=%u, flags=%u, event_f_flags=%u\n", 
+                ct.ns_id, ct.pid, flags, event_f_flags);
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_fanotify_init")
+int trace_sys_exit_fanotify_init(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = SYS_EXIT_FANOTIFY_INIT;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit fanotify_init: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit fanotify_init: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_fanotify_mark")
+int trace_sys_enter_fanotify_mark(struct trace_event_raw_sys_enter *ctx) {
+    __u32 event_id = SYS_ENTER_FANOTIFY_MARK;
+
+    __s32 fanotify_fd = BPF_CORE_READ(ctx, args[0]);
+    __u32 flags = BPF_CORE_READ(ctx, args[1]);
+    __u64 mask = BPF_CORE_READ(ctx, args[2]);
+    __s32 fd = BPF_CORE_READ(ctx, args[3]);
+    char *pathname = (char *)BPF_CORE_READ(ctx, args[4]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            __u32 buf_key = 0;
+            char *buf_buf = bpf_map_lookup_elem(&buf_map, &buf_key);
+            if (buf_buf) {
+                if (pathname == NULL) {
+                    bpf_printk("Enter fanotify_mark: ns_id=%llu, pid=%u, fanotify_fd=%d, flags=%u, mask=%llu, fd=%d, pathname=NULL\n", 
+                        ct.ns_id, ct.pid, fanotify_fd, flags, mask, fd);
+                    return 0;
+                }
+                long buf_err = bpf_probe_read_user(buf_buf, sizeof(char) * 256, pathname);
+                if (buf_err == 0) {
+                    bpf_printk("Enter fanotify_mark: ns_id=%llu, pid=%u, fanotify_fd=%d, flags=%u, mask=%llu, fd=%d, pathname=%s\n", 
+                        ct.ns_id, ct.pid, fanotify_fd, flags, mask, fd, buf_buf);
+                } else {
+                    bpf_printk("Enter fanotify_mark: ns_id=%llu, pid=%u, failed to read pathname. Errors: pathname=%ld\n", 
+                        ct.ns_id, ct.pid, buf_err);
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_fanotify_mark")
+int trace_sys_exit_fanotify_mark(struct trace_event_raw_sys_exit *ctx) {
+    __u32 event_id = SYS_EXIT_FANOTIFY_MARK;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit fanotify_mark: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit fanotify_mark: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
 
 
 

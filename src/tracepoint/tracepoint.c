@@ -258,6 +258,18 @@ void init_event_table() {
     ADD_EVENT("sys_exit_lseek", SYS_EXIT_LSEEK);
     ADD_EVENT("sys_enter_sendfile64", SYS_ENTER_SENDFILE64);
     ADD_EVENT("sys_exit_sendfile64", SYS_EXIT_SENDFILE64);
+    ADD_EVENT("sys_enter_inotify_init", SYS_ENTER_INOTIFY_INIT);
+    ADD_EVENT("sys_exit_inotify_init", SYS_EXIT_INOTIFY_INIT);
+    ADD_EVENT("sys_enter_inotify_init1", SYS_ENTER_INOTIFY_INIT1);
+    ADD_EVENT("sys_exit_inotify_init1", SYS_EXIT_INOTIFY_INIT1);
+    ADD_EVENT("sys_enter_inotify_add_watch", SYS_ENTER_INOTIFY_ADD_WATCH);
+    ADD_EVENT("sys_exit_inotify_add_watch", SYS_EXIT_INOTIFY_ADD_WATCH);
+    ADD_EVENT("sys_enter_inotify_rm_watch", SYS_ENTER_INOTIFY_RM_WATCH);
+    ADD_EVENT("sys_exit_inotify_rm_watch", SYS_EXIT_INOTIFY_RM_WATCH);
+    ADD_EVENT("sys_enter_fanotify_init", SYS_ENTER_FANOTIFY_INIT);
+    ADD_EVENT("sys_exit_fanotify_init", SYS_EXIT_FANOTIFY_INIT);
+    ADD_EVENT("sys_enter_fanotify_mark", SYS_ENTER_FANOTIFY_MARK);
+    ADD_EVENT("sys_exit_fanotify_mark", SYS_EXIT_FANOTIFY_MARK);
 
 
     

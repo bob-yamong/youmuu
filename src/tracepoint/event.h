@@ -212,6 +212,20 @@
 #define SYS_EXIT_LSEEK 206
 #define SYS_ENTER_SENDFILE64 207    // sendfile(name changed to sendfile64)
 #define SYS_EXIT_SENDFILE64 208
+#define SYS_ENTER_INOTIFY_INIT 209
+#define SYS_EXIT_INOTIFY_INIT 210
+#define SYS_ENTER_INOTIFY_INIT1 211
+#define SYS_EXIT_INOTIFY_INIT1 212
+#define SYS_ENTER_INOTIFY_ADD_WATCH 213
+#define SYS_EXIT_INOTIFY_ADD_WATCH 214
+#define SYS_ENTER_INOTIFY_RM_WATCH 215
+#define SYS_EXIT_INOTIFY_RM_WATCH 216
+#define SYS_ENTER_FANOTIFY_INIT 217
+#define SYS_EXIT_FANOTIFY_INIT 218
+#define SYS_ENTER_FANOTIFY_MARK 219
+#define SYS_EXIT_FANOTIFY_MARK 220
+// Synchronized I/O, Asynchronous I/O, Miscellaneous, Multiplexed I/O events is not included -> not essential
+// mount, umount, umount2 ... , pivot_root
 
 
 
