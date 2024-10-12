@@ -90,6 +90,8 @@ void init_event_table() {
     ADD_EVENT("sys_exit_sethostname", SYS_EXIT_SETHOSTNAME);
     ADD_EVENT("sys_enter_setdomainname", SYS_ENTER_SETDOMAINNAME);
     ADD_EVENT("sys_exit_setdomainname", SYS_EXIT_SETDOMAINNAME);
+    ADD_EVENT("sys_enter_ioctl", SYS_ENTER_IOCTL);
+    ADD_EVENT("sys_exit_ioctl", SYS_EXIT_IOCTL);
     ADD_EVENT("sys_enter_close", SYS_ENTER_CLOSE);
     ADD_EVENT("sys_exit_close", SYS_EXIT_CLOSE);
     ADD_EVENT("sys_enter_creat", SYS_ENTER_CREAT);
@@ -222,8 +224,6 @@ void init_event_table() {
     ADD_EVENT("sys_exit_lremovexattr", SYS_EXIT_LREMOVEXATTR);
     ADD_EVENT("sys_enter_fremovexattr", SYS_ENTER_FREMOVEXATTR);
     ADD_EVENT("sys_exit_fremovexattr", SYS_EXIT_FREMOVEXATTR);
-    ADD_EVENT("sys_enter_ioctl", SYS_ENTER_IOCTL);
-    ADD_EVENT("sys_exit_ioctl", SYS_EXIT_IOCTL);
     ADD_EVENT("sys_enter_fcntl", SYS_ENTER_FCNTL);
     ADD_EVENT("sys_exit_fcntl", SYS_EXIT_FCNTL);
     ADD_EVENT("sys_enter_dup", SYS_ENTER_DUP);
