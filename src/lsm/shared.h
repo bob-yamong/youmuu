@@ -1,15 +1,30 @@
 #ifndef __SHARED_H
 #define __SHARED_H
 
+#include "vmlinux.h"
+
 #include <bpf/bpf_core_read.h>
+#include <bpf/bpf_helpers.h>
+#include <bpf/bpf_tracing.h>
 
-#define BPF_FS_PATH "/sys/fs/bpf"
-#define MAP_PIN_PATH "/sys/fs/bpf/policy_map"
-
+#define TASK_COMM_LEN 16
+#define MAX_FILENAME_LEN 127
 #define MAX_CONTAINERS 1000
 #define MAX_POLICY_SIZE 1024
 #define MAX_PATH_LENGTH 256
+#define MAX_STRING_SIZE 256
 #define MAX_POLICIES_PER_CONTAINER 64
+
+enum section_nr {
+	SECID_BPRM_CHECK_SECURITY,
+	SECID_FILE_OPEN,
+	SECID_SB_MOUNT,
+	SECID_SB_REMOUNT,
+	SECID_SB_UMOUNT,
+	SECID_SOCKET_BIND,
+	SECID_SOCKET_CONNECT,
+	SECID_TASK_FIX_SETUID,
+};
 
 enum policy_type {
     POLICY_FILE,
@@ -89,89 +104,91 @@ struct {
     __type(value, char[MAX_PATH_LENGTH]);
 } path_buffer SEC(".maps");
 
-static __always_inline int match_policy(struct task_struct *task, enum policy_type type, void *data) {
-    struct policy_key key = {};
-    key.pid_ns_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
-    key.mnt_ns_id = BPF_CORE_READ(task, nsproxy, mnt_ns, ns.inum);
+typedef struct bufkey {
+  char path[MAX_STRING_SIZE];
+  char source[MAX_STRING_SIZE];
+} bufs_k;
 
-    struct policy_value *value = bpf_map_lookup_elem(&policy_map, &key);
-    if (!value)
+typedef struct {
+  __u64 ts;
+
+  // conatiner identifier
+  __u32 pid_id;
+  __u32 mnt_id;
+
+  // process identifier
+  __u32 host_ppid;
+  __u32 host_pid;
+
+  __u32 ppid;
+  __u32 pid;
+  __u32 uid;
+
+  // control group identifier
+  __u64 cgroup_id;
+
+  enum section_nr event_id;
+  __s64 retval;
+
+  __u8 comm[TASK_COMM_LEN];
+
+  bufs_k data;
+} event;
+
+struct {
+    __uint(type, BPF_MAP_TYPE_RINGBUF);
+    __uint(max_entries, 1 << 24);  // 16MB 크기
+} events SEC(".maps");
+
+static __always_inline __u64 get_cgroup_id() {
+    struct task_struct *cur_tsk = (struct task_struct *)bpf_get_current_task();
+    if (cur_tsk == NULL) {
+        bpf_printk("failed to get cur task\n");
         return 0;
-
-    // Check source if specified
-    if (value->source[0] != '\0') {
-        char *source_path = bpf_map_lookup_elem(&path_buffer, &(u32){0});
-        if (!source_path)
-            return 0;
-        
-        struct file *exe_file = BPF_CORE_READ(task, mm, exe_file);
-        struct path exe_path = BPF_CORE_READ(exe_file, f_path);
-        if (bpf_d_path(&exe_path, source_path, MAX_PATH_LENGTH) <= 0)
-            return 0;
-
-        if (bpf_strncmp(value->source, source_path, sizeof(value->source)) != 0)
-            return 0;
     }
 
-    switch (type) {
-        case POLICY_FILE: {
-            char *path = (char *)data;
-            #pragma unroll
-            for (int i = 0; i < MAX_POLICIES_PER_CONTAINER; i++) {
-                if (i >= value->num_file_policies)
-                    break;
-                if (bpf_strncmp(value->file_policies[i].path, path, MAX_PATH_LENGTH) == 0)
-                    return value->file_policies[i].flags;
-            }
-            break;
-        }
-        case POLICY_NETWORK: {
-            struct network_policy *net = (struct network_policy *)data;
-            #pragma unroll
-            for (int i = 0; i < MAX_POLICIES_PER_CONTAINER; i++) {
-                if (i >= value->num_network_policies)
-                    break;
-                if (value->network_policies[i].ip == net->ip &&
-                    value->network_policies[i].port == net->port &&
-                    value->network_policies[i].protocol == net->protocol)
-                    return value->network_policies[i].flags;
-            }
-            break;
-        }
-        case POLICY_PROCESS: {
-            char *comm = (char *)data;
-            #pragma unroll
-            for (int i = 0; i < MAX_POLICIES_PER_CONTAINER; i++) {
-                if (i >= value->num_process_policies)
-                    break;
-                if (bpf_strncmp(value->process_policies[i].comm, comm, 16) == 0)
-                    return value->process_policies[i].flags;
-            }
-            break;
-        }
-    }
+    int mem_cgrp_id = memory_cgrp_id;
 
-    return 0;
+    __u64 cgroup_id = BPF_CORE_READ(cur_tsk, cgroups, subsys[mem_cgrp_id], cgroup, kn, id);
+
+    return cgroup_id;
 }
 
-static __always_inline int get_process_path(struct task_struct *task, char *path_buf, int buf_size) {
-    struct file *exe_file;
-    struct path exe_path;
-
-    exe_file = BPF_CORE_READ(task, mm, exe_file);
-    if (!exe_file)
-        return -1;
-
-    exe_path = BPF_CORE_READ(exe_file, f_path);
-    return bpf_d_path(&exe_path, path_buf, buf_size);
+static __always_inline __u32 get_task_pid_vnr(struct task_struct *task) {
+  struct pid *pid = BPF_CORE_READ(task, thread_pid);
+  unsigned int level = BPF_CORE_READ(pid, level);
+  return BPF_CORE_READ(pid, numbers[level].nr);
 }
 
-static __always_inline u32 get_task_pid_ns_id(struct task_struct *task) {
-    return BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
-}
+static __always_inline int init_context(event *event_data) {
+  struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+  if (!task)
+    return -1;
 
-static __always_inline u32 get_task_mnt_ns_id(struct task_struct *task) {
-    return BPF_CORE_READ(task, nsproxy, mnt_ns, ns.inum);
+  event_data->ts = bpf_ktime_get_ns();
+  event_data->uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+  event_data->cgroup_id = get_cgroup_id();
+
+  // Use BPF_CORE_READ for accessing task struct members
+  event_data->host_ppid = BPF_CORE_READ(task, real_parent, tgid);
+  event_data->host_pid = bpf_get_current_pid_tgid() >> 32;
+
+  __u32 pid = get_task_pid_vnr(BPF_CORE_READ(task, group_leader));
+  if (event_data->host_pid == pid) { // host
+    event_data->pid_id = 0;
+    event_data->mnt_id = 0;
+
+    event_data->ppid = event_data->host_ppid;
+    event_data->pid = event_data->host_pid;
+  } else { // container
+    event_data->pid_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
+    event_data->mnt_id = BPF_CORE_READ(task, nsproxy, mnt_ns, ns.inum);
+
+    event_data->ppid = get_task_pid_vnr(BPF_CORE_READ(task, real_parent));
+    event_data->pid = pid;
+  }
+
+  return 0;
 }
 
 #endif /* __SHARED_H */
