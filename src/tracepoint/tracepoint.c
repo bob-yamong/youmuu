@@ -288,6 +288,12 @@ void init_event_table() {
     ADD_EVENT("sys_exit_fanotify_init", SYS_EXIT_FANOTIFY_INIT);
     ADD_EVENT("sys_enter_fanotify_mark", SYS_ENTER_FANOTIFY_MARK);
     ADD_EVENT("sys_exit_fanotify_mark", SYS_EXIT_FANOTIFY_MARK);
+    ADD_EVENT("sys_enter_mount", SYS_ENTER_MOUNT);
+    ADD_EVENT("sys_exit_mount", SYS_EXIT_MOUNT);
+    ADD_EVENT("sys_enter_umount", SYS_ENTER_UMOUNT);
+    ADD_EVENT("sys_exit_umount", SYS_EXIT_UMOUNT);
+    ADD_EVENT("sys_enter_move_mount", SYS_ENTER_MOVE_MOUNT);
+    ADD_EVENT("sys_exit_move_mount", SYS_EXIT_MOVE_MOUNT);
 
 
     

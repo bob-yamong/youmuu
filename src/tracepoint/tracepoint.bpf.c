@@ -1988,7 +1988,7 @@ int trace_sys_enter_openat2(struct trace_event_raw_sys_enter *ctx) {
                     bpf_printk("Enter openat2: ns_id=%llu, pid=%u, dirfd=%d, pathname=%s, flags=%llu, mode=%llu, resolve=%llu, size=%llu\n", 
                             ct.ns_id, ct.pid, dirfd, path_buf, how_buf.flags, how_buf.mode, how_buf.resolve, size);
                 } else {
-                    bpf_printk("Enter openat2: ns_id=%llu, pid=%u, dirfd=%d, pathname_ptr=%p (failed to read pathname), how_ptr=%p (failed to read open_how), size=%llu\n", 
+                    bpf_printk("Enter openat2: ns_id=%llu, pid=%u, dirfd=%d, pathname_ptr=%p, how_ptr=%p (failed to read pathname or open_how), size=%llu\n", 
                             ct.ns_id, ct.pid, dirfd, pathname, how, size);
                 }
             }
@@ -2356,7 +2356,7 @@ int trace_sys_enter_rename(struct trace_event_raw_sys_enter *ctx) {
                     bpf_printk("Enter rename: ns_id=%llu, pid=%u, oldpath=%s, newpath=%s\n", 
                             ct.ns_id, ct.pid, old_path_buf, new_path_buf);
                 } else {
-                    bpf_printk("Enter rename: ns_id=%llu, pid=%u, oldpath_ptr=%p, newpath_ptr=%p (failed to read pathname)\n", 
+                    bpf_printk("Enter rename: ns_id=%llu, pid=%u, oldpath_ptr=%p, newpath_ptr=%p (failed to read old or new pathname)\n", 
                             ct.ns_id, ct.pid, oldpath, newpath);
                 }
             }
@@ -2422,7 +2422,7 @@ int trace_sys_enter_renameat(struct trace_event_raw_sys_enter *ctx) {
                     bpf_printk("Enter renameat: ns_id=%llu, pid=%u, olddirfd=%d, oldpath=%s, newdirfd=%d, newpath=%s\n", 
                             ct.ns_id, ct.pid, olddirfd, old_path_buf, newdirfd, new_path_buf);
                 } else {
-                    bpf_printk("Enter renameat: ns_id=%llu, pid=%u, olddirfd=%d, oldpath_ptr=%p, newdirfd=%d, newpath_ptr=%p (failed to read pathname)\n", 
+                    bpf_printk("Enter renameat: ns_id=%llu, pid=%u, olddirfd=%d, oldpath_ptr=%p, newdirfd=%d, newpath_ptr=%p (failed to read old or new pathname)\n", 
                             ct.ns_id, ct.pid, olddirfd, oldpath, newdirfd, newpath);
                 }
             }
@@ -2489,7 +2489,7 @@ int trace_sys_enter_renameat2(struct trace_event_raw_sys_enter *ctx) {
                     bpf_printk("Enter renameat2: ns_id=%llu, pid=%u, olddirfd=%d, oldpath=%s, newdirfd=%d, newpath=%s, flags=%u\n", 
                             ct.ns_id, ct.pid, olddirfd, old_path_buf, newdirfd, new_path_buf, flags);
                 } else {
-                    bpf_printk("Enter renameat2: ns_id=%llu, pid=%u, olddirfd=%d, oldpath_ptr=%p, newdirfd=%d, newpath_ptr=%p (failed to read pathname), flags=%u\n", 
+                    bpf_printk("Enter renameat2: ns_id=%llu, pid=%u, olddirfd=%d, oldpath_ptr=%p, newdirfd=%d, newpath_ptr=%p (failed to read old or new pathname), flags=%u\n", 
                             ct.ns_id, ct.pid, olddirfd, oldpath, newdirfd, newpath, flags);
                 }
             }
@@ -3117,7 +3117,7 @@ int trace_sys_enter_pivot_root(struct trace_event_raw_sys_enter *ctx) {
                     bpf_printk("Enter pivot_root: ns_id=%llu, pid=%u, new_root=%s, put_old=%s\n", 
                             ct.ns_id, ct.pid, new_root_buf, put_old_buf);
                 } else {
-                    bpf_printk("Enter pivot_root: ns_id=%llu, pid=%u, new_root_ptr=%p, put_old_ptr=%p (failed to read path)\n", 
+                    bpf_printk("Enter pivot_root: ns_id=%llu, pid=%u, new_root_ptr=%p, put_old_ptr=%p (failed to read old or new root path)\n", 
                             ct.ns_id, ct.pid, new_root, put_old);
                 }
             }
@@ -3283,7 +3283,7 @@ int trace_sys_enter_link(struct trace_event_raw_sys_enter *ctx) {
                     bpf_printk("Enter link: ns_id=%llu, pid=%u, oldpath=%s, newpath=%s\n", 
                             ct.ns_id, ct.pid, old_path_buf, new_path_buf);
                 } else {
-                    bpf_printk("Enter link: ns_id=%llu, pid=%u, oldpath_ptr=%p, newpath_ptr=%p (failed to read pathname)\n", 
+                    bpf_printk("Enter link: ns_id=%llu, pid=%u, oldpath_ptr=%p, newpath_ptr=%p (failed to read old or new pathname)\n", 
                             ct.ns_id, ct.pid, oldpath, newpath);
                 }
             }
@@ -3349,7 +3349,7 @@ int trace_sys_enter_linkat(struct trace_event_raw_sys_enter *ctx) {
                     bpf_printk("Enter linkat: ns_id=%llu, pid=%u, olddirfd=%d, oldpath=%s, newdirfd=%d, newpath=%s, flags=%d\n", 
                             ct.ns_id, ct.pid, olddirfd, old_path_buf, newdirfd, new_path_buf, flags);
                 } else {
-                    bpf_printk("Enter linkat: ns_id=%llu, pid=%u, olddirfd=%d, oldpath_ptr=%p, newdirfd=%d, newpath_ptr=%p (failed to read pathname), flags=%d\n", 
+                    bpf_printk("Enter linkat: ns_id=%llu, pid=%u, olddirfd=%d, oldpath_ptr=%p, newdirfd=%d, newpath_ptr=%p (failed to read old or new pathname), flags=%d\n", 
                             ct.ns_id, ct.pid, olddirfd, oldpath, newdirfd, newpath, flags);
                 }
             }
@@ -3413,7 +3413,7 @@ int trace_sys_enter_symlink(struct trace_event_raw_sys_enter *ctx) {
                     bpf_printk("Enter symlink: ns_id=%llu, pid=%u, target=%s, linkpath=%s\n", 
                             ct.ns_id, ct.pid, target_buf, link_buf);
                 } else {
-                    bpf_printk("Enter symlink: ns_id=%llu, pid=%u, target_ptr=%p, linkpath_ptr=%p (failed to read target)\n", 
+                    bpf_printk("Enter symlink: ns_id=%llu, pid=%u, target_ptr=%p, linkpath_ptr=%p (failed to read target or linkpath)\n", 
                             ct.ns_id, ct.pid);
                 }
             }
@@ -3478,7 +3478,7 @@ int trace_sys_enter_symlinkat(struct trace_event_raw_sys_enter *ctx) {
                     bpf_printk("Enter symlinkat: ns_id=%llu, pid=%u, target=%s, dirfd=%d, linkpath=%s\n", 
                             ct.ns_id, ct.pid, target_buf, dirfd, link_buf);
                 } else {
-                    bpf_printk("Enter symlinkat: ns_id=%llu, pid=%u, target_ptr=%p, dirfd=%d, linkpath_ptr=%p (failed to read target)\n", 
+                    bpf_printk("Enter symlinkat: ns_id=%llu, pid=%u, target_ptr=%p, dirfd=%d, linkpath_ptr=%p (failed to read target or linkpath)\n", 
                             ct.ns_id, ct.pid);
                 }
             }
@@ -7148,6 +7148,207 @@ int trace_sys_exit_fanotify_mark(struct trace_event_raw_sys_exit *ctx) {
     return 0;
 }
 
+SEC("tracepoint/syscalls/sys_enter_mount")
+int trace_sys_enter_mount(struct trace_event_raw_sys_enter *ctx) {
+    __s32 event_id = SYS_ENTER_MOUNT;
+
+    char *source = (char *)BPF_CORE_READ(ctx, args[0]);
+    char *target = (char *)BPF_CORE_READ(ctx, args[1]);
+    char *filesystemtype = (char *)BPF_CORE_READ(ctx, args[2]);
+    __u64 mountflags = BPF_CORE_READ(ctx, args[3]);
+    void *data = (void *)BPF_CORE_READ(ctx, args[4]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            __u32 source_key = 0;
+            __u32 target_key = 1;
+            __u32 fstype_key = 2;
+            char *source_buf = bpf_map_lookup_elem(&buf_map, &source_key);
+            char *target_buf = bpf_map_lookup_elem(&buf_map, &target_key);
+            char *fstype_buf = bpf_map_lookup_elem(&buf_map, &fstype_key);
+            if (source_buf && target_buf && fstype_buf) {
+                long source_err = bpf_probe_read_user_str(source_buf, 256, source);
+                long target_err = bpf_probe_read_user_str(target_buf, 256, target);
+                long fstype_err = bpf_probe_read_user_str(fstype_buf, 256, filesystemtype);
+                if (source_err >= 0 && target_err >= 0 && fstype_err >= 0) {
+                    if (data == NULL) {
+                        bpf_printk("Enter mount: ns_id=%llu, pid=%u, source=%s, target=%s, filesystemtype=%s, mountflags=%llu, data=NULL (using default option)\n", 
+                            ct.ns_id, ct.pid, source_buf, target_buf, fstype_buf, mountflags);
+                    } else {
+                        bpf_printk("Enter mount: ns_id=%llu, pid=%u, source=%s, target=%s, filesystemtype=%s, mountflags=%llu, data=%p\n", 
+                            ct.ns_id, ct.pid, source_buf, target_buf, fstype_buf, mountflags, data);
+                    }
+                } else {
+                    bpf_printk("Enter mount: ns_id=%llu, pid=%u, source_ptr=%p, target_ptr=%p, fstype_ptr=%p (failed to read source, target, or filesystemtype), mountflags=%llu, data=%p\n", 
+                        ct.ns_id, ct.pid, source, target, filesystemtype, mountflags, data);
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_mount")
+int trace_sys_exit_mount(struct trace_event_raw_sys_exit *ctx) {
+    __s32 event_id = SYS_EXIT_MOUNT;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit mount: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit mount: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_umount")
+int trace_sys_enter_umount(struct trace_event_raw_sys_enter *ctx) {
+    __s32 event_id = SYS_ENTER_UMOUNT;
+
+    char *target = (char *)BPF_CORE_READ(ctx, args[0]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            __u32 target_key = 0;
+            char *target_buf = bpf_map_lookup_elem(&buf_map, &target_key);
+            if (target_buf) {
+                long target_err = bpf_probe_read_user_str(target_buf, 256, target);
+                if (target_err >= 0) {
+                    bpf_printk("Enter umount: ns_id=%llu, pid=%u, target=%s\n", 
+                        ct.ns_id, ct.pid, target_buf);
+                } else {
+                    bpf_printk("Enter umount: ns_id=%llu, pid=%u, target_ptr=%p (failed to read target)\n", 
+                        ct.ns_id, ct.pid, target);
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_umount")
+int trace_sys_exit_umount(struct trace_event_raw_sys_exit *ctx) {
+    __s32 event_id = SYS_EXIT_UMOUNT;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit umount: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit umount: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_move_mount")
+int trace_sys_enter_move_mount(struct trace_event_raw_sys_enter *ctx) {
+    __s32 event_id = SYS_ENTER_MOVE_MOUNT;
+
+    __s32 from_fd = BPF_CORE_READ(ctx, args[0]);
+    char *from = (char *)BPF_CORE_READ(ctx, args[1]);
+    __s32 to_fd = BPF_CORE_READ(ctx, args[2]);
+    char *to = (char *)BPF_CORE_READ(ctx, args[3]);
+    __u32 flags = BPF_CORE_READ(ctx, args[4]);
+
+    struct current_task ct = get_task_struct();
+
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            __u32 from_key = 0;
+            __u32 to_key = 1;
+            char *from_buf = bpf_map_lookup_elem(&buf_map, &from_key);
+            char *to_buf = bpf_map_lookup_elem(&buf_map, &to_key);
+            if (from_buf && to_buf) {
+                long from_err = bpf_probe_read_user_str(from_buf, 256, from);
+                long to_err = bpf_probe_read_user_str(to_buf, 256, to);
+                if (from_err >= 0 && to_err >= 0) {
+                    bpf_printk("Enter move_mount: ns_id=%llu, pid=%u, from_fd=%d, from=%s, to_fd=%d, to=%s, flags=%u\n", 
+                        ct.ns_id, ct.pid, from_fd, from_buf, to_fd, to_buf, flags);
+                } else {
+                    bpf_printk("Enter move_mount: ns_id=%llu, pid=%u, from_fd=%d, from_ptr=%p, to_ptr=%p, to_fd=%d (failed to read from or to), flags=%u\n", 
+                        ct.ns_id, ct.pid, from_fd, from, to, to_fd, flags);
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_move_mount")
+int trace_sys_exit_move_mount(struct trace_event_raw_sys_exit *ctx) {
+    __s32 event_id = SYS_EXIT_MOVE_MOUNT;
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    
+    struct current_task ct = get_task_struct();
+
+    struct event_key event_key = {
+        .ns_id = ct.ns_id,
+        .event_id = event_id,
+    };
+    
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    if (watched) {
+        if (*watched == LOGGING) {
+            if (ret < 0) {
+                bpf_printk("Exit move_mount: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+            } else {
+                bpf_printk("Exit move_mount: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+            }
+        }
+    }
+    
+    return 0;
+}
 
 
 
