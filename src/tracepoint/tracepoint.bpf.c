@@ -7228,6 +7228,7 @@ int trace_sys_enter_umount(struct trace_event_raw_sys_enter *ctx) {
     __s32 event_id = SYS_ENTER_UMOUNT;
 
     char *target = (char *)BPF_CORE_READ(ctx, args[0]);
+    __s32 flags = BPF_CORE_READ(ctx, args[1]);
 
     struct current_task ct = get_task_struct();
 
@@ -7244,11 +7245,11 @@ int trace_sys_enter_umount(struct trace_event_raw_sys_enter *ctx) {
             if (target_buf) {
                 long target_err = bpf_probe_read_user_str(target_buf, 256, target);
                 if (target_err >= 0) {
-                    bpf_printk("Enter umount: ns_id=%llu, pid=%u, target=%s\n", 
-                        ct.ns_id, ct.pid, target_buf);
+                    bpf_printk("Enter umount: ns_id=%llu, pid=%u, target=%s, flags=%d\n", 
+                        ct.ns_id, ct.pid, target_buf, flags);
                 } else {
-                    bpf_printk("Enter umount: ns_id=%llu, pid=%u, target_ptr=%p (failed to read target)\n", 
-                        ct.ns_id, ct.pid, target);
+                    bpf_printk("Enter umount: ns_id=%llu, pid=%u, target_ptr=%p (failed to read target), flags=%d\n", 
+                        ct.ns_id, ct.pid, target, flags);
                 }
             }
         }

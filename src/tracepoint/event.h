@@ -244,12 +244,11 @@
 #define SYS_EXIT_FANOTIFY_MARK 280
 #define SYS_ENTER_MOUNT 281
 #define SYS_EXIT_MOUNT 282
-#define SYS_ENTER_UMOUNT 283
+#define SYS_ENTER_UMOUNT 283    // umount2(not using)
 #define SYS_EXIT_UMOUNT 284
 #define SYS_ENTER_MOVE_MOUNT 285
 #define SYS_EXIT_MOVE_MOUNT 286
 // Synchronized I/O, Asynchronous I/O, Miscellaneous, Multiplexed I/O events is not included -> not essential
-// mount, umount, umount2 ... , pivot_root
 
 
 
