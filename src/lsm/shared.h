@@ -16,14 +16,31 @@
 #define MAX_POLICIES_PER_CONTAINER 64
 
 enum section_nr {
-	SECID_BPRM_CHECK_SECURITY,
-	SECID_FILE_OPEN,
-	SECID_SB_MOUNT,
-	SECID_SB_REMOUNT,
-	SECID_SB_UMOUNT,
-	SECID_SOCKET_BIND,
-	SECID_SOCKET_CONNECT,
-	SECID_TASK_FIX_SETUID,
+    SECID_BPRM_CHECK_SECURITY,
+    SECID_FILE_OPEN,
+    SECID_SB_MOUNT,
+    SECID_SB_REMOUNT,
+    SECID_SB_UMOUNT,
+    SECID_SOCKET_BIND,
+    SECID_SOCKET_CONNECT,
+    SECID_TASK_FIX_SETUID,
+    SECID_KERNEL_MODULE_REQUEST,
+    SECID_KERNEL_READ_FILE,
+    SECID_BPRM_CREDS_FROM_FILE,
+    SECID_SOCKET_CREATE,
+    SECID_SOCKET_ACCEPT,
+    SECID_FILE_PERMISSION,
+    SECID_CAPABLE,
+    SECID_PATH_MKNOD,
+    SECID_PATH_RMDIR,
+    SECID_PATH_UNLINK,
+    SECID_PATH_SYMLINK,
+    SECID_PATH_MKDIR,
+    SECID_PATH_LINK,
+    SECID_PATH_RENAME,
+    SECID_PATH_CHMOD,
+    SECID_PATH_TRUNCATE,
+    SECID_MMAP_FILE
 };
 
 enum policy_type {
@@ -166,7 +183,8 @@ static __always_inline int init_context(event *event_data) {
     return -1;
 
   event_data->ts = bpf_ktime_get_ns();
-  event_data->uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+  
+  event_data->uid = bpf_get_current_uid_gid() >> 32;
   event_data->cgroup_id = get_cgroup_id();
 
   // Use BPF_CORE_READ for accessing task struct members
@@ -187,6 +205,8 @@ static __always_inline int init_context(event *event_data) {
     event_data->ppid = get_task_pid_vnr(BPF_CORE_READ(task, real_parent));
     event_data->pid = pid;
   }
+  __builtin_memset(event_data->comm, 0, sizeof(event_data->comm));
+  bpf_get_current_comm(&event_data->comm, sizeof(event_data->comm));
 
   return 0;
 }
