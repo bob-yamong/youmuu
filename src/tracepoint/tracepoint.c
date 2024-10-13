@@ -154,6 +154,8 @@ void init_event_table() {
     ADD_EVENT("sys_exit_fchdir", SYS_EXIT_FCHDIR);
     ADD_EVENT("sys_enter_chroot", SYS_ENTER_CHROOT);
     ADD_EVENT("sys_exit_chroot", SYS_EXIT_CHROOT);
+    ADD_EVENT("sys_enter_pivot_root", SYS_ENTER_PIVOT_ROOT);
+    ADD_EVENT("sys_exit_pivot_root", SYS_EXIT_PIVOT_ROOT);
     ADD_EVENT("sys_enter_getdents", SYS_ENTER_GETDENTS);
     ADD_EVENT("sys_exit_getdents", SYS_EXIT_GETDENTS);
     ADD_EVENT("sys_enter_getdents64", SYS_ENTER_GETDENTS64);
