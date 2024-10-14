@@ -72,7 +72,7 @@ sudo src/youmuu
 ```
 
 ### **Additional**
-You can print the kernel space log created by `bpf_printk` following command.
+You can print the kernel space log created by `bpf_printk` using following command.
 ```sh
 sudo cat /sys/kernel/debug/tracing/trace_pipe
 ```
