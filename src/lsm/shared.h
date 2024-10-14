@@ -1,15 +1,41 @@
 #ifndef __SHARED_H
 #define __SHARED_H
 
-#include <bpf/bpf_core_read.h>
-
-#define BPF_FS_PATH "/sys/fs/bpf"
-#define MAP_PIN_PATH "/sys/fs/bpf/policy_map"
-
+#define TASK_COMM_LEN 16
+#define MAX_FILENAME_LEN 127
 #define MAX_CONTAINERS 1000
 #define MAX_POLICY_SIZE 1024
 #define MAX_PATH_LENGTH 256
+#define MAX_STRING_SIZE 256
 #define MAX_POLICIES_PER_CONTAINER 64
+
+enum section_nr {
+    SECID_BPRM_CHECK_SECURITY,
+    SECID_FILE_OPEN,
+    SECID_SB_MOUNT,
+    SECID_SB_REMOUNT,
+    SECID_SB_UMOUNT,
+    SECID_SOCKET_BIND,
+    SECID_SOCKET_CONNECT,
+    SECID_TASK_FIX_SETUID,
+    SECID_KERNEL_MODULE_REQUEST,
+    SECID_KERNEL_READ_FILE,
+    SECID_BPRM_CREDS_FROM_FILE,
+    SECID_SOCKET_CREATE,
+    SECID_SOCKET_ACCEPT,
+    SECID_FILE_PERMISSION,
+    SECID_CAPABLE,
+    SECID_PATH_MKNOD,
+    SECID_PATH_RMDIR,
+    SECID_PATH_UNLINK,
+    SECID_PATH_SYMLINK,
+    SECID_PATH_MKDIR,
+    SECID_PATH_LINK,
+    SECID_PATH_RENAME,
+    SECID_PATH_CHMOD,
+    SECID_PATH_TRUNCATE,
+    SECID_MMAP_FILE
+};
 
 enum policy_type {
     POLICY_FILE,
@@ -74,104 +100,35 @@ struct policy_value {
     char source[MAX_PATH_LENGTH];
 };
 
-struct {
-    __uint(type, BPF_MAP_TYPE_LRU_HASH);
-    __uint(max_entries, MAX_CONTAINERS);
-    __type(key, struct policy_key);
-    __type(value, struct policy_value);
-    __uint(pinning, LIBBPF_PIN_BY_NAME);
-} policy_map SEC(".maps");
+typedef struct bufkey {
+  char path[MAX_STRING_SIZE];
+  char source[MAX_STRING_SIZE];
+} bufs_k;
 
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __uint(max_entries, 1);
-    __type(key, __u32);
-    __type(value, char[MAX_PATH_LENGTH]);
-} path_buffer SEC(".maps");
+typedef struct {
+  __u64 ts;
 
-static __always_inline int match_policy(struct task_struct *task, enum policy_type type, void *data) {
-    struct policy_key key = {};
-    key.pid_ns_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
-    key.mnt_ns_id = BPF_CORE_READ(task, nsproxy, mnt_ns, ns.inum);
+  // conatiner identifier
+  __u32 pid_id;
+  __u32 mnt_id;
 
-    struct policy_value *value = bpf_map_lookup_elem(&policy_map, &key);
-    if (!value)
-        return 0;
+  // process identifier
+  __u32 host_ppid;
+  __u32 host_pid;
 
-    // Check source if specified
-    if (value->source[0] != '\0') {
-        char *source_path = bpf_map_lookup_elem(&path_buffer, &(u32){0});
-        if (!source_path)
-            return 0;
-        
-        struct file *exe_file = BPF_CORE_READ(task, mm, exe_file);
-        struct path exe_path = BPF_CORE_READ(exe_file, f_path);
-        if (bpf_d_path(&exe_path, source_path, MAX_PATH_LENGTH) <= 0)
-            return 0;
+  __u32 ppid;
+  __u32 pid;
+  __u32 uid;
 
-        if (bpf_strncmp(value->source, source_path, sizeof(value->source)) != 0)
-            return 0;
-    }
+  // control group identifier
+  __u64 cgroup_id;
 
-    switch (type) {
-        case POLICY_FILE: {
-            char *path = (char *)data;
-            #pragma unroll
-            for (int i = 0; i < MAX_POLICIES_PER_CONTAINER; i++) {
-                if (i >= value->num_file_policies)
-                    break;
-                if (bpf_strncmp(value->file_policies[i].path, path, MAX_PATH_LENGTH) == 0)
-                    return value->file_policies[i].flags;
-            }
-            break;
-        }
-        case POLICY_NETWORK: {
-            struct network_policy *net = (struct network_policy *)data;
-            #pragma unroll
-            for (int i = 0; i < MAX_POLICIES_PER_CONTAINER; i++) {
-                if (i >= value->num_network_policies)
-                    break;
-                if (value->network_policies[i].ip == net->ip &&
-                    value->network_policies[i].port == net->port &&
-                    value->network_policies[i].protocol == net->protocol)
-                    return value->network_policies[i].flags;
-            }
-            break;
-        }
-        case POLICY_PROCESS: {
-            char *comm = (char *)data;
-            #pragma unroll
-            for (int i = 0; i < MAX_POLICIES_PER_CONTAINER; i++) {
-                if (i >= value->num_process_policies)
-                    break;
-                if (bpf_strncmp(value->process_policies[i].comm, comm, 16) == 0)
-                    return value->process_policies[i].flags;
-            }
-            break;
-        }
-    }
+  enum section_nr event_id;
+  __s64 retval;
 
-    return 0;
-}
+  __u8 comm[TASK_COMM_LEN];
 
-static __always_inline int get_process_path(struct task_struct *task, char *path_buf, int buf_size) {
-    struct file *exe_file;
-    struct path exe_path;
-
-    exe_file = BPF_CORE_READ(task, mm, exe_file);
-    if (!exe_file)
-        return -1;
-
-    exe_path = BPF_CORE_READ(exe_file, f_path);
-    return bpf_d_path(&exe_path, path_buf, buf_size);
-}
-
-static __always_inline u32 get_task_pid_ns_id(struct task_struct *task) {
-    return BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
-}
-
-static __always_inline u32 get_task_mnt_ns_id(struct task_struct *task) {
-    return BPF_CORE_READ(task, nsproxy, mnt_ns, ns.inum);
-}
+  bufs_k data;
+} event;
 
 #endif /* __SHARED_H */

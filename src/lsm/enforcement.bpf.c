@@ -1,24 +1,58 @@
-#include <vmlinux.h>
 #include <bpf/bpf_helpers.h>
-#include <bpf/bpf_tracing.h>
-#include <bpf/bpf_core_read.h>
-#include "shared.h"
+
+#include "bpf.h"
 
 char LICENSE[] SEC("license") = "GPL";
-
 
 SEC("lsm/bprm_check_security")
 int BPF_PROG(bprm_check_security, struct linux_binprm *bprm)
 {
-    // handle_bprm_check_security(bprm);
-	bpf_printk("lsm_hook: exec: bprm_check_security\n");
-	return 0;
+    bpf_printk("lsm_hook: exec: bprm_check_security\n");
+    
+    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+    
+    e->event_id = SECID_BPRM_CHECK_SECURITY;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
+    return 0;
 }
 
 SEC("lsm/file_open")
 int BPF_PROG(file_open, struct file *file)
 {
 	bpf_printk("lsm_hook: file: file_open\n");
+
+	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+    
+    if(bpf_d_path(&file->f_path, e->data.path, sizeof(e->data.path)) < 0){
+        bpf_printk("Failed to get file path");
+    }
+    
+    e->event_id = SECID_FILE_OPEN;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
 	return 0;
 }
 
@@ -27,6 +61,23 @@ int BPF_PROG(sb_mount, const char *dev_name, const struct path *path,
 	const char *type, unsigned long flags, void *data)
 {
 	bpf_printk("lsm_hook: fs: sb_mount\n");
+
+	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+    
+    e->event_id = SECID_SB_MOUNT;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
 	return 0;
 }
 
@@ -34,6 +85,23 @@ SEC("lsm/sb_remount")
 int BPF_PROG(sb_remount, struct super_block *sb, void *mnt_opts)
 {
 	bpf_printk("lsm_hook: fs: sb_remount\n");
+
+	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+    
+    e->event_id = SECID_SB_REMOUNT;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
 	return 0;
 }
 
@@ -41,6 +109,23 @@ SEC("lsm/sb_umount")
 int BPF_PROG(sb_umount, struct vfsmount *mnt, int flags)
 {
 	bpf_printk("lsm_hook: fs: sb_umount\n");
+
+	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+    
+    e->event_id = SECID_SB_UMOUNT;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
 	return 0;
 }
 
@@ -49,6 +134,23 @@ int BPF_PROG(socket_bind, struct socket *sock, struct sockaddr *address,
 	 int addrlen)
 {
 	bpf_printk("lsm_hook: socket: socket_bind\n");
+	
+	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+    
+    e->event_id = SECID_SOCKET_BIND;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
 	return 0;
 }
 
@@ -57,6 +159,23 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
 	 int addrlen)
 {
 	bpf_printk("lsm_hook: socket: socket_connect\n");
+
+	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+    
+    e->event_id = SECID_SOCKET_CONNECT;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
 	return 0;
 }
 
@@ -65,5 +184,429 @@ int BPF_PROG(task_fix_setuid, struct cred *new, const struct cred *old,
 	 int flags)
 {
 	bpf_printk("lsm_hook: task: task_fix_setuid\n");
+
+	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+    
+    e->event_id = SECID_TASK_FIX_SETUID;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
 	return 0;
+}
+
+SEC("lsm/kernel_module_request")
+int BPF_PROG(kernel_module_request, char *kmod_name)
+{
+    bpf_printk("lsm_hook: kernel: kernel_module_request\n");
+    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+    
+    e->event_id = SECID_KERNEL_MODULE_REQUEST;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
+	return 0;
+}
+
+SEC("lsm/kernel_read_file")
+int BPF_PROG(kernel_read_file, struct file *file, enum kernel_read_file_id id)
+{
+    bpf_printk("lsm_hook: kernel: kernel_read_file\n");
+    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+    
+    e->event_id = SECID_KERNEL_READ_FILE;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
+    return 0;
+
+}
+
+SEC("lsm/bprm_creds_from_file")
+int BPF_PROG(bprm_creds_from_file, struct linux_binprm *bprm, struct file *file)
+{
+    bpf_printk("lsm_hook: exec: bprm_creds_from_file\n");
+    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+    
+    e->event_id = SECID_BPRM_CREDS_FROM_FILE;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
+    return 0;
+
+}
+
+SEC("lsm/socket_create")
+int BPF_PROG(socket_create, struct socket *sock, int family, int type, int protocol, int kern)
+{
+    bpf_printk("lsm_hook: socket: socket_create\n");
+    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+    
+    e->event_id = SECID_SOCKET_CREATE;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
+    return 0;
+
+}
+
+SEC("lsm/socket_accept")
+int BPF_PROG(socket_accept, struct socket *sock, struct socket *newsock)
+{
+    bpf_printk("lsm_hook: socket: socket_accept\n");
+    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+    
+    e->event_id = SECID_SOCKET_ACCEPT;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
+    return 0;
+
+}
+
+SEC("lsm/file_permission")
+int BPF_PROG(file_permission, struct file *file, int mask)
+{
+    bpf_printk("lsm_hook: file: file_permission\n");
+    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+    
+    e->event_id = SECID_FILE_PERMISSION;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
+    return 0;
+
+}
+
+SEC("lsm/capable")
+int BPF_PROG(capable, struct task_struct *task, const struct cred *cred, int cap)
+{
+    bpf_printk("lsm_hook: task: capable\n");
+    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+
+    e->event_id = SECID_CAPABLE;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
+    return 0;
+
+}
+
+SEC("lsm/path_mknod")
+int BPF_PROG(path_mknod, struct path *path, umode_t mode, dev_t dev)
+{
+    bpf_printk("lsm_hook: fs: path_mknod\n");
+    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+    
+    e->event_id = SECID_PATH_MKNOD;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
+    return 0;
+
+}
+
+SEC("lsm/path_rmdir")
+int BPF_PROG(path_rmdir, struct path *path)
+{
+    bpf_printk("lsm_hook: fs: path_rmdir\n");
+    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+    
+    e->event_id = SECID_PATH_RMDIR;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
+    return 0;
+
+}
+
+SEC("lsm/path_unlink")
+int BPF_PROG(path_unlink, struct path *path)
+{
+    bpf_printk("lsm_hook: fs: path_unlink\n");
+    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+
+    e->event_id = SECID_PATH_UNLINK;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
+    return 0;
+
+}
+
+SEC("lsm/path_symlink")
+int BPF_PROG(path_symlink, struct path *path, struct path *target)
+{
+    bpf_printk("lsm_hook: fs: path_symlink\n");
+    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+
+    e->event_id = SECID_PATH_SYMLINK;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
+    return 0;
+
+}
+
+SEC("lsm/path_mkdir")
+int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
+{
+    bpf_printk("lsm_hook: fs: path_mkdir\n");
+    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+
+    e->event_id = SECID_PATH_MKDIR;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
+    return 0;
+
+}
+
+SEC("lsm/path_link")
+int BPF_PROG(path_link, struct dentry *old_dentry, struct path *new_dir, struct dentry *new_dentry)
+{
+    bpf_printk("lsm_hook: fs: path_link\n");
+    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+
+    e->event_id = SECID_PATH_LINK;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
+    return 0;
+
+}
+
+SEC("lsm/path_rename")
+int BPF_PROG(path_rename, struct path *old_path, struct path *new_path)
+{
+    bpf_printk("lsm_hook: fs: path_rename\n");
+    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+    
+    e->event_id = SECID_PATH_RENAME;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
+    return 0;
+
+}
+
+SEC("lsm/path_chmod")
+int BPF_PROG(path_chmod, struct path *path, umode_t mode)
+{
+    bpf_printk("lsm_hook: fs: path_chmod\n");
+    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+
+    e->event_id = SECID_PATH_CHMOD;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
+    return 0;
+
+}
+
+SEC("lsm/path_truncate")
+int BPF_PROG(path_truncate, struct path *path, loff_t length)
+{
+    bpf_printk("lsm_hook: fs: path_truncate\n");
+    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+    
+    e->event_id = SECID_PATH_TRUNCATE;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
+    return 0;
+
+}
+
+SEC("lsm/mmap_file")
+int BPF_PROG(mmap_file, struct file *file, unsigned long reqprot, unsigned long prot, unsigned long flags)
+{
+    bpf_printk("lsm_hook: file: mmap_file\n");
+    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+    
+    e->event_id = SECID_MMAP_FILE;
+    e->retval = 0; 
+    
+    bpf_ringbuf_submit(e, 0);
+
+    return 0;
+
 }
