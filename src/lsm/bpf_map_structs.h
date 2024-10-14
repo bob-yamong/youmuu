@@ -81,4 +81,55 @@ static __always_inline int init_context(event *event_data) {
   return 0;
 }
 
+static __always_inline int match_policy(enum policy_type type, void *data) {
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    struct policy_key key = {};
+    
+    key.pid_ns_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
+    key.mnt_ns_id = BPF_CORE_READ(task, nsproxy, mnt_ns, ns.inum);
+    
+    struct policy_value *value = bpf_map_lookup_elem(&policy_map, &key);
+    
+    if (!value) return 0;
+    
+    switch (type) {
+        case POLICY_FILE: {
+            char *path = (char *)data;
+            #pragma unroll
+            for (int i = 0; i < MAX_POLICIES_PER_CONTAINER; i++) {
+                if (i >= value->num_file_policies)
+                    break;
+                if (bpf_strncmp(value->file_policies[i].path, path, MAX_PATH_LENGTH) == 0)
+                    return value->file_policies[i].flags;
+            }
+            break;
+        }
+        case POLICY_NETWORK: {
+            struct network_policy *net = (struct network_policy *)data;
+            #pragma unroll
+            for (int i = 0; i < MAX_POLICIES_PER_CONTAINER; i++) {
+                if (i >= value->num_network_policies)
+                    break;
+                if (value->network_policies[i].ip == net->ip &&
+                    value->network_policies[i].port == net->port &&
+                    value->network_policies[i].protocol == net->protocol)
+                    return value->network_policies[i].flags;
+            }
+            break;
+        }
+        case POLICY_PROCESS: {
+            char *comm = (char *)data;
+            #pragma unroll
+            for (int i = 0; i < MAX_POLICIES_PER_CONTAINER; i++) {
+                if (i >= value->num_process_policies)
+                    break;
+                if (bpf_strncmp(value->process_policies[i].comm, comm, 16) == 0)
+                    return value->process_policies[i].flags;
+            }
+            break;
+        }
+    }
+    return 0;
+}
+
 #endif
