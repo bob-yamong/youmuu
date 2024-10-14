@@ -1,8 +1,8 @@
-#include "bpf.h"
 #include <bpf/bpf_helpers.h>
 
-char LICENSE[] SEC("license") = "GPL";
+#include "bpf.h"
 
+char LICENSE[] SEC("license") = "GPL";
 
 SEC("lsm/bprm_check_security")
 int BPF_PROG(bprm_check_security, struct linux_binprm *bprm)
