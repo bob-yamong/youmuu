@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 #include <linux/types.h>
 #include <bpf/libbpf.h>
+#include <arpa/inet.h>
 #include "tracepoint.skel.h"
 #include "event.h"
 
@@ -18,17 +19,6 @@
 #define ALLOW 0
 #define BLOCK 1
 #define LOGGING 2
-
-struct event_key {
-    __u64 ns_id;
-    __u32 event_id;
-    char argument[256];
-};
-
-struct EventEntry {
-    const char *name;
-    __u32 id;
-};
 
 static struct EventEntry event_table[MAX_EVENTS];
 
@@ -294,14 +284,7 @@ void init_event_table() {
     ADD_EVENT("sys_exit_umount", SYS_EXIT_UMOUNT);
     ADD_EVENT("sys_enter_move_mount", SYS_ENTER_MOVE_MOUNT);
     ADD_EVENT("sys_exit_move_mount", SYS_EXIT_MOVE_MOUNT);
-
-
-    
     // 다른 이벤트들도 여기에 추가
-
-
-
-
     // 메모리 관련 이벤트(프로세스에 추가 예정)
     ADD_EVENT("sys_enter_mmap", SYS_ENTER_MMAP);
     ADD_EVENT("sys_exit_mmap", SYS_EXIT_MMAP);
@@ -311,7 +294,6 @@ void init_event_table() {
     ADD_EVENT("sys_exit_mprotect", SYS_EXIT_MPROTECT);
     ADD_EVENT("sys_enter_pkey_mprotect", SYS_ENTER_PKEY_MPROTECT);
     ADD_EVENT("sys_exit_pkey_mprotect", SYS_EXIT_PKEY_MPROTECT);
-
     #undef ADD_EVENT
 }
 
@@ -490,7 +472,85 @@ void get_user_input(struct tracepoint_bpf *skel, __u64 ns_id, __u32 event_id) {
     printf("Updated map with action: %d, namespace_id: %llu, event_id: %d\n", action, ns_id, event_id);
 }
 
+static int handle_event(void *ctx, void *data, size_t data_sz) {
+    const struct event_t *e = data;
+    char ip_str[INET_ADDRSTRLEN];
+    
+    switch(e->event_id) {
+        case SYS_ENTER_SOCKET:
+            printf("Enter socket: ns_id=%llu, pid=%u, tid=%u, domain=%d, type=%d, protocol=%d\n",
+                   e->ns_id, e->pid, e->tid, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
+            break;
+        case SYS_EXIT_SOCKET:
+            if (e->ret < 0) {
+                printf("Exit socket: failed, ns_id=%llu, pid=%u, tid=%u, error_code=%llu\n",
+                       e->ns_id, e->pid, e->tid, e->ret);
+            } else {
+                printf("Exit socket: success, ns_id=%llu, pid=%u, tid=%u, fd=%llu\n",
+                       e->ns_id, e->pid, e->tid, e->ret);
+            }
+            break;
+        case SYS_ENTER_SOCKETPAIR:
+            printf("Enter socketpair: ns_id=%llu, pid=%u, tid=%u, domain=%d, type=%d, protocol=%d, sv_ptr=%p\n",
+                   e->ns_id, e->pid, e->tid, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2], e->arg_ptr[0]);
+            break;
+        case SYS_EXIT_SOCKETPAIR:
+            if (e->ret < 0) {
+                printf("Exit socketpair: failed, ns_id=%llu, pid=%u, tid=%u, error_code=%llu\n",
+                       e->ns_id, e->pid, e->tid, e->ret);
+            } else {
+                printf("Exit socketpair: success, ns_id=%llu, pid=%u, tid=%u, sv[0]=%d, sv[1]=%d, ret=%llu\n",
+                       e->ns_id, e->pid, e->tid, e->sv[0], e->sv[1], e->ret);
+            }
+            break;
+        case SYS_ENTER_SETSOCKOPT:
+            if (e->arg_ptr[0] == NULL) {
+                printf("Enter setsockopt: ns_id=%llu, pid=%u, tid=%u, fd=%d, level=%d, optname=%d, optval=%u, optlen=%d\n",
+                       e->ns_id, e->pid, e->tid, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2], e->arg_u32[0], e->arg_s32[3]);
+            } else {
+                printf("Enter setsockopt: ns_id=%llu, pid=%u, tid=%u, fd=%d, level=%d, optname=%d, optval_ptr=%p (failed to read optval), optlen=%d\n",
+                       e->ns_id, e->pid, e->tid, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2], e->arg_ptr[0], e->arg_s32[3]);
+            }
+            break;
+        case SYS_EXIT_SETSOCKOPT:
+            if (e->ret < 0) {
+                printf("Exit setsockopt: failed, ns_id=%llu, pid=%u, tid=%u, error_code=%llu\n",
+                       e->ns_id, e->pid, e->tid, e->ret);
+            } else {
+                printf("Exit setsockopt: success, ns_id=%llu, pid=%u, tid=%u, ret=%llu\n",
+                       e->ns_id, e->pid, e->tid, e->ret);
+            }
+            break;
+        case SYS_ENTER_SENDTO:
+            if (e->arg_ptr[1] == NULL) {
+                inet_ntop(AF_INET, &(e->ip), ip_str, INET_ADDRSTRLEN);
+                printf("Enter sendto: ns_id=%llu, pid=%u, tid=%u, fd=%d, buf_ptr=%p, len=%llu, flags=%d, dest_addr=%s:%u, addr_len=%u\n",
+                    e->ns_id, e->pid, e->tid, e->arg_s32[0], e->arg_ptr[0], e->arg_u64[0], e->arg_s32[1], 
+                    ip_str, e->port, e->arg_u32[0]);
+            } else {
+                printf("Enter sendto: ns_id=%llu, pid=%u, tid=%u, fd=%d, buf_ptr=%p, len=%d, flags=%d, addr_ptr=%p (failed to read addr), addr_len=%d\n",
+                    e->ns_id, e->pid, e->tid, e->arg_s32[0], e->arg_ptr[0], e->arg_s32[1], e->arg_s32[2], e->arg_ptr[1], e->arg_s32[3]);
+            }
+            break;
+        case SYS_EXIT_SENDTO:
+            if (e->ret < 0) {
+                printf("Exit sendto: failed, ns_id=%llu, pid=%u, tid=%u, error_code=%llu\n",
+                       e->ns_id, e->pid, e->tid, e->ret);
+            } else {
+                printf("Exit sendto: success, ns_id=%llu, pid=%u, tid=%u, ret=%llu\n",
+                       e->ns_id, e->pid, e->tid, e->ret);
+            }
+            break;
+        default:
+            printf("Unknown event: id=%d ns_id=%llu, pid=%u, tid=%u\n",
+                   e->event_id, e->ns_id, e->pid, e->tid);
+    }
+
+    return 0;
+}
+
 int main(int argc, char **argv) {
+    struct ring_buffer *rb = NULL;
     struct tracepoint_bpf *skel;
     __u64 ns_id;
     int err;
@@ -513,6 +573,17 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Failed to attach BPF skeleton\n");
         goto cleanup;
     }
+
+    rb = ring_buffer__new(bpf_map__fd(skel->maps.rb), handle_event, NULL, NULL);
+    if (!rb) {
+        err = -1;
+        fprintf(stderr, "Failed to create ring buffer\n");
+        goto cleanup;
+    }
+
+    printf("Successfully started! Please run `sudo cat /sys/kernel/debug/tracing/trace_pipe` "
+           "to see output of the BPF programs.\n");
+
     ContainerRuntime runtime = get_runtime_from_user();
     
 container_name:
@@ -543,23 +614,35 @@ container_name:
             return -1;
     }
     ns_id = get_namespace_id(pid);
+    get_user_input(skel, ns_id, SYS_ENTER_SENDTO);
+    get_user_input(skel, ns_id, SYS_EXIT_SENDTO);
 
     while (1) {
-        char event_str[256];
+        // char event_str[256];
         
-        printf("Enter event (e.g., sys_enter_socket, sys_exit_socket, or 'quit' to exit): ");
-        if (fgets(event_str, sizeof(event_str), stdin) == NULL) {
+        // printf("Enter event (e.g., sys_enter_socket, sys_exit_socket, or 'quit' to exit): ");
+        // if (fgets(event_str, sizeof(event_str), stdin) == NULL) {
+        //     break;
+        // }
+        // event_str[strcspn(event_str, "\n")] = 0;
+        // if (strcmp(event_str, "quit") == 0) goto container_name;
+
+        // __u32 event_id = get_event_id(event_str);
+        // if (event_id == -1) {
+        //     fprintf(stderr, "Unknown event\n");
+        //     continue;
+        // }
+        // get_user_input(skel, ns_id, event_id);
+        
+        err = ring_buffer__poll(rb, 100);
+        if (err == -EINTR) {
+            err = 0;
             break;
         }
-        event_str[strcspn(event_str, "\n")] = 0;
-        if (strcmp(event_str, "quit") == 0) goto container_name;
-
-        __u32 event_id = get_event_id(event_str);
-        if (event_id == -1) {
-            fprintf(stderr, "Unknown event\n");
-            continue;
+        if (err < 0) {
+            printf("Error polling ring buffer: %d\n", err);
+            break;
         }
-        get_user_input(skel, ns_id, event_id);
     }
 cleanup:
     tracepoint_bpf__destroy(skel);
