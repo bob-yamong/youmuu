@@ -21,6 +21,12 @@ int BPF_PROG(bprm_check_security, struct linux_binprm *bprm)
         return 0;
     }
     
+    if (bpf_d_path(&bprm->file->f_path, e->data.path, sizeof(e->data.path)) < 0) {
+        bpf_printk("Failed to get file path");
+    }
+
+    get_process_path(e->data.source, sizeof(e->data.source));
+    
     e->event_id = SECID_BPRM_CHECK_SECURITY;
     e->retval = 0; 
     
@@ -48,6 +54,8 @@ int BPF_PROG(file_open, struct file *file)
     if(bpf_d_path(&file->f_path, e->data.path, sizeof(e->data.path)) < 0){
         bpf_printk("Failed to get file path");
     }
+
+    get_process_path(e->data.source, sizeof(e->data.source));
     
     e->event_id = SECID_FILE_OPEN;
     e->retval = 0; 
@@ -73,6 +81,8 @@ int BPF_PROG(sb_mount, const char *dev_name, const struct path *path,
         bpf_ringbuf_discard(e, 0);
         return 0;
     }
+
+    get_process_path(e->data.source, sizeof(e->data.source));
     
     e->event_id = SECID_SB_MOUNT;
     e->retval = 0; 
@@ -97,6 +107,8 @@ int BPF_PROG(sb_remount, struct super_block *sb, void *mnt_opts)
         bpf_ringbuf_discard(e, 0);
         return 0;
     }
+
+    get_process_path(e->data.source, sizeof(e->data.source));
     
     e->event_id = SECID_SB_REMOUNT;
     e->retval = 0; 
@@ -121,6 +133,8 @@ int BPF_PROG(sb_umount, struct vfsmount *mnt, int flags)
         bpf_ringbuf_discard(e, 0);
         return 0;
     }
+
+    get_process_path(e->data.source, sizeof(e->data.source));
     
     e->event_id = SECID_SB_UMOUNT;
     e->retval = 0; 
@@ -147,6 +161,8 @@ int BPF_PROG(socket_bind, struct socket *sock, struct sockaddr *address,
         return 0;
     }
     
+    get_process_path(e->data.source, sizeof(e->data.source));
+
     e->event_id = SECID_SOCKET_BIND;
     e->retval = 0; 
     
@@ -171,6 +187,8 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
         bpf_ringbuf_discard(e, 0);
         return 0;
     }
+    
+    get_process_path(e->data.source, sizeof(e->data.source));
     
     e->event_id = SECID_SOCKET_CONNECT;
     e->retval = 0; 
@@ -197,6 +215,8 @@ int BPF_PROG(task_fix_setuid, struct cred *new, const struct cred *old,
         return 0;
     }
     
+    get_process_path(e->data.source, sizeof(e->data.source));
+
     e->event_id = SECID_TASK_FIX_SETUID;
     e->retval = 0; 
     
@@ -219,6 +239,8 @@ int BPF_PROG(kernel_module_request, char *kmod_name)
         bpf_ringbuf_discard(e, 0);
         return 0;
     }
+
+    get_process_path(e->data.source, sizeof(e->data.source));
     
     e->event_id = SECID_KERNEL_MODULE_REQUEST;
     e->retval = 0; 
@@ -242,6 +264,8 @@ int BPF_PROG(kernel_read_file, struct file *file, enum kernel_read_file_id id)
         bpf_ringbuf_discard(e, 0);
         return 0;
     }
+
+    get_process_path(e->data.source, sizeof(e->data.source));
     
     e->event_id = SECID_KERNEL_READ_FILE;
     e->retval = 0; 
@@ -266,6 +290,8 @@ int BPF_PROG(bprm_creds_from_file, struct linux_binprm *bprm, struct file *file)
         bpf_ringbuf_discard(e, 0);
         return 0;
     }
+
+    get_process_path(e->data.source, sizeof(e->data.source));
     
     e->event_id = SECID_BPRM_CREDS_FROM_FILE;
     e->retval = 0; 
@@ -290,6 +316,8 @@ int BPF_PROG(socket_create, struct socket *sock, int family, int type, int proto
         bpf_ringbuf_discard(e, 0);
         return 0;
     }
+
+    get_process_path(e->data.source, sizeof(e->data.source));
     
     e->event_id = SECID_SOCKET_CREATE;
     e->retval = 0; 
@@ -314,6 +342,8 @@ int BPF_PROG(socket_accept, struct socket *sock, struct socket *newsock)
         bpf_ringbuf_discard(e, 0);
         return 0;
     }
+
+    get_process_path(e->data.source, sizeof(e->data.source));
     
     e->event_id = SECID_SOCKET_ACCEPT;
     e->retval = 0; 
@@ -339,6 +369,16 @@ int BPF_PROG(file_permission, struct file *file, int mask)
         return 0;
     }
     
+    struct dentry *dentry;
+    if (bpf_probe_read_kernel(&dentry, sizeof(dentry), &file->f_path.dentry) == 0) {
+        const unsigned char *name;
+        if (bpf_probe_read_kernel(&name, sizeof(name), &dentry->d_name.name) == 0) {
+            bpf_probe_read_kernel_str(e->data.path, sizeof(e->data.path), name);
+        }
+    }
+
+    get_process_path(e->data.source, sizeof(e->data.source));
+    
     e->event_id = SECID_FILE_PERMISSION;
     e->retval = 0; 
     
@@ -362,6 +402,8 @@ int BPF_PROG(capable, struct task_struct *task, const struct cred *cred, int cap
         bpf_ringbuf_discard(e, 0);
         return 0;
     }
+
+    get_process_path(e->data.source, sizeof(e->data.source));
 
     e->event_id = SECID_CAPABLE;
     e->retval = 0; 
@@ -387,6 +429,8 @@ int BPF_PROG(path_mknod, struct path *path, umode_t mode, dev_t dev)
         return 0;
     }
     
+    get_process_path(e->data.source, sizeof(e->data.source));
+
     e->event_id = SECID_PATH_MKNOD;
     e->retval = 0; 
     
@@ -411,6 +455,8 @@ int BPF_PROG(path_rmdir, struct path *path)
         return 0;
     }
     
+    get_process_path(e->data.source, sizeof(e->data.source));
+
     e->event_id = SECID_PATH_RMDIR;
     e->retval = 0; 
     
@@ -434,6 +480,8 @@ int BPF_PROG(path_unlink, struct path *path)
         bpf_ringbuf_discard(e, 0);
         return 0;
     }
+
+    get_process_path(e->data.source, sizeof(e->data.source));
 
     e->event_id = SECID_PATH_UNLINK;
     e->retval = 0; 
@@ -459,6 +507,8 @@ int BPF_PROG(path_symlink, struct path *path, struct path *target)
         return 0;
     }
 
+    get_process_path(e->data.source, sizeof(e->data.source));
+
     e->event_id = SECID_PATH_SYMLINK;
     e->retval = 0; 
     
@@ -482,6 +532,8 @@ int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
         bpf_ringbuf_discard(e, 0);
         return 0;
     }
+
+    get_process_path(e->data.source, sizeof(e->data.source));
 
     e->event_id = SECID_PATH_MKDIR;
     e->retval = 0; 
@@ -507,6 +559,8 @@ int BPF_PROG(path_link, struct dentry *old_dentry, struct path *new_dir, struct 
         return 0;
     }
 
+    get_process_path(e->data.source, sizeof(e->data.source));
+
     e->event_id = SECID_PATH_LINK;
     e->retval = 0; 
     
@@ -530,6 +584,8 @@ int BPF_PROG(path_rename, struct path *old_path, struct path *new_path)
         bpf_ringbuf_discard(e, 0);
         return 0;
     }
+
+    get_process_path(e->data.source, sizeof(e->data.source));
     
     e->event_id = SECID_PATH_RENAME;
     e->retval = 0; 
@@ -555,6 +611,8 @@ int BPF_PROG(path_chmod, struct path *path, umode_t mode)
         return 0;
     }
 
+    get_process_path(e->data.source, sizeof(e->data.source));
+
     e->event_id = SECID_PATH_CHMOD;
     e->retval = 0; 
     
@@ -578,6 +636,8 @@ int BPF_PROG(path_truncate, struct path *path, loff_t length)
         bpf_ringbuf_discard(e, 0);
         return 0;
     }
+
+    get_process_path(e->data.source, sizeof(e->data.source));
     
     e->event_id = SECID_PATH_TRUNCATE;
     e->retval = 0; 
@@ -602,6 +662,8 @@ int BPF_PROG(mmap_file, struct file *file, unsigned long reqprot, unsigned long 
         bpf_ringbuf_discard(e, 0);
         return 0;
     }
+
+    get_process_path(e->data.source, sizeof(e->data.source));
     
     e->event_id = SECID_MMAP_FILE;
     e->retval = 0; 

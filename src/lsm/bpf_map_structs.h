@@ -41,6 +41,39 @@ static __always_inline __u64 get_cgroup_id() {
     return cgroup_id;
 }
 
+static __always_inline int get_process_path(char *path_buf, int buf_size) {
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    if (task) {
+        struct file *exe_file;
+        struct mm_struct *mm;
+        bpf_probe_read_kernel(&mm, sizeof(mm), &task->mm);
+        if (mm) {
+            struct file *exe_file;
+            bpf_probe_read_kernel(&exe_file, sizeof(exe_file), &mm->exe_file);
+            if (exe_file) {
+                // exe_file 처리
+            } else {
+                __builtin_memcpy(path_buf, "<no_exe>", 9);
+            }
+        } else {
+            __builtin_memcpy(path_buf, "<no_mm>", 8);
+        }
+        if (exe_file) {
+            struct dentry *exe_dentry;
+            bpf_probe_read_kernel(&exe_dentry, sizeof(exe_dentry), &exe_file->f_path.dentry);
+            if (exe_dentry) {
+                bpf_probe_read_kernel_str(path_buf, sizeof(path_buf), exe_dentry->d_name.name);
+            } else {
+                __builtin_memcpy(path_buf, "<unknown>", 10);
+            }
+        } else {
+            __builtin_memcpy(path_buf, "<no_exe>", 9);
+        }
+    } else {
+        __builtin_memcpy(path_buf, "<no_task>", 10);
+    }
+}
+
 static __always_inline __u32 get_task_pid_vnr(struct task_struct *task) {
   struct pid *pid = BPF_CORE_READ(task, thread_pid);
   unsigned int level = BPF_CORE_READ(pid, level);
@@ -91,7 +124,7 @@ static __always_inline int match_policy(enum policy_type type, void *data) {
     struct policy_value *value = bpf_map_lookup_elem(&policy_map, &key);
     
     if (!value) return 0;
-    
+
     switch (type) {
         case POLICY_FILE: {
             char *path = (char *)data;
