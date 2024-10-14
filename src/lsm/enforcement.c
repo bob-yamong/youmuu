@@ -10,7 +10,7 @@
 #include <fcntl.h>
 #include "enforcement.skel.h"
 
-#include "shared.h"
+#include "policy_map_structs.h"
 
 #define BPF_FS_PATH "/sys/fs/bpf"
 #define MAP_PIN_PATH "/sys/fs/bpf/policy_map"

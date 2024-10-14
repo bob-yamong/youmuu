@@ -1,12 +1,11 @@
-#ifndef __BPF_H
-#define __BPF_H
+#ifndef BPF_MAP_STRUCTS_H
+#define BPF_MAP_STRUCTS_H
 
 #include <bpf/bpf_core_read.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
 
-#include "vmlinux.h"
-#include "shared.h"
+#include "policy_map_structs.h"
 
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);

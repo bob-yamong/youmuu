@@ -1,6 +1,7 @@
+#include <vmlinux.h>
 #include <bpf/bpf_helpers.h>
 
-#include "bpf.h"
+#include "bpf_map_structs.h"
 
 char LICENSE[] SEC("license") = "GPL";
 
