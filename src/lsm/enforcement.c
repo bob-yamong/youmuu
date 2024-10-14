@@ -431,6 +431,19 @@ int main(int argc, char **argv)
 
     int err, map_fd = bpf_obj_get(MAP_PIN_PATH);
 
+    err = enforcement_bpf__load(skel);
+    if (err) {
+        fprintf(stderr, "Failed to load and verify BPF skeleton\n");
+        goto cleanup;
+    }
+
+    /* Attach tracepoints */
+    err = enforcement_bpf__attach(skel);
+    if (err) {
+        fprintf(stderr, "Failed to attach BPF skeleton\n");
+        goto cleanup;
+    }
+
     // check if the map already exists
     if (map_fd < 0) {
         fprintf(stderr, "No existing map found, creating a new one.\n");
@@ -455,19 +468,6 @@ int main(int argc, char **argv)
             fprintf(stderr, "Failed to reuse existing map: %d\n", err);
             goto cleanup;
         }
-    }
-
-    err = enforcement_bpf__load(skel);
-    if (err) {
-        fprintf(stderr, "Failed to load and verify BPF skeleton\n");
-        goto cleanup;
-    }
-
-    /* Attach tracepoints */
-    err = enforcement_bpf__attach(skel);
-    if (err) {
-        fprintf(stderr, "Failed to attach BPF skeleton\n");
-        goto cleanup;
     }
 
     // 링 버퍼 설정
