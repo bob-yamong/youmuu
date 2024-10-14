@@ -1,4 +1,4 @@
-#include "shared.h"
+#include "bpf.h"
 #include <bpf/bpf_helpers.h>
 
 char LICENSE[] SEC("license") = "GPL";
