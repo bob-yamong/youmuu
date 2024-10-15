@@ -6,156 +6,18 @@
 #include <sys/syscall.h>
 #include <bpf/libbpf.h>
 #include "process_monitor.skel.h"
-#include "event.h"
-#include <string.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <curl/curl.h>
-#include <json-c/json.h>
-#include <glob.h>
-#include <limits.h>
-#include <stdlib.h>
-
-#define MAX_SYSCALL_ENTRIES 256
-#define MAX_CONTAINERS 100  // MAX_CONTAINERS를 100으로 변경
-#define MAX_CMD_LEN 1024
-#define MAX_OUTPUT_LEN 256
+#include "event.h" 
+#include "container_info.h"
 
 
-// string 구조체 정의 추가
-struct string {
-    char *ptr;
-    size_t len;
-};
-
-static volatile bool exiting = false;
+static bool exiting = false;
 
 // 전역 변수로 skel 선언
-static struct process_monitor_bpf *skel;
+struct process_monitor_bpf *skel;
 
 static void sig_handler(int sig)
 {
     exiting = true;
-}
-
-#define DOCKER_SOCKET "/var/run/docker.sock"
-
-struct container_info {
-    char id[64];
-    int pid;
-};
-
-struct container_info containers[MAX_CONTAINERS];
-int container_count = 0;
-
-size_t write_callback(void *contents, size_t size, size_t nmemb, void *userp) {
-    size_t realsize = size * nmemb;
-    struct string *mem = (struct string *)userp;
-
-    char *ptr = realloc(mem->ptr, mem->len + realsize + 1);
-    if (!ptr) {
-        printf("메모리 할당 실패\n");
-        return 0;
-    }
-
-    mem->ptr = ptr;
-    memcpy(&(mem->ptr[mem->len]), contents, realsize);
-    mem->len += realsize;
-    mem->ptr[mem->len] = 0;
-
-    return realsize;
-}
-
-int get_container_pids() {
-    CURL *curl;
-    CURLcode res;
-    struct string s;
-    s.len = 0;
-    s.ptr = malloc(1);
-    s.ptr[0] = '\0';
-
-    curl = curl_easy_init();
-    if (curl) {
-        curl_easy_setopt(curl, CURLOPT_UNIX_SOCKET_PATH, DOCKER_SOCKET);
-        curl_easy_setopt(curl, CURLOPT_URL, "http://localhost/containers/json");
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&s);
-
-        res = curl_easy_perform(curl);
-        if (res != CURLE_OK) {
-            fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-        } else {
-            json_object *jobj = json_tokener_parse(s.ptr);
-            if (jobj) {
-                int array_len = json_object_array_length(jobj);
-                for (int i = 0; i < array_len && i < MAX_CONTAINERS; i++) {
-                    json_object *container = json_object_array_get_idx(jobj, i);
-                    json_object *id;
-                    if (json_object_object_get_ex(container, "Id", &id)) {
-                        strncpy(containers[i].id, json_object_get_string(id), sizeof(containers[i].id) - 1);
-                        containers[i].id[sizeof(containers[i].id) - 1] = '\0';
-
-                        char inspect_url[256];
-                        snprintf(inspect_url, sizeof(inspect_url), "http://localhost/containers/%s/json", containers[i].id);
-                        
-                        struct string inspect_s;
-                        inspect_s.len = 0;
-                        inspect_s.ptr = malloc(1);
-                        inspect_s.ptr[0] = '\0';
-
-                        curl_easy_setopt(curl, CURLOPT_URL, inspect_url);
-                        curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&inspect_s);
-                        res = curl_easy_perform(curl);
-                        if (res == CURLE_OK) {
-                            json_object *inspect_jobj = json_tokener_parse(inspect_s.ptr);
-                            if (inspect_jobj) {
-                                json_object *state, *pid;
-                                if (json_object_object_get_ex(inspect_jobj, "State", &state) &&
-                                    json_object_object_get_ex(state, "Pid", &pid)) {
-                                    containers[i].pid = json_object_get_int(pid);
-                                    container_count++;
-                                }
-                                json_object_put(inspect_jobj);
-                            }
-                        }
-                        free(inspect_s.ptr);
-                    }
-                }
-                json_object_put(jobj);
-            }
-        }
-        curl_easy_cleanup(curl);
-    }
-    free(s.ptr);
-
-    return container_count;
-}
-
-unsigned long get_container_inode(const char *container_id) {
-    char pattern[PATH_MAX];
-    snprintf(pattern, sizeof(pattern), "/sys/fs/cgroup/system.slice/docker-%s*", container_id);
-
-    glob_t globbuf;
-    unsigned long inode = 0;
-
-    if (glob(pattern, 0, NULL, &globbuf) == 0) {
-        if (globbuf.gl_pathc > 0) {
-            struct stat sb;
-            if (stat(globbuf.gl_pathv[0], &sb) == 0) {
-                inode = (unsigned long)sb.st_ino;
-            } else {
-                fprintf(stderr, "Failed to get inode for container ID: %s\n", container_id);
-            }
-        } else {
-            fprintf(stderr, "No matching files for container ID: %s\n", container_id);
-        }
-        globfree(&globbuf);
-    } else {
-        fprintf(stderr, "Failed to perform glob for pattern: %s\n", pattern);
-    }
-
-    return inode;
 }
 
 void init_syscall_map(struct process_monitor_bpf *skel)
@@ -226,7 +88,7 @@ void init_syscall_map(struct process_monitor_bpf *skel)
     for (int i = 0; i < sizeof(syscall_list) / sizeof(syscall_list[0]); i++) {
         int key = syscall_list[i].nr;
         char value[16] = {0};  // 16바이트 버퍼 생성
-        strncpy(value, syscall_list[i].name, sizeof(value) - 1);  // 문자열 복사 및 null 종료 보장
+        strncpy(value, syscall_list[i].name, sizeof(value) - 1); 
         bpf_map__update_elem(skel->maps.syscall_map, &key, sizeof(key), value, sizeof(value), BPF_ANY);
     }
 }
@@ -239,7 +101,7 @@ static int handle_event(void *ctx, void *data, size_t data_sz)
 
     if (bpf_map__lookup_elem(skel->maps.container_cgroup_id, &key, sizeof(key), &value, sizeof(value), 0) == 0) {
         printf("Process syscall: %s (nr=%d, pid=%d, tid=%d, ppid=%d, uid=%d, comm=%s, cgroup_id=%llu, cgroup_name=%s)\n",
-               e->syscall, e->syscall_nr, e->pid, e->tid, e->ppid, e->uid, e->comm, e->cgroup_id, e->cgroup_name);
+               e->syscall,  e->syscall_nr, e->pid, e->tid, e->ppid, e->uid, e->comm, e->cgroup_id, e->cgroup_name);
 
         switch (e->syscall_nr) {
             // 프로세스 관련
@@ -379,21 +241,6 @@ static int handle_event(void *ctx, void *data, size_t data_sz)
     return 0;
 }
 
-// 제거 또는 주석 처리
-// int read_process_memory(pid_t pid, void *addr, void *buf, size_t len)
-// {
-//     char path[32];
-//     snprintf(path, sizeof(path), "/proc/%d/mem", pid);
-//     
-//     int fd = open(path, O_RDONLY);
-//     if (fd == -1) return -1;
-//     
-//     ssize_t bytes_read = pread(fd, buf, len, (off_t)addr);
-//     close(fd);
-//     
-//     return (bytes_read == len) ? 0 : -1;
-// }
-
 int main(int argc, char **argv)
 {
     int err;
@@ -440,8 +287,6 @@ int main(int argc, char **argv)
         } else {
             // printf("컨테이너 ID: %s, PID: %d를 모니터링 중\n", containers[i].id, containers[i].pid);
             printf("컨테이너 ID: %s, PID: %d, inode: %llu를 모니터링 중\n", containers[i].id, containers[i].pid, key_inode);
-
-             
         }
     }
 
@@ -454,15 +299,16 @@ int main(int argc, char **argv)
         goto cleanup;
     }
 
+
     // 메인 루프
     while (!exiting) {
-        err = ring_buffer__poll(rb, 50); 
+        err = ring_buffer__poll(rb, 100);
         if (err == -EINTR) {
             err = 0;
             break;
         }
         if (err < 0) {
-            fprintf(stderr, "링 버퍼 폴링 중 오류 발생: %d\n", err);
+            fprintf(stderr, "Error polling ring buffer: %d\n", err);
             break;
         }
     }

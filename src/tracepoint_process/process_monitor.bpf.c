@@ -4,8 +4,8 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
 #include <bpf/bpf_core_read.h>
+#include <sys/syscall.h>
 #include "event.h"
-#include "syscall_numbers.h"
 
 typedef unsigned int u32;
 
@@ -49,19 +49,6 @@ static inline int my_memcmp(const void* s1, const void* s2, size_t n) {
     return 0;
 }
 
-// static __always_inline __u64 get_cgroup_id() {
-//     struct task_struct *cur_tsk = (struct task_struct *)bpf_get_current_task();
-//     if (cur_tsk == NULL) {
-//         bpf_printk("failed to get cur task\n");
-//         return 0;
-//     }
-
-//     int mem_cgrp_id = memory_cgrp_id;
-
-//     __u64 cgroup_id = BPF_CORE_READ(cur_tsk, cgroups, subsys[mem_cgrp_id], cgroup, kn, id);
-
-//     return cgroup_id;
-// }
 
 static __always_inline int get_cgroup_name(char *buf, size_t sz) {
     struct task_struct *cur_tsk = (struct task_struct *)bpf_get_current_task();
@@ -148,7 +135,6 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     // 시스템 콜 맵에서 해당 시스템 콜 번호가 있는지 확인
     char *syscall_name = bpf_map_lookup_elem(&syscall_map, &syscall_nr);
     if (!syscall_name) {
-        // 프로세스 관련 시스템 콜이 아니면 무시
         return 0;
     }
 
