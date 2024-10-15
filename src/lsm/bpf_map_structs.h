@@ -9,7 +9,7 @@
 
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
-    __uint(max_entries, 1 << 24);  // 16MB 크기
+    __uint(max_entries, 1 << 30);  // 1GB 크기
 } events SEC(".maps");
 
 struct {
@@ -39,6 +39,15 @@ static __always_inline __u64 get_cgroup_id() {
     __u64 cgroup_id = BPF_CORE_READ(cur_tsk, cgroups, subsys[mem_cgrp_id], cgroup, kn, id);
 
     return cgroup_id;
+}
+
+// Custom strncmp function for BPF
+static __always_inline int compare_strings(const char *a, const char *b, __u32 len) {
+    for (__u32 i = 0; i < len; i++) {
+        if (a[i] != b[i])return 0;  // Not equal
+        if (a[i] == '\0') return 1;  // Equal
+    }
+    return 1;  // Equal if both strings are of length `len` and match
 }
 
 static __always_inline int get_process_path(char *path_buf, int buf_size) {
@@ -72,6 +81,7 @@ static __always_inline int get_process_path(char *path_buf, int buf_size) {
     } else {
         __builtin_memcpy(path_buf, "<no_task>", 10);
     }
+    return 0;
 }
 
 static __always_inline __u32 get_task_pid_vnr(struct task_struct *task) {
@@ -114,7 +124,7 @@ static __always_inline int init_context(event *event_data) {
   return 0;
 }
 
-static __always_inline int match_policy(enum policy_type type, void *data) {
+static __always_inline __u32 match_policy(enum policy_type type, void *data) {
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
     struct policy_key key = {};
     
@@ -132,7 +142,7 @@ static __always_inline int match_policy(enum policy_type type, void *data) {
             for (int i = 0; i < MAX_POLICIES_PER_CONTAINER; i++) {
                 if (i >= value->num_file_policies)
                     break;
-                if (bpf_strncmp(value->file_policies[i].path, path, MAX_PATH_LENGTH) == 0)
+                if (compare_strings(value->file_policies[i].path, path, MAX_PATH_LENGTH))
                     return value->file_policies[i].flags;
             }
             break;
@@ -154,9 +164,10 @@ static __always_inline int match_policy(enum policy_type type, void *data) {
             char *comm = (char *)data;
             #pragma unroll
             for (int i = 0; i < MAX_POLICIES_PER_CONTAINER; i++) {
+                bpf_printk("[%d] %s : %s %u", i, value->process_policies[i].comm, comm, value->process_policies[i].flags);
                 if (i >= value->num_process_policies)
                     break;
-                if (bpf_strncmp(value->process_policies[i].comm, comm, 16) == 0)
+                if (compare_strings(value->process_policies[i].comm, comm, 16))
                     return value->process_policies[i].flags;
             }
             break;
