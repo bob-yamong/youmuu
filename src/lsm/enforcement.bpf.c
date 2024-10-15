@@ -1,7 +1,12 @@
 #include <vmlinux.h>
 #include <bpf/bpf_helpers.h>
+#include <bpf/bpf_tracing.h>
+#include <bpf/bpf_core_read.h>
 
 #include "bpf_map_structs.h"
+
+#define AF_INET 2    // IPv4
+#define AF_INET6 10  // IPv6
 
 char LICENSE[] SEC("license") = "GPL";
 
@@ -177,14 +182,21 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
 {
 	bpf_printk("lsm_hook: socket: socket_connect\n");
 
+    __u32 pid_ns_id;
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    pid_ns_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
+    bpf_printk("socket_connect_bpf: pid_ns_id=%u\n", pid_ns_id);
+
 	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
+        bpf_printk("pid_ns_id=%u g", pid_ns_id);
         return 0;
     }    
     
     int ret = init_context(e);
     if (ret < 0) {
         bpf_ringbuf_discard(e, 0);
+        bpf_printk("pid_ns_id=%u gg", pid_ns_id);
         return 0;
     }
     
@@ -194,6 +206,53 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
     e->retval = 0; 
     
     bpf_ringbuf_submit(e, 0);
+
+    bpf_printk("pid_ns_id=%u debug start", pid_ns_id);
+
+    struct network_policy net = {};
+    // Handle IPv4
+    if (address->sa_family == AF_INET) {
+        struct sockaddr_in *addr_in = (struct sockaddr_in *)address;
+        net.ip = addr_in->sin_addr.s_addr;  // Extract IPv4 address (in network byte order)
+        net.port = addr_in->sin_port;        // Port is in network byte order
+        net.protocol = IPPROTO_TCP;          // Defaulting to TCP; change as necessary for your use case
+    } 
+    // Handle IPv6
+    else if (address->sa_family == AF_INET6) {
+        struct sockaddr_in6 *addr_in6 = (struct sockaddr_in6 *)address;
+        // Set IP to 0 or handle accordingly for IPv6
+        net.ip = 0;  // This could be adjusted depending on your policy handling needs
+        net.port = addr_in6->sin6_port;  // Port is in network byte order
+        net.protocol = IPPROTO_IPV6;      // Defaulting to IPv6; change as necessary for your use case
+    }
+
+    // Determine the protocol based on the type of socket if needed
+    // For example, you might want to set it based on the socket type:
+    // - SOCK_STREAM (TCP)
+    // - SOCK_DGRAM (UDP)
+    switch (sock->type) {
+        case SOCK_STREAM:
+            net.protocol = IPPROTO_TCP;  // For TCP
+            break;
+        case SOCK_DGRAM:
+            net.protocol = IPPROTO_UDP;   // For UDP
+            break;
+        // Add other types as necessary, like SOCK_RAW for ICMP
+        default:
+            net.protocol = IPPROTO_IP;     // Default to IP
+            break;
+    }
+
+    net.flags = POLICY_NET_CONNECT;
+
+    int eperm = match_policy(POLICY_NETWORK, &net);
+
+    bpf_printk("pid_ns_id=%u, ip=%u, port=%u, protocol=%u, eperm=%d", pid_ns_id, net.ip, net.port, net.protocol, eperm);
+
+    if (eperm != 0) {
+        bpf_printk("Permission denied\n");
+        return -1;
+    }
 
 	return 0;
 }

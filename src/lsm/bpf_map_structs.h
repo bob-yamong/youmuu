@@ -9,7 +9,7 @@
 
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
-    __uint(max_entries, 1 << 24);  // 16MB 크기
+    __uint(max_entries, 1 << 30);  // 16MB 크기
 } events SEC(".maps");
 
 struct {
@@ -123,7 +123,9 @@ static __always_inline int match_policy(enum policy_type type, void *data) {
     
     struct policy_value *value = bpf_map_lookup_elem(&policy_map, &key);
     
+    bpf_printk("match policy request from pid_ns_id: %u, mnt_ns_id: %u\n", key.pid_ns_id, key.mnt_ns_id);
     if (!value) return 0;
+    bpf_printk("start comparing from pid_ns_id: %u, mnt_ns_id: %u\n", key.pid_ns_id, key.mnt_ns_id);
 
     switch (type) {
         case POLICY_FILE: {
@@ -144,7 +146,7 @@ static __always_inline int match_policy(enum policy_type type, void *data) {
                 if (i >= value->num_network_policies)
                     break;
                 if (value->network_policies[i].ip == net->ip &&
-                    value->network_policies[i].port == net->port &&
+                    (value->network_policies[i].port == net->port || value->network_policies[i].port == 0) &&
                     value->network_policies[i].protocol == net->protocol)
                     return value->network_policies[i].flags;
             }
