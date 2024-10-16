@@ -34,7 +34,6 @@ int BPF_PROG(bprm_check_security, struct linux_binprm *bprm)
     e->retval = 0;
     
     __u32 flags = match_policy(POLICY_PROCESS, e->comm);
-    bpf_printk("flags: %u", flags);
     // If there is no policy, allow
     if (!flags) goto clear;
 
@@ -64,6 +63,7 @@ int BPF_PROG(file_open, struct file *file)
 
 	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
+        bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
@@ -78,13 +78,35 @@ int BPF_PROG(file_open, struct file *file)
     }
 
     get_process_path(e->data.source, sizeof(e->data.source));
-    
-    e->event_id = SECID_FILE_OPEN;
-    e->retval = 0; 
-    
-    bpf_ringbuf_submit(e, 0);
 
-	return 0;
+    __u32 flags = match_policy(POLICY_FILE, e->data.path);
+
+    // If there is no policy, allow
+    if (!flags) goto clear;
+
+    ret = 0;
+    // If you need to explicitly allow (whitelist | access list), it is denied by default.
+    __u8 mode = flags & POLICY_ALLOW;
+    if (mode) e->retval = -1;
+    
+    if (
+        (flags & POLICY_FILE_READ)
+        || (flags & POLICY_FILE_WRITE)
+        || (flags & POLICY_FILE_EXEC)
+        || (flags & POLICY_FILE_APPEND)
+        || (flags & POLICY_FILE_RENAME)
+        || (flags & POLICY_FILE_DELETE)
+    ) ret -= 1;
+
+    e->event_id = SECID_FILE_OPEN;
+    e->retval = ret;
+    if (flags & POLICY_AUDIT) bpf_ringbuf_submit(e, 0);
+    else goto clear;
+    
+    return ret;   
+clear:
+    bpf_ringbuf_discard(e, 0);
+    return ret;
 }
 
 SEC("lsm/sb_mount")
@@ -95,6 +117,7 @@ int BPF_PROG(sb_mount, const char *dev_name, const struct path *path,
 
 	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
+        bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
@@ -121,6 +144,7 @@ int BPF_PROG(sb_remount, struct super_block *sb, void *mnt_opts)
 
 	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
+        bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
@@ -147,6 +171,7 @@ int BPF_PROG(sb_umount, struct vfsmount *mnt, int flags)
 
 	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
+        bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
@@ -174,6 +199,7 @@ int BPF_PROG(socket_bind, struct socket *sock, struct sockaddr *address,
 	
 	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
+        bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
@@ -206,7 +232,7 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
 
 	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
-        bpf_printk("pid_ns_id=%u ringbuf_reserve error", pid_ns_id);
+        bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
@@ -282,6 +308,7 @@ int BPF_PROG(task_fix_setuid, struct cred *new, const struct cred *old,
 
 	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
+        bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
@@ -307,6 +334,7 @@ int BPF_PROG(kernel_module_request, char *kmod_name)
     //bpf_printk("lsm_hook: kernel: kernel_module_request\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
+        bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
@@ -332,6 +360,7 @@ int BPF_PROG(kernel_read_file, struct file *file, enum kernel_read_file_id id)
     //bpf_printk("lsm_hook: kernel: kernel_read_file\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
+        bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
@@ -358,6 +387,7 @@ int BPF_PROG(bprm_creds_from_file, struct linux_binprm *bprm, struct file *file)
     //bpf_printk("lsm_hook: exec: bprm_creds_from_file\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
+        bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
@@ -384,6 +414,7 @@ int BPF_PROG(socket_create, struct socket *sock, int family, int type, int proto
     //bpf_printk("lsm_hook: socket: socket_create\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
+        bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
@@ -410,6 +441,7 @@ int BPF_PROG(socket_accept, struct socket *sock, struct socket *newsock)
     //bpf_printk("lsm_hook: socket: socket_accept\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
+        bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
@@ -436,6 +468,7 @@ int BPF_PROG(file_permission, struct file *file, int mask)
     //bpf_printk("lsm_hook: file: file_permission\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
+        bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
@@ -470,6 +503,7 @@ int BPF_PROG(capable, struct task_struct *task, const struct cred *cred, int cap
     //bpf_printk("lsm_hook: task: capable\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
+        bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
@@ -496,6 +530,7 @@ int BPF_PROG(path_mknod, struct path *path, umode_t mode, dev_t dev)
     //bpf_printk("lsm_hook: fs: path_mknod\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
+        bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
@@ -522,6 +557,7 @@ int BPF_PROG(path_rmdir, struct path *path)
     //bpf_printk("lsm_hook: fs: path_rmdir\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
+        bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
@@ -548,6 +584,7 @@ int BPF_PROG(path_unlink, struct path *path)
     //bpf_printk("lsm_hook: fs: path_unlink\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
+        bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
@@ -574,6 +611,7 @@ int BPF_PROG(path_symlink, struct path *path, struct path *target)
     //bpf_printk("lsm_hook: fs: path_symlink\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
+        bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
@@ -600,6 +638,7 @@ int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
     //bpf_printk("lsm_hook: fs: path_mkdir\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
+        bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
@@ -626,6 +665,7 @@ int BPF_PROG(path_link, struct dentry *old_dentry, struct path *new_dir, struct 
     //bpf_printk("lsm_hook: fs: path_link\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
+        bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
@@ -652,6 +692,7 @@ int BPF_PROG(path_rename, struct path *old_path, struct path *new_path)
     //bpf_printk("lsm_hook: fs: path_rename\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
+        bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
@@ -678,6 +719,7 @@ int BPF_PROG(path_chmod, struct path *path, umode_t mode)
     //bpf_printk("lsm_hook: fs: path_chmod\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
+        bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
@@ -704,6 +746,7 @@ int BPF_PROG(path_truncate, struct path *path, loff_t length)
     //bpf_printk("lsm_hook: fs: path_truncate\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
+        bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
@@ -727,8 +770,9 @@ int BPF_PROG(path_truncate, struct path *path, loff_t length)
 SEC("lsm/mmap_file")
 int BPF_PROG(mmap_file, struct file *file, unsigned long reqprot, unsigned long prot, unsigned long flags)
 {
-    //bpf_printk("lsm_hook: file: mmap_file\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    bpf_printk("lsm_hook: file: mmap_file\n");
+        bpf_printk("Faild ringbuf_reserve");
     if (!e) {
         return 0;
     }    
