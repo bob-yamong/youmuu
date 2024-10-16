@@ -65,7 +65,7 @@ int BPF_PROG(file_open, struct file *file)
     __u32 pid_ns_id;
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
     pid_ns_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
-    bpf_printk("socket_connect_bpf: pid_ns_id=%u\n", pid_ns_id);
+    bpf_printk("file_open_bpf: pid_ns_id=%u\n", pid_ns_id);
 
 	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
@@ -83,7 +83,7 @@ int BPF_PROG(file_open, struct file *file)
     }
 
 
-    bpf_printk("socket_connect_bpf: pid_ns_id=%u file_path=%s\n", pid_ns_id, e->data.path);
+    bpf_printk("file_open_bpf: pid_ns_id=%u file_path=%s\n", pid_ns_id, e->data.path);
 
 
     get_process_path(e->data.source, sizeof(e->data.source));
