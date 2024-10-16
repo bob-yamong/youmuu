@@ -17,15 +17,13 @@ int BPF_PROG(bprm_check_security, struct linux_binprm *bprm)
     
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
-        return 0;
-    }    
-    
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
+        bpf_printk("Faild ringbuf_reserve");
         return 0;
     }
     
+    int ret = init_context(e);
+    if (ret < 0) goto clear;
+
     if (bpf_d_path(&bprm->file->f_path, e->data.path, sizeof(e->data.path)) < 0) {
         bpf_printk("Failed to get file path");
     }
@@ -33,11 +31,30 @@ int BPF_PROG(bprm_check_security, struct linux_binprm *bprm)
     get_process_path(e->data.source, sizeof(e->data.source));
     
     e->event_id = SECID_BPRM_CHECK_SECURITY;
-    e->retval = 0; 
+    e->retval = 0;
     
-    bpf_ringbuf_submit(e, 0);
+    __u32 flags = match_policy(POLICY_PROCESS, e->comm);
+    bpf_printk("flags: %u", flags);
+    // If there is no policy, allow
+    if (!flags) goto clear;
 
-    return 0;
+    // If you need to explicitly allow (whitelist | access list), it is denied by default.
+    __u8 mode = flags & POLICY_ALLOW;
+    if (mode) ret = -1;
+    // Allow if policy is wrong or blacklist-based (deny list)
+    else ret = 0;
+
+    if (flags & POLICY_PROC_EXEC) ret -= 1;
+    
+    e->retval = ret;
+    if (flags & POLICY_AUDIT) bpf_ringbuf_submit(e, 0);
+    else goto clear;
+    
+    return ret;
+
+clear:
+    bpf_ringbuf_discard(e, 0);
+    return ret;
 }
 
 SEC("lsm/file_open")
