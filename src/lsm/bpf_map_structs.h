@@ -133,7 +133,9 @@ static __always_inline __u32 match_policy(enum policy_type type, void *data) {
     
     struct policy_value *value = bpf_map_lookup_elem(&policy_map, &key);
     
+    bpf_printk("match policy request from pid_ns_id: %u, mnt_ns_id: %u\n", key.pid_ns_id, key.mnt_ns_id);
     if (!value) return 0;
+    bpf_printk("start comparing from pid_ns_id: %u, mnt_ns_id: %u\n", key.pid_ns_id, key.mnt_ns_id);
 
     switch (type) {
         case POLICY_FILE: {
@@ -148,14 +150,16 @@ static __always_inline __u32 match_policy(enum policy_type type, void *data) {
             break;
         }
         case POLICY_NETWORK: {
+            bpf_printk("network policy num:%d from pid_ns_id: %u, mnt_ns_id: %u\n", value->num_network_policies, key.pid_ns_id, key.mnt_ns_id);
             struct network_policy *net = (struct network_policy *)data;
             #pragma unroll
             for (int i = 0; i < MAX_POLICIES_PER_CONTAINER; i++) {
                 if (i >= value->num_network_policies)
                     break;
+                bpf_printk("network policy ip:%u, port:%u, protocol:%u, flags:%u from pid_ns_id: %u, mnt_ns_id: %u\n", value->network_policies[i].ip, value->network_policies[i].port, value->network_policies[i].protocol, value->network_policies[i].flags, key.pid_ns_id, key.mnt_ns_id);
                 if (value->network_policies[i].ip == net->ip &&
-                    value->network_policies[i].port == net->port &&
-                    value->network_policies[i].protocol == net->protocol)
+                    (value->network_policies[i].port == net->port || value->network_policies[i].port == 0) &&
+                    (value->network_policies[i].protocol == net->protocol || value->network_policies[i].protocol == 0))
                     return value->network_policies[i].flags;
             }
             break;

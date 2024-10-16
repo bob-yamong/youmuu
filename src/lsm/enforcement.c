@@ -222,6 +222,13 @@ void print_policies(int map_fd) {
         key = next_key;
     }
 }
+
+void flush_input_buffer() {
+    int ch;
+    // Loop until the newline character or EOF is found
+    while ((ch = getchar()) != '\n' && ch != EOF);
+}
+
 int get_yes_no_input(const char* prompt) {
     char input[10];
     printf("%s [y/N]: ", prompt);
@@ -304,19 +311,21 @@ int add_policy(int map_fd) {
                 fprintf(stderr, "Invalid IP address\n");
                 return -1;
             }
-            printf("Enter port: ");
+            printf("Enter port(For ALL, enter 0): ");
             unsigned short port;
             if (scanf("%hu", &port) != 1) {
                 fprintf(stderr, "Invalid input for port\n");
                 return -1;
             }
             np->port = htons(port);
-            printf("Enter protocol: ");
+            printf("Enter protocol (ICMP=1, TCP=6, UDP=17, IGMP=2, IPv4=4, IPv6=6, ALL=0): ");
             if (scanf("%hhu", &np->protocol) != 1) {
                 fprintf(stderr, "Invalid input for protocol\n");
                 return -1;
             }
 
+            flush_input_buffer();
+            printf("Enter network policy\n");
             if (get_yes_no_input("Block Network connect")) np->flags |= POLICY_NET_CONNECT;
             if (get_yes_no_input("Block Network bind")) np->flags |= POLICY_NET_BIND;
             if (get_yes_no_input("Block Nework Accept")) np->flags |= POLICY_NET_ACCEPT;
@@ -512,7 +521,7 @@ int main(int argc, char **argv)
             print_policies(map_fd);
             break;
         case SHOW_LOG:
-            err = ring_buffer__poll(rb, 100 /* timeout, ms */);
+            err = ring_buffer__poll(rb, 10 /* timeout, ms */);
             if (err < 0) {
                 printf("Error polling ring buffer: %d\n", err);
                 goto cleanup;
