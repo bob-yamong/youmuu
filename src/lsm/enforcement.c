@@ -334,7 +334,7 @@ int add_policy(int map_fd) {
         case POLICY_PROCESS: {
             struct process_policy *pp = &value.process_policies[value.num_process_policies];
             printf("Enter process command: ");
-            getchar(); // Consume newline
+            fflush(stdin);
             if (fgets(pp->comm, sizeof(pp->comm), stdin) == NULL) {
                 fprintf(stderr, "Failed to read process command\n");
                 return -1;
@@ -343,8 +343,7 @@ int add_policy(int map_fd) {
 
             if (get_yes_no_input("Block Fork")) pp->flags |= POLICY_PROC_FORK;
             if (get_yes_no_input("Block Executing a program in a process")) pp->flags |= POLICY_PROC_EXEC;
-            if (get_yes_no_input("Leave a log")) pp->flags |= POLICY_PROC_KILL;
-            if (get_yes_no_input("Leave a log")) pp->flags |= POLICY_PROC_PTRACE;
+            if (get_yes_no_input("Block Kill")) pp->flags |= POLICY_PROC_KILL;
 
             if (get_yes_no_input("Leave a log")) pp->flags |= POLICY_AUDIT;
             if (get_yes_no_input("Explicit Deny")) pp->flags |= POLICY_DENY;
@@ -361,7 +360,7 @@ int add_policy(int map_fd) {
 
     if (bpf_map_update_elem(map_fd, &key, &value, BPF_ANY)) {
         fprintf(stderr, "Failed to Add policy: mnt ns: %u, pid ns: %u\n", key.mnt_ns_id, key.pid_ns_id, strerror(errno));
-    } 
+    }
 
     return 0;
 }
@@ -416,7 +415,7 @@ int main(int argc, char **argv)
     }
 
     /* Set up libbpf errors and debug info callback */
-    libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
+    // libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
     libbpf_set_print(libbpf_print_fn);
 
     /* Bump RLIMIT_MEMLOCK to allow BPF sub-system to do anything */
@@ -459,7 +458,8 @@ int main(int argc, char **argv)
             fprintf(stderr, "Failed to open pinned map: %s\n", strerror(errno));
             goto cleanup;
         }
-    } else {
+    }
+    else {
         fprintf(stdout, "Found existing map, reusing it.\n");
 
         bpf_map__set_pin_path(skel->maps.policy_map, MAP_PIN_PATH);
