@@ -202,7 +202,7 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
     __u32 pid_ns_id;
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
     pid_ns_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
-    bpf_printk("socket_connect_bpf: pid_ns_id=%u\n", pid_ns_id);
+    // bpf_printk("socket_connect_bpf: pid_ns_id=%u\n", pid_ns_id);
 
 	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
@@ -220,11 +220,8 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
     get_process_path(e->data.source, sizeof(e->data.source));
     
     e->event_id = SECID_SOCKET_CONNECT;
-    e->retval = 0; 
-    
-    bpf_ringbuf_submit(e, 0);
 
-    bpf_printk("pid_ns_id=%u policy check start", pid_ns_id);
+    // bpf_printk("pid_ns_id=%u policy check start", pid_ns_id);
 
     struct network_policy net = {};
     // Handle IPv4
@@ -262,11 +259,15 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
 
     net.flags = POLICY_NET_CONNECT;
 
-    int eperm = match_policy(POLICY_NETWORK, &net);
+    int map_flags = match_policy(POLICY_NETWORK, &net);
 
-    bpf_printk("pid_ns_id=%u, ip=%u, port=%u, protocol=%u, eperm=%d", pid_ns_id, net.ip, net.port, net.protocol, eperm);
+    bpf_printk("lsm/socket_connect pid_ns_id=%u, ip=%u, port=%u, protocol=%u, retval=%d", pid_ns_id, net.ip, net.port, net.protocol, map_flags);
 
-    if (eperm != 0) {
+    e->retval = (map_flags & net.flags) * -1; 
+    
+    bpf_ringbuf_submit(e, 0);
+
+    if (map_flags & net.flags) {
         bpf_printk("Permission denied\n");
         return -1;
     }
