@@ -85,8 +85,8 @@ static __always_inline int should_monitor(u32 ppid, u64 cgroup_id) {
 }
 
 // 파일 이름을 첫 번째 인자로 가지는 시스템 콜 번호를 저장하는 배열
-static const int syscalls_with_filename[] = {
-    __NR_open, __NR_openat, __NR_unlink, __NR_unlinkat, __NR_execve, __NR_execveat,
+static const int syscalls_with_filename_1[] = {
+    __NR_open, __NR_unlink, __NR_unlinkat, __NR_execve, __NR_execveat,
     __NR_mkdir, __NR_mkdirat, __NR_rmdir, __NR_renameat, __NR_renameat2,
     __NR_symlink, __NR_symlinkat, __NR_link, __NR_linkat,
     __NR_chmod, __NR_fchmodat, __NR_chown, __NR_lchown, __NR_fchownat,
@@ -94,14 +94,24 @@ static const int syscalls_with_filename[] = {
     __NR_truncate, __NR_readlink, __NR_readlinkat
 };
 
+// 파일 이름을 두 번째 인자로 가지는 시스템 콜 번호를 저장하는 배열
+static const int syscalls_with_filename_2[] = {
+     __NR_openat, 
+};
+
 // 시스템 콜이 파일 이름을 첫 번째 인자로 가지는지 확인하는 함수
-static inline bool has_filename_arg(int syscall_nr) {
-    for (int i = 0; i < sizeof(syscalls_with_filename) / sizeof(syscalls_with_filename[0]); i++) {
-        if (syscall_nr == syscalls_with_filename[i]) {
-            return true;
+static inline int has_filename_arg(int syscall_nr) {
+    for (int i = 0; i < sizeof(syscalls_with_filename_1) / sizeof(syscalls_with_filename_1[0]); i++) {
+        if (syscall_nr == syscalls_with_filename_1[i]) {
+            return 1;
         }
     }
-    return false;
+    for (int i = 0; i < sizeof(syscalls_with_filename_2) / sizeof(syscalls_with_filename_2[0]); i++) {
+        if (syscall_nr == syscalls_with_filename_2[i]) {
+            return 2;
+        }
+    }
+    return 0;
 }
 
 SEC("tracepoint/raw_syscalls/sys_enter")
@@ -162,12 +172,25 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     e->args[5] = ctx->args[5];
 
     // 파일 이름을 첫 번째 인자로 가지는 시스템 콜 처리
-    if (has_filename_arg(syscall_nr)) {
+    int filename_arg = has_filename_arg(syscall_nr);
+    if (filename_arg == 1) {
         const char *filename_ptr = (const char *)ctx->args[0];
+        bpf_probe_read_user_str(e->filename, sizeof(e->filename), filename_ptr);
+    } else if (filename_arg == 2) {
+        const char *filename_ptr = (const char *)ctx->args[1];
         bpf_probe_read_user_str(e->filename, sizeof(e->filename), filename_ptr);
     } else {
         e->filename[0] = '\0';
     }
+
+    // if(syscall_nr == __NR_write){
+    //     struct file *file;
+    //     int fd = ctx->args[0];
+    //     bpf_probe_read(&file, sizeof(file), &fget(fd));
+    //     bpf_probe_read_str(&e->filename, sizeof(e->filename), file->f_path.dentry->d_name.name);
+    // } else {
+    //     e->filename[0] = '\0';
+    // }
 
     // execve 시스템 콜인 경우 argv 읽기
     if (syscall_nr == __NR_execve || syscall_nr == __NR_execveat) {

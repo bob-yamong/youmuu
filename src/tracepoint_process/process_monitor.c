@@ -171,6 +171,8 @@ static int handle_event(void *ctx, void *data, size_t data_sz)
             case __NR_write:
                 printf("%s operation on fd %lld, %lld bytes\n", 
                        e->syscall_nr == __NR_read ? "Read" : "Write", e->args[0], e->args[2]);
+                // if (e->filename[0] != '\0') {
+                //     printf("File path: %s\n", e->syscall, e->filename);
                 break;
             case __NR_mount:
                 printf("Mounting filesystem\n");
