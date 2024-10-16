@@ -44,10 +44,10 @@ static __always_inline __u64 get_cgroup_id() {
 // Custom strncmp function for BPF
 static __always_inline int compare_strings(const char *a, const char *b, __u32 len) {
     for (__u32 i = 0; i < len; i++) {
-        if (a[i] != b[i])return 0;  // Not equal
-        if (a[i] == '\0') return 1;  // Equal
+        if (a[i] != b[i])return 1;  // Not equal
+        if (a[i] == '\0') return 0;  // Equal
     }
-    return 1;  // Equal if both strings are of length `len` and match
+    return 0;  // Equal if both strings are of length `len` and match
 }
 
 static __always_inline int get_process_path(char *path_buf, int buf_size) {
@@ -142,7 +142,7 @@ static __always_inline __u32 match_policy(enum policy_type type, void *data) {
             for (int i = 0; i < MAX_POLICIES_PER_CONTAINER; i++) {
                 if (i >= value->num_file_policies)
                     break;
-                if (compare_strings(value->file_policies[i].path, path, MAX_PATH_LENGTH))
+                if (!compare_strings(value->file_policies[i].path, path, MAX_PATH_LENGTH))
                     return value->file_policies[i].flags;
             }
             break;
@@ -164,10 +164,9 @@ static __always_inline __u32 match_policy(enum policy_type type, void *data) {
             char *comm = (char *)data;
             #pragma unroll
             for (int i = 0; i < MAX_POLICIES_PER_CONTAINER; i++) {
-                bpf_printk("[%d] %s : %s %u", i, value->process_policies[i].comm, comm, value->process_policies[i].flags);
                 if (i >= value->num_process_policies)
                     break;
-                if (compare_strings(value->process_policies[i].comm, comm, 16))
+                if (!compare_strings(value->process_policies[i].comm, comm, 16))
                     return value->process_policies[i].flags;
             }
             break;
