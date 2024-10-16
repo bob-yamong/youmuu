@@ -62,6 +62,11 @@ int BPF_PROG(file_open, struct file *file)
 {
 	//bpf_printk("lsm_hook: file: file_open\n");
 
+    __u32 pid_ns_id;
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    pid_ns_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
+    bpf_printk("socket_connect_bpf: pid_ns_id=%u\n", pid_ns_id);
+
 	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
         return 0;
@@ -76,6 +81,10 @@ int BPF_PROG(file_open, struct file *file)
     if(bpf_d_path(&file->f_path, e->data.path, sizeof(e->data.path)) < 0){
         bpf_printk("Failed to get file path");
     }
+
+
+    bpf_printk("socket_connect_bpf: pid_ns_id=%u file_path=%s\n", pid_ns_id, e->data.path);
+
 
     get_process_path(e->data.source, sizeof(e->data.source));
     
