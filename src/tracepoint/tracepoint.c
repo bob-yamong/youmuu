@@ -451,14 +451,14 @@ void get_user_input(struct tracepoint_bpf *skel, __u64 ns_id, __u32 event_id) {
     __u32 action = LOGGING;
     int err;
 
-    printf("Enter action (allow/block/logging, default is logging): ");
-    if (fgets(action_str, sizeof(action_str), stdin) == NULL) {
-        return;
-    }
-    action_str[strcspn(action_str, "\n")] = 0;
+    // printf("Enter action (allow/block/logging, default is logging): ");
+    // if (fgets(action_str, sizeof(action_str), stdin) == NULL) {
+    //     return;
+    // }
+    // action_str[strcspn(action_str, "\n")] = 0;
 
-    if (strcmp(action_str, "allow") == 0) action = ALLOW;
-    else if (strcmp(action_str, "block") == 0) action = BLOCK;
+    // if (strcmp(action_str, "allow") == 0) action = ALLOW;
+    // else if (strcmp(action_str, "block") == 0) action = BLOCK;
 
     struct event_key key = {
         .ns_id = ns_id,
@@ -486,7 +486,7 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
                 printf("Exit socket: failed, ns_id=%llu, pid=%u, tid=%u, error_code=%llu\n",
                        e->ns_id, e->pid, e->tid, e->ret);
             } else {
-                printf("Exit socket: success, ns_id=%llu, pid=%u, tid=%u, fd=%llu\n",
+                printf("Exit socket: success, ns_id=%llu, pid=%u, tid=%u, ret=%llu\n",
                        e->ns_id, e->pid, e->tid, e->ret);
             }
             break;
@@ -581,8 +581,7 @@ int main(int argc, char **argv) {
         goto cleanup;
     }
 
-    printf("Successfully started! Please run `sudo cat /sys/kernel/debug/tracing/trace_pipe` "
-           "to see output of the BPF programs.\n");
+    printf("Successfully started!\n");
 
     ContainerRuntime runtime = get_runtime_from_user();
     
@@ -614,8 +613,13 @@ container_name:
             return -1;
     }
     ns_id = get_namespace_id(pid);
-    get_user_input(skel, ns_id, SYS_ENTER_SENDTO);
-    get_user_input(skel, ns_id, SYS_EXIT_SENDTO);
+    for (int i = 0; i < MAX_EVENTS; i++) {
+        if (event_table[i].name != NULL) {
+            get_user_input(skel, ns_id, event_table[i].id);
+        }
+    }
+    // get_user_input(skel, ns_id, SYS_ENTER_SENDTO);
+    // get_user_input(skel, ns_id, SYS_EXIT_SENDTO);
 
     while (1) {
         // char event_str[256];
