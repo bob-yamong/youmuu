@@ -93,9 +93,6 @@ int BPF_PROG(file_open, struct file *file)
         (flags & POLICY_FILE_READ)
         || (flags & POLICY_FILE_WRITE)
         || (flags & POLICY_FILE_EXEC)
-        || (flags & POLICY_FILE_APPEND)
-        || (flags & POLICY_FILE_RENAME)
-        || (flags & POLICY_FILE_DELETE)
     ) ret -= 1;
 
     e->event_id = SECID_FILE_OPEN;
