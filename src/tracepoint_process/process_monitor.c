@@ -83,6 +83,42 @@ void init_syscall_map(struct process_monitor_bpf *skel)
         { __NR_recvfrom, "recvfrom" },
         { __NR_setsockopt, "setsockopt" },
         { __NR_getsockopt, "getsockopt" },
+
+        // 기타 시스템 콜 추가
+        { __NR_brk, "brk" },
+        { __NR_munmap, "munmap" },
+        { __NR_mprotect, "mprotect" },
+        { __NR_mmap, "mmap" },
+        { __NR_mremap, "mremap" },
+        { __NR_getpid, "getpid" },
+        { __NR_getppid, "getppid" },
+        { __NR_getuid, "getuid" },
+        { __NR_geteuid, "geteuid" },
+        { __NR_getgid, "getgid" },
+        { __NR_getegid, "getegid" },
+        { __NR_times, "times" },
+        { __NR_nanosleep, "nanosleep" },
+        { __NR_clock_gettime, "clock_gettime" },
+        { __NR_gettimeofday, "gettimeofday" },
+        { __NR_settimeofday, "settimeofday" },
+        { __NR_getrlimit, "getrlimit" },
+        { __NR_setrlimit, "setrlimit" },
+        { __NR_sysinfo, "sysinfo" },
+        { __NR_getdents, "getdents" },
+        { __NR_fstat, "fstat" },
+        { __NR_stat, "stat" },
+        { __NR_lstat, "lstat" },
+        { __NR_pipe, "pipe" },
+        { __NR_pipe2, "pipe2" },
+        { __NR_dup, "dup" },
+        { __NR_dup2, "dup2" },
+        { __NR_dup3, "dup3" },
+        { __NR_ioctl, "ioctl" },
+        { __NR_fcntl, "fcntl" },
+        { __NR_fsync, "fsync" },
+        { __NR_fdatasync, "fdatasync" },
+        { __NR_sync, "sync" },
+        { __NR_syncfs, "syncfs" }
     };
 
     for (int i = 0; i < sizeof(syscall_list) / sizeof(syscall_list[0]); i++) {
@@ -233,7 +269,16 @@ static int handle_event(void *ctx, void *data, size_t data_sz)
             case __NR_sched_yield:
                 printf("Yielding processor\n");
                 break;
-
+            case __NR_mprotect: 
+                printf("mprotect called with addr=%lld, len=%lld, prot=%lld\n", e->args[0], e->args[1], e->args[2]);
+                break;
+            case __NR_mmap:
+                printf("mmap called with addr=%lld, len=%lld, prot=%lld, flags=%lld, fd=%lld, offset=%lld\n",
+               e->args[0], e->args[1], e->args[2], e->args[3], e->args[4], e->args[5]);
+               break;
+            case __NR_munmap:
+                printf("munmap called with addr=%lld, len=%lld\n", e->args[0], e->args[1]);
+                break;
             default:
                 printf("Other system call: %s\n", e->syscall);
                 break;
