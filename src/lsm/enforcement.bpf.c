@@ -636,12 +636,24 @@ SEC("lsm/path_mkdir")
 int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
 {
     //bpf_printk("lsm_hook: fs: path_mkdir\n");
+    
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
         bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
+    if (bpf_d_path(path, e->data.path, sizeof(e->data.path)) < 0) {
+        bpf_printk("Failed to get file path");
+    }
+
+    bpf_printk("lsm_hook: fs: path_mkdir at %s\n",e->data.path);
+
+    __u32 flags = match_policy(POLICY_FILE,e->data.path);
+    
+    bpf_printk("match_policy result flags is  %d\n",flags);
+
+
     int ret = init_context(e);
     if (ret < 0) {
         bpf_ringbuf_discard(e, 0);
