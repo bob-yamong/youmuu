@@ -578,7 +578,6 @@ int BPF_PROG(path_rmdir, struct path *path)
 SEC("lsm/path_unlink")
 int BPF_PROG(path_unlink, struct path *path)
 {
-    //bpf_printk("lsm_hook: fs: path_unlink\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
         bpf_printk("Faild ringbuf_reserve");
@@ -591,16 +590,32 @@ int BPF_PROG(path_unlink, struct path *path)
         return 0;
     }
 
-    get_process_path(e->data.source, sizeof(e->data.source));
+    if (bpf_d_path(path, e->data.path, sizeof(e->data.path)) < 0) {
+        bpf_printk("Failed to get file path");
+    }
 
-    e->event_id = SECID_PATH_UNLINK;
-    e->retval = 0; 
+    __u32 flags = match_policy(POLICY_FILE, e->data.path);
     
-    bpf_ringbuf_submit(e, 0);
+    if (!flags) goto clear;
 
-    return 0;
+    __u8 allow_mode = flags & POLICY_ALLOW;
+    ret = allow_mode ? 1:0;
 
+    if (flags & POLICY_FILE_DELETE) ret -= 1;       
+    
+    bpf_printk("Operation not permitted at %s by policy \n",e->data.path);
+ 
+    e->retval = ret;
+    if (flags & POLICY_AUDIT) bpf_ringbuf_submit(e, 0);
+    else goto clear;
+    
+    return ret;
+
+clear:
+    bpf_ringbuf_discard(e, 0);
+    return ret;
 }
+
 
 SEC("lsm/path_symlink")
 int BPF_PROG(path_symlink, struct path *path, struct path *target)
