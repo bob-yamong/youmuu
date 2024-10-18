@@ -44,8 +44,8 @@ static __always_inline __u64 get_cgroup_id() {
 // Custom strncmp function for BPF
 static __always_inline int compare_strings(const char *a, const char *b, __u32 len) {
     for (__u32 i = 0; i < len; i++) {
-        if (a[i] != b[i])return 1;  // Not equal
         if (a[i] == '\0') return 0;  // Equal
+        if (a[i] != b[i])return 1;  // Not equal
     }
     return 0;  // Equal if both strings are of length `len` and match
 }
