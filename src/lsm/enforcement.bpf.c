@@ -93,9 +93,6 @@ int BPF_PROG(file_open, struct file *file)
         (flags & POLICY_FILE_READ)
         || (flags & POLICY_FILE_WRITE)
         || (flags & POLICY_FILE_EXEC)
-        || (flags & POLICY_FILE_APPEND)
-        || (flags & POLICY_FILE_RENAME)
-        || (flags & POLICY_FILE_DELETE)
     ) ret -= 1;
 
     e->event_id = SECID_FILE_OPEN;
@@ -634,30 +631,50 @@ int BPF_PROG(path_symlink, struct path *path, struct path *target)
 
 SEC("lsm/path_mkdir")
 int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
-{
-    //bpf_printk("lsm_hook: fs: path_mkdir\n");
+{    
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+
     if (!e) {
         bpf_printk("Faild ringbuf_reserve");
         return 0;
     }    
     
     int ret = init_context(e);
+
     if (ret < 0) {
         bpf_ringbuf_discard(e, 0);
         return 0;
+    }  
+
+    if (bpf_d_path(path, e->data.path, sizeof(e->data.path)) < 0) {
+        bpf_printk("Failed to get file path");
     }
 
-    get_process_path(e->data.source, sizeof(e->data.source));
+    bpf_printk("lsm_hook: fs: path_mkdir at %s\n",e->data.path);
 
-    e->event_id = SECID_PATH_MKDIR;
-    e->retval = 0; 
+    __u32 flags = match_policy(POLICY_FILE,e->data.path);
     
-    bpf_ringbuf_submit(e, 0);
+    if (!flags) goto clear;
 
-    return 0;
+    __u8 allow_mode = flags & POLICY_ALLOW;
+    ret = allow_mode ? 1:0;
 
+    if (flags & POLICY_FILE_APPEND) ret -= 1;       
+    
+    bpf_printk("Operation not permitted at %s by policy \n",e->data.path);
+ 
+    e->retval = ret;
+    if (flags & POLICY_AUDIT) bpf_ringbuf_submit(e, 0);
+    else goto clear;
+    
+    return ret;
+
+clear:
+    bpf_ringbuf_discard(e, 0);
+    return ret;
 }
+
+    
 
 SEC("lsm/path_link")
 int BPF_PROG(path_link, struct dentry *old_dentry, struct path *new_dir, struct dentry *new_dentry)
