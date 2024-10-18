@@ -641,6 +641,11 @@ int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
     
     int ret = init_context(e);
 
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }  
+
     if (bpf_d_path(path, e->data.path, sizeof(e->data.path)) < 0) {
         bpf_printk("Failed to get file path");
     }
