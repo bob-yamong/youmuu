@@ -590,10 +590,12 @@ int BPF_PROG(path_unlink, struct path *path)
         return 0;
     }
 
-    bpf_printk("lsm_hook: fs: path_unlink at path %s \n",e->data.path);
+    if (bpf_d_path(path, e->data.path, sizeof(e->data.path)) < 0) {
+        bpf_printk("Failed to get file path");
+    }
 
     __u32 flags = match_policy(POLICY_FILE, e->data.path);
-
+    
     if (!flags) goto clear;
 
     __u8 allow_mode = flags & POLICY_ALLOW;
