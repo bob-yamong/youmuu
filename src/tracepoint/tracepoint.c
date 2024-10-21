@@ -9,6 +9,8 @@
 #include <linux/types.h>
 #include <bpf/libbpf.h>
 #include <arpa/inet.h>
+#include <time.h>
+#include <sys/time.h>
 #include "tracepoint.skel.h"
 #include "event.h"
 
@@ -472,78 +474,98 @@ void get_user_input(struct tracepoint_bpf *skel, __u64 ns_id, __u32 event_id) {
     printf("Updated map with action: %d, namespace_id: %llu, event_id: %d\n", action, ns_id, event_id);
 }
 
+static void get_task_info_str(const struct current_task *task, char *buffer, size_t buffer_size) {
+    char timestamp[26];
+
+    time_t current_time = time(NULL);
+    time_t timer = task->timestamp / 1000000000; // 나노초를 초로 변환
+    time_t actual_time = current_time + timer;
+    struct tm *tm_info = localtime(&actual_time);
+    strftime(timestamp, 26, "%Y-%m-%d %H:%M:%S", tm_info);
+
+    snprintf(buffer, buffer_size,
+             "timestamp=%s.%09llu, cgroup_id=%llu, ns_id=%u, "
+             "ppid=%u, pid=%u, tid=%u, uid=%u, gid=%u",
+             timestamp, task->timestamp % 1000000000,
+             task->cgroup_id, task->ns_id,
+             task->ppid, task->pid, task->tid,
+             task->uid, task->gid);
+}
+
 static int handle_event(void *ctx, void *data, size_t data_sz) {
     const struct event_t *e = data;
     char ip_str[INET_ADDRSTRLEN];
+    char task_info[256];
+    get_task_info_str(&e->task, task_info, sizeof(task_info));
     
     switch(e->event_id) {
         case SYS_ENTER_SOCKET:
-            printf("Enter socket: ns_id=%llu, pid=%u, tid=%u, domain=%d, type=%d, protocol=%d\n",
-                   e->ns_id, e->pid, e->tid, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
+            printf("Enter socket: %s, domain=%d, type=%d, protocol=%d\n",
+                    task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
             break;
         case SYS_EXIT_SOCKET:
             if (e->ret < 0) {
-                printf("Exit socket: failed, ns_id=%llu, pid=%u, tid=%u, error_code=%llu\n",
-                       e->ns_id, e->pid, e->tid, e->ret);
+                printf("Exit socket: failed, %s, error_code=%llu\n",
+                        task_info, e->ret);
             } else {
-                printf("Exit socket: success, ns_id=%llu, pid=%u, tid=%u, ret=%llu\n",
-                       e->ns_id, e->pid, e->tid, e->ret);
+                printf("Exit socket: success, %s, ret=%llu\n",
+                        task_info, e->ret);
             }
             break;
         case SYS_ENTER_SOCKETPAIR:
-            printf("Enter socketpair: ns_id=%llu, pid=%u, tid=%u, domain=%d, type=%d, protocol=%d, sv_ptr=%p\n",
-                   e->ns_id, e->pid, e->tid, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2], e->arg_ptr[0]);
+            printf("Enter socketpair: %s, domain=%d, type=%d, protocol=%d\n",
+                    task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
             break;
         case SYS_EXIT_SOCKETPAIR:
             if (e->ret < 0) {
-                printf("Exit socketpair: failed, ns_id=%llu, pid=%u, tid=%u, error_code=%llu\n",
-                       e->ns_id, e->pid, e->tid, e->ret);
+                printf("Exit socketpair: failed, %s, error_code=%llu\n",
+                        task_info, e->ret);
             } else {
-                printf("Exit socketpair: success, ns_id=%llu, pid=%u, tid=%u, sv[0]=%d, sv[1]=%d, ret=%llu\n",
-                       e->ns_id, e->pid, e->tid, e->sv[0], e->sv[1], e->ret);
+                printf("Exit socketpair: success, %s, sv[0]=%d, sv[1]=%d, ret=%llu\n",
+                        task_info, e->sv[0], e->sv[1], e->ret);
             }
             break;
         case SYS_ENTER_SETSOCKOPT:
-            if (e->arg_ptr[0] == NULL) {
-                printf("Enter setsockopt: ns_id=%llu, pid=%u, tid=%u, fd=%d, level=%d, optname=%d, optval=%u, optlen=%d\n",
-                       e->ns_id, e->pid, e->tid, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2], e->arg_u32[0], e->arg_s32[3]);
+            if (e->is_valid == 1) {
+                printf("Enter setsockopt: %s, fd=%d, level=%d, optname=%d, optval=%u, optlen=%d\n",
+                        task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2], e->arg_u32[0], e->arg_s32[3]);
             } else {
-                printf("Enter setsockopt: ns_id=%llu, pid=%u, tid=%u, fd=%d, level=%d, optname=%d, optval_ptr=%p (failed to read optval), optlen=%d\n",
-                       e->ns_id, e->pid, e->tid, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2], e->arg_ptr[0], e->arg_s32[3]);
+                printf("Enter setsockopt: %s, fd=%d, level=%d, optname=%d, failed to get optval, optlen=%d\n",
+                        task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2], e->arg_s32[3]);
             }
             break;
         case SYS_EXIT_SETSOCKOPT:
             if (e->ret < 0) {
-                printf("Exit setsockopt: failed, ns_id=%llu, pid=%u, tid=%u, error_code=%llu\n",
-                       e->ns_id, e->pid, e->tid, e->ret);
+                printf("Exit setsockopt: failed, %s, error_code=%llu\n",
+                        task_info, e->ret);
             } else {
-                printf("Exit setsockopt: success, ns_id=%llu, pid=%u, tid=%u, ret=%llu\n",
-                       e->ns_id, e->pid, e->tid, e->ret);
+                printf("Exit setsockopt: success, %s, ret=%llu\n",
+                        task_info, e->ret);
             }
             break;
         case SYS_ENTER_SENDTO:
-            if (e->arg_ptr[1] == NULL) {
+            if (e->is_valid == 1) {
                 inet_ntop(AF_INET, &(e->ip), ip_str, INET_ADDRSTRLEN);
-                printf("Enter sendto: ns_id=%llu, pid=%u, tid=%u, fd=%d, buf_ptr=%p, len=%llu, flags=%d, dest_addr=%s:%u, addr_len=%u\n",
-                    e->ns_id, e->pid, e->tid, e->arg_s32[0], e->arg_ptr[0], e->arg_u64[0], e->arg_s32[1], 
-                    ip_str, e->port, e->arg_u32[0]);
+                printf("Enter sendto: %s, fd=%d, len=%llu, flags=%d, dest_addr=%s:%u, addr_len=%u\n",
+                        task_info, e->arg_s32[0], e->arg_u64[0], e->arg_s32[1], 
+                        ip_str, e->port, e->arg_u32[0]);
             } else {
-                printf("Enter sendto: ns_id=%llu, pid=%u, tid=%u, fd=%d, buf_ptr=%p, len=%d, flags=%d, addr_ptr=%p (failed to read addr), addr_len=%d\n",
-                    e->ns_id, e->pid, e->tid, e->arg_s32[0], e->arg_ptr[0], e->arg_s32[1], e->arg_s32[2], e->arg_ptr[1], e->arg_s32[3]);
+                printf("Enter sendto: %s, fd=%d, len=%d, flags=%d, failed to get destination info, addr_len=%d\n",
+                        task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2], e->arg_s32[3]);
             }
             break;
         case SYS_EXIT_SENDTO:
             if (e->ret < 0) {
-                printf("Exit sendto: failed, ns_id=%llu, pid=%u, tid=%u, error_code=%llu\n",
-                       e->ns_id, e->pid, e->tid, e->ret);
+                printf("Exit sendto: failed, %s, error_code=%llu\n",
+                        task_info, e->ret);
             } else {
-                printf("Exit sendto: success, ns_id=%llu, pid=%u, tid=%u, ret=%llu\n",
-                       e->ns_id, e->pid, e->tid, e->ret);
+                printf("Exit sendto: success, %s, ret=%llu\n",
+                        task_info, e->ret);
             }
             break;
         default:
-            printf("Unknown event: id=%d ns_id=%llu, pid=%u, tid=%u\n",
-                   e->event_id, e->ns_id, e->pid, e->tid);
+            printf("Unknown event: %s\n",
+                    task_info);
     }
 
     return 0;

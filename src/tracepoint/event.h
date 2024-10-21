@@ -1,5 +1,5 @@
-struct event_t {
-    __s32 event_id;
+struct current_task  {
+    __u64 timestamp;
     __u64 cgroup_id;
     __u32 ns_id;
     __u32 ppid;
@@ -7,12 +7,19 @@ struct event_t {
     __u32 tid;
     __u32 uid;
     __u32 gid;
+};
+
+struct event_t {
+    struct current_task task;
+    __s32 event_id;
 
     __u64 ret;
 
     __s32 arg_s32[6];
     __u32 arg_u32[6];
     __u64 arg_u64[6];
+
+    bool is_valid;
     
     __s32 sv[2];
 
@@ -24,15 +31,6 @@ struct event_key {
     __u64 ns_id;
     __s32 event_id;
     char argument[256];
-};
-struct current_task {
-    __u64 cgroup_id;
-    __u32 ns_id;
-    __u32 ppid;
-    __u32 pid;
-    __u32 tid;
-    __u32 uid;
-    __u32 gid;
 };
 
 struct EventEntry {

@@ -15,6 +15,7 @@ char LICENSE[] SEC("license") = "GPL";
 static __always_inline struct current_task get_task_struct() {
     struct current_task ct = {0};
 
+    ct.timestamp = bpf_ktime_get_ns();
     struct task_struct *cur_task = (struct task_struct *)bpf_get_current_task();
     if (cur_task == NULL) {
         bpf_printk("failed to get cur task\n");
@@ -61,13 +62,14 @@ static __always_inline struct event_t *ring_buffer(__u64 event_id, struct curren
         return NULL;
     } else {
         e->event_id = event_id;
-        e->cgroup_id = ct.cgroup_id;
-        e->ns_id = ct.ns_id;
-        e->ppid = ct.ppid;
-        e->pid = ct.pid;    
-        e->tid = ct.tid;
-        e->uid = ct.uid;
-        e->gid = ct.gid;
+        e->task.timestamp = ct.timestamp;
+        e->task.cgroup_id = ct.cgroup_id;
+        e->task.ns_id = ct.ns_id;
+        e->task.ppid = ct.ppid;
+        e->task.pid = ct.pid;    
+        e->task.tid = ct.tid;
+        e->task.uid = ct.uid;
+        e->task.gid = ct.gid;
     }
     return e;
 }
@@ -101,25 +103,11 @@ int trace_sys_exit_socket(struct trace_event_raw_sys_exit *ctx) {
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
     struct current_task ct = get_task_struct();
-    
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
-    };
-
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            struct event_t *e;
-            e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
-            if (e) {
-                e->ns_id = ct.ns_id;
-                e->pid = ct.pid;
-                e->tid = ct.tid;
-                e->event_id = event_id;
-                e->ret = ret;
-                bpf_ringbuf_submit(e, 0);
-            }
+    if (should_log_event(ct.ns_id, event_id)) {
+        struct event_t *e = ring_buffer(event_id, ct);
+        if (e) {
+            e->ret = ret;
+            bpf_ringbuf_submit(e, 0);
         }
     }
 
@@ -138,27 +126,13 @@ int trace_sys_enter_socketpair(struct trace_event_raw_sys_enter *ctx) {
     struct current_task ct = get_task_struct();
     bpf_map_update_elem(&socketpair_args_map, &ct, &sv_ptr, BPF_ANY);
 
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
-    };
-    
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            struct event_t *e;
-            e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
-            if (e) {
-                e->ns_id = ct.ns_id;
-                e->pid = ct.pid;
-                e->tid = ct.tid;
-                e->event_id = event_id;
-                e->arg_s32[0] = domain;
-                e->arg_s32[1] = type;
-                e->arg_s32[2] = protocol;
-                e->arg_ptr[0] = sv_ptr;
-                bpf_ringbuf_submit(e, 0);
-            }
+    if (should_log_event(ct.ns_id, event_id)) {
+        struct event_t *e = ring_buffer(event_id, ct);
+        if (e) {
+            e->arg_s32[0] = domain;
+            e->arg_s32[1] = type;
+            e->arg_s32[2] = protocol;
+            bpf_ringbuf_submit(e, 0);
         }
     }
     
@@ -172,45 +146,24 @@ int trace_sys_exit_socketpair(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
     
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
-    };
-
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            __u64 *sv_ptr = bpf_map_lookup_elem(&socketpair_args_map, &ct);
-            if (sv_ptr && ret >= 0) {
-                __s32 sv[2];
+    if (should_log_event(ct.ns_id, event_id)) {
+        __u64 *sv_ptr = bpf_map_lookup_elem(&socketpair_args_map, &ct);
+        if (sv_ptr && ret >= 0) {
+            __s32 sv[2];
+            struct event_t *e = ring_buffer(event_id, ct);
+            if (e) {
                 long err = bpf_probe_read_user(sv, sizeof(sv), (void *)*sv_ptr);
                 if (err == 0) {
-                    struct event_t *e;
-                    e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
-                    if (e) {
-                        e->ns_id = ct.ns_id;
-                        e->pid = ct.pid;
-                        e->tid = ct.tid;
-                        e->event_id = event_id;
-                        e->ret = ret;
-                        e->sv[0] = sv[0];
-                        e->sv[1] = sv[1];
-                        bpf_ringbuf_submit(e, 0);
-                    }
-                }
-            } else {
-                struct event_t *e;
-                e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
-                if (e) {
-                    e->ns_id = ct.ns_id;
-                    e->pid = ct.pid;
-                    e->tid = ct.tid;
-                    e->event_id = event_id;
+                    e->ret = ret;
+                    e->sv[0] = sv[0];
+                    e->sv[1] = sv[1];
+                    bpf_ringbuf_submit(e, 0);
+                } else {
                     e->ret = ret;
                     e->sv[0] = -1;
                     e->sv[1] = -1;
                     bpf_ringbuf_submit(e, 0);
-                } 
+                }
             }
         }
     }
@@ -230,44 +183,27 @@ int trace_sys_enter_setsockopt(struct trace_event_raw_sys_enter *ctx) {
     __s32 optlen = BPF_CORE_READ(ctx, args[4]);
 
     struct current_task ct = get_task_struct();
-
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
-    };
-
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            __u32 optval;
+    
+    if (should_log_event(ct.ns_id, event_id)) {
+        __u32 optval;
+        struct event_t *e = ring_buffer(event_id, ct);
+        if (e) {
             long err = bpf_probe_read_user(&optval, sizeof(optval), optval_ptr);
-            struct event_t *e;
-            e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
-            if (e) {
-                if (err == 0) {
-                    e->ns_id = ct.ns_id;
-                    e->pid = ct.pid;
-                    e->tid = ct.tid;
-                    e->event_id = event_id;
-                    e->arg_s32[0] = sockfd;
-                    e->arg_s32[1] = level;
-                    e->arg_s32[2] = optname;
-                    e->arg_ptr[0] = NULL;
-                    e->arg_u32[0] = optval;
-                    e->arg_s32[3] = optlen;
-                    bpf_ringbuf_submit(e, 0);
-                } else {
-                    e->ns_id = ct.ns_id;
-                    e->pid = ct.pid;
-                    e->tid = ct.tid;
-                    e->event_id = event_id;
-                    e->arg_s32[0] = sockfd;
-                    e->arg_s32[1] = level;
-                    e->arg_s32[2] = optname;
-                    e->arg_ptr[0] = optval_ptr;
-                    e->arg_s32[3] = optlen;
-                    bpf_ringbuf_submit(e, 0);
-                }
+            if (err == 0) {
+                e->arg_s32[0] = sockfd;
+                e->arg_s32[1] = level;
+                e->arg_s32[2] = optname;
+                e->arg_u32[0] = optval;
+                e->arg_s32[3] = optlen;
+                e->is_valid = true;
+                bpf_ringbuf_submit(e, 0);
+            } else {
+                e->arg_s32[0] = sockfd;
+                e->arg_s32[1] = level;
+                e->arg_s32[2] = optname;
+                e->arg_s32[3] = optlen;
+                e->is_valid = false;
+                bpf_ringbuf_submit(e, 0);
             }
         }
     }
@@ -281,28 +217,15 @@ int trace_sys_exit_setsockopt(struct trace_event_raw_sys_exit *ctx) {
     __s64 ret = BPF_CORE_READ(ctx, ret);
     
     struct current_task ct = get_task_struct();
-    
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
-    };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            struct event_t *e;
-            e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
-            if (e) {
-                e->ns_id = ct.ns_id;
-                e->pid = ct.pid;
-                e->tid = ct.tid;
-                e->event_id = event_id;
-                e->ret = ret;
-                bpf_ringbuf_submit(e, 0);
-            }
+    if (should_log_event(ct.ns_id, event_id)) {
+        struct event_t *e = ring_buffer(event_id, ct);
+        if (e) {
+            e->ret = ret;
+            bpf_ringbuf_submit(e, 0);
         }
     }
-    
+
     return 0;
 }
 
@@ -988,48 +911,29 @@ int trace_sys_enter_sendto(struct trace_event_raw_sys_enter *ctx) {
 
     struct current_task ct = get_task_struct();
 
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
-    };
-
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
+    if (should_log_event(ct.ns_id, event_id)) {
+        struct event_t *e = ring_buffer(event_id, ct);
+        if (e) {
             struct sockaddr_in dest_addr;
             long err = bpf_probe_read_user(&dest_addr, sizeof(dest_addr), dest_addr_ptr);
-            struct event_t *e;
-            e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
-            __u32 ip = dest_addr.sin_addr.s_addr;
-            __u16 port = bpf_ntohs(dest_addr.sin_port);
-            if (e) {
-                if (err == 0) {
-                    e->ns_id = ct.ns_id;
-                    e->pid = ct.pid;
-                    e->tid = ct.tid;
-                    e->event_id = event_id;
-                    e->arg_s32[0] = sockfd;
-                    e->arg_ptr[0] = buf_ptr;
-                    e->arg_u64[0] = len;
-                    e->arg_s32[1] = flags;
-                    e->arg_ptr[1] = NULL;
-                    e->ip = ip;
-                    e->port = port;
-                    e->arg_u32[0] = addrlen;
-                    bpf_ringbuf_submit(e, 0);
-                } else {
-                    e->ns_id = ct.ns_id;
-                    e->pid = ct.pid;
-                    e->tid = ct.tid;
-                    e->event_id = event_id;
-                    e->arg_s32[0] = sockfd;
-                    e->arg_ptr[0] = buf_ptr;
-                    e->arg_u64[0] = len;
-                    e->arg_s32[1] = flags;
-                    e->arg_ptr[1] = dest_addr_ptr;
-                    e->arg_u32[0] = addrlen;
-                    bpf_ringbuf_submit(e, 0);
-                }
+            if (err == 0) {
+                __u32 ip = dest_addr.sin_addr.s_addr;
+                __u16 port = bpf_ntohs(dest_addr.sin_port);
+                e->arg_s32[0] = sockfd;
+                e->arg_u64[0] = len;
+                e->arg_s32[1] = flags;
+                e->ip = ip;
+                e->port = port;
+                e->arg_u32[0] = addrlen;
+                e->is_valid = 1;
+                bpf_ringbuf_submit(e, 0);
+            } else {
+                e->arg_s32[0] = sockfd;
+                e->arg_u64[0] = len;
+                e->arg_s32[1] = flags;
+                e->arg_u32[0] = addrlen;
+                e->is_valid = 0;
+                bpf_ringbuf_submit(e, 0);
             }
         }
     }
@@ -1044,24 +948,11 @@ int trace_sys_exit_sendto(struct trace_event_raw_sys_exit *ctx) {
     
     struct current_task ct = get_task_struct();
     
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
-    };
-
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            struct event_t *e;
-            e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
-            if (e) {
-                e->ns_id = ct.ns_id;
-                e->pid = ct.pid;
-                e->tid = ct.tid;
-                e->event_id = event_id;
-                e->ret = ret;
-                bpf_ringbuf_submit(e, 0);
-            }
+    if (should_log_event(ct.ns_id, event_id)) {
+        struct event_t *e = ring_buffer(event_id, ct);
+        if (e) {
+            e->ret = ret;
+            bpf_ringbuf_submit(e, 0);
         }
     }
     
@@ -5326,78 +5217,78 @@ int trace_sys_exit_lsetxattr(struct trace_event_raw_sys_exit *ctx) {
     return 0;
 }
 
-SEC("tracepoint/syscalls/sys_enter_fsetxattr")
-int trace_sys_enter_fsetxattr(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_FSETXATTR;
+// SEC("tracepoint/syscalls/sys_enter_fsetxattr")
+// int trace_sys_enter_fsetxattr(struct trace_event_raw_sys_enter *ctx) {
+//     __s32 event_id = SYS_ENTER_FSETXATTR;
 
-    __s32 fd = BPF_CORE_READ(ctx, args[0]);
-    char *name = (char *)BPF_CORE_READ(ctx, args[1]);
-    char *value = (char *)BPF_CORE_READ(ctx, args[2]);
-    __u32 size = BPF_CORE_READ(ctx, args[3]);
-    __u32 flags = BPF_CORE_READ(ctx, args[4]);
+//     __s32 fd = BPF_CORE_READ(ctx, args[0]);
+//     char *name = (char *)BPF_CORE_READ(ctx, args[1]);
+//     char *value = (char *)BPF_CORE_READ(ctx, args[2]);
+//     __u32 size = BPF_CORE_READ(ctx, args[3]);
+//     __u32 flags = BPF_CORE_READ(ctx, args[4]);
 
-    struct current_task ct = get_task_struct();
+//     struct current_task ct = get_task_struct();
 
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
-    };
+//     struct event_key event_key = {
+//         .ns_id = ct.ns_id,
+//         .event_id = event_id,
+//     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            __u32 name_key = 0;
-            __u32 value_key = 1;
-            char *name_buf = bpf_map_lookup_elem(&buf_map, &name_key);
-            char *value_buf = bpf_map_lookup_elem(&buf_map, &value_key);
-            if (name_buf && value_buf) {
-                long name_err = bpf_probe_read_user(name_buf, sizeof(char) * 256, name);
-                __u32 read_size = (size > 256) ? 256 : size;
-                long value_err = bpf_probe_read_user(value_buf, read_size, value);
-                if (name_err == 0 && value_err == 0) {
-                    if (size > 256) {
-                        bpf_printk("Enter fsetxattr: ns_id=%llu, pid=%u, fd=%d, name=%s, value=(truncated), size=%u (truncated to %u), flags=%u\n", 
-                                ct.ns_id, ct.pid, fd, name_buf, size, read_size, flags);
-                    } else {
-                        bpf_printk("Enter fsetxattr: ns_id=%llu, pid=%u, fd=%d, name=%s, value=%s, size=%u, flags=%u\n", 
-                                ct.ns_id, ct.pid, fd, name_buf, value_buf, size, flags);
-                    }
-                } else {
-                    bpf_printk("Enter fsetxattr: ns_id=%llu, pid=%u, failed to read name or value. Errors: name=%ld, value=%ld\n", 
-                            ct.ns_id, ct.pid, name_err, value_err);
-                }
-            }
-        }
-    }
+//     __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+//     if (watched) {
+//         if (*watched == LOGGING) {
+//             __u32 name_key = 0;
+//             __u32 value_key = 1;
+//             char *name_buf = bpf_map_lookup_elem(&buf_map, &name_key);
+//             char *value_buf = bpf_map_lookup_elem(&buf_map, &value_key);
+//             if (name_buf && value_buf) {
+//                 long name_err = bpf_probe_read_user(name_buf, sizeof(char) * 256, name);
+//                 __u32 read_size = (size > 256) ? 256 : size;
+//                 long value_err = bpf_probe_read_user(value_buf, read_size, value);
+//                 if (name_err == 0 && value_err == 0) {
+//                     if (size > 256) {
+//                         bpf_printk("Enter fsetxattr: ns_id=%llu, pid=%u, fd=%d, name=%s, value=(truncated), size=%u (truncated to %u), flags=%u\n", 
+//                                 ct.ns_id, ct.pid, fd, name_buf, size, read_size, flags);
+//                     } else {
+//                         bpf_printk("Enter fsetxattr: ns_id=%llu, pid=%u, fd=%d, name=%s, value=%s, size=%u, flags=%u\n", 
+//                                 ct.ns_id, ct.pid, fd, name_buf, value_buf, size, flags);
+//                     }
+//                 } else {
+//                     bpf_printk("Enter fsetxattr: ns_id=%llu, pid=%u, failed to read name or value. Errors: name=%ld, value=%ld\n", 
+//                             ct.ns_id, ct.pid, name_err, value_err);
+//                 }
+//             }
+//         }
+//     }
 
-    return 0;
-}
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_fsetxattr")
-int trace_sys_exit_fsetxattr(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_FSETXATTR;
-    __s64 ret = BPF_CORE_READ(ctx, ret);
+// SEC("tracepoint/syscalls/sys_exit_fsetxattr")
+// int trace_sys_exit_fsetxattr(struct trace_event_raw_sys_exit *ctx) {
+//     __s32 event_id = SYS_EXIT_FSETXATTR;
+//     __s64 ret = BPF_CORE_READ(ctx, ret);
     
-    struct current_task ct = get_task_struct();
+//     struct current_task ct = get_task_struct();
 
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
-    };
+//     struct event_key event_key = {
+//         .ns_id = ct.ns_id,
+//         .event_id = event_id,
+//     };
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            if (ret < 0) {
-                bpf_printk("Exit fsetxattr: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
-            } else {
-                bpf_printk("Exit fsetxattr: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
-            }
-        }
-    }
+//     __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+//     if (watched) {
+//         if (*watched == LOGGING) {
+//             if (ret < 0) {
+//                 bpf_printk("Exit fsetxattr: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
+//             } else {
+//                 bpf_printk("Exit fsetxattr: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+//             }
+//         }
+//     }
     
-    return 0;
-}
+//     return 0;
+// }
 
 SEC("tracepoint/syscalls/sys_enter_getxattr")
 int trace_sys_enter_getxattr(struct trace_event_raw_sys_enter *ctx) {
