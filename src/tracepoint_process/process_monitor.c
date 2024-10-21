@@ -83,7 +83,6 @@ void init_syscall_map(struct process_monitor_bpf *skel)
         { __NR_recvfrom, "recvfrom" },
         { __NR_setsockopt, "setsockopt" },
         { __NR_getsockopt, "getsockopt" },
-
         // 기타 시스템 콜 추가
         { __NR_brk, "brk" },
         { __NR_munmap, "munmap" },
