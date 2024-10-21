@@ -413,6 +413,25 @@ enum view_mode get_menu(char *input) {
     }
 }
 
+void clear_bpf_map(int map_fd) {
+    struct policy_key key, next_key;
+    
+    // Start by fetching the first key
+    if (bpf_map_get_next_key(map_fd, NULL, &next_key) == 0) {
+        // While there are still elements in the map
+        do {
+            key = next_key;
+            // Try to delete the current key
+            if (bpf_map_delete_elem(map_fd, &key) != 0) {
+                perror("Failed to delete map element");
+                break;  // Stop on delete failure
+            }
+            // Fetch the next key
+        } while (bpf_map_get_next_key(map_fd, &key, &next_key) == 0);
+    }
+}
+
+
 int main(int argc, char **argv)
 {
     struct enforcement_bpf *skel;
@@ -437,7 +456,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    int err, map_fd = bpf_obj_get(MAP_PIN_PATH);
+    int err;
 
     err = enforcement_bpf__load(skel);
     if (err) {
@@ -452,6 +471,7 @@ int main(int argc, char **argv)
         goto cleanup;
     }
 
+    int map_fd = bpf_map__fd(skel->maps.policy_map);
     // check if the map already exists
     if (map_fd < 0) {
         fprintf(stderr, "No existing map found, creating a new one.\n");
@@ -515,6 +535,9 @@ int main(int argc, char **argv)
             break;
         case DELETE_POLICY:
             printf("Delete Policy\n");
+
+            clear_bpf_map(map_fd);
+            printf("Policy map cleared.\n");
             break;
         case SHOW_POLICY:
             printf("Show Policy\n");
