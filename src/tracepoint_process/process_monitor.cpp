@@ -296,48 +296,44 @@ int main(int argc, char **argv)
 {
     int err;
 
-    // Ctrl-C 핸들러 등록
     signal(SIGINT, sig_handler);
     signal(SIGTERM, sig_handler);
 
-    // BPF 애플리케이션 로드 및 검증
     skel = process_monitor_bpf__open_and_load();
     if (!skel) {
-        std::cerr << "BPF 스켈레톤을 열고 로드하는데 실패했습니다\n";
+        std::cerr << "Failed to load and attach BPF skeleton.\n";
         return 1;
     }
 
-    // BPF 프로그램 연결
-    err = process_monitor_bpf__attach(skel);
-    if (err) {
-        std::cerr << "BPF 스켈레톤을 연결하는데 실패했습니다: " << err << "\n";
-        goto cleanup;
-    }
+    std::cout << "BPF program started successfully!\n";
 
-    std::cout << "성공적으로 BPF 프로그램을 시작했습니다! 프로세스 모니터링을 시작합니다...\n";
-
-    std::cout << "컨테이너 PID 자동 감지 중...\n";
-    int detected_containers = get_container_pids();
+    int detected_containers = ContainerManager::getContainerPIDs();
     if (detected_containers <= 0) {
-        std::cerr << "실행 중인 컨테이너를 찾을 수 없습니다.\n";
-        goto cleanup;
+        std::cerr << "No running containers found.\n";
+        process_monitor_bpf__destroy(skel);
+        return 1;
     }
-    std::cout << detected_containers << "개의 컨테이너를 감지했습니다.\n";
+    std::cout << "Detected " << detected_containers << " containers.\n";
 
-    for (int i = 0; i < detected_containers; i++) {
-        __u32 key_pid = containers[i].pid;
+    for (const auto& container : ContainerManager::containers) {
+        __u32 key_pid = container.pid;
         __u32 value_pid = 1;
-        __u64 key_inode = get_container_inode(containers[i].id);
+        __u64 key_inode = ContainerManager::getContainerInode(container.id);
         __u64 value_inode = 1;
 
-        int err_pid = bpf_map__update_elem(skel->maps.container_pids, &key_pid, sizeof(key_pid), &value_pid, sizeof(value_pid), BPF_ANY);
-        int err_inode = bpf_map__update_elem(skel->maps.container_cgroup_id, &key_inode, sizeof(key_inode), &value_inode, sizeof(value_inode), BPF_ANY);
-        if (err_pid || err_inode) {
-            std::cerr << "컨테이너 PID " << containers[i].pid << "를 맵에 추가하는데 실패했습니다: " << err_pid << "\n";
-            std::cerr << "컨테이너 inode " << key_inode << "를 맵에 추가하는데 실패했습니다: " << err_inode << "\n";
-        } else {
-            std::cout << "컨테이너 ID: " << containers[i].id << ", PID: " << containers[i].pid << ", inode: " << key_inode << "를 모니터링 중\n";
+        err = bpf_map__update_elem(skel->maps.container_pids, &key_pid, sizeof(key_pid),&value_pid, sizeof(value_pid), BPF_ANY);
+        if (err) {
+            std::cerr << "Failed to add container PID to map: " << strerror(errno) << "\n";
+            continue;
         }
+
+        err = bpf_map__update_elem(skel->maps.container_cgroup_id, &key_inode, sizeof(key_inode),&value_inode, sizeof(value_inode), BPF_ANY);
+        if (err) {
+            std::cerr << "Failed to add container inode to map: " << strerror(errno) << "\n";
+            continue;
+        }
+
+        std::cout << "Monitoring container ID: " << container.id << ", PID: " << container.pid << ", inode: " << key_inode << "\n";
     }
 
     init_syscall_map(skel);
@@ -345,7 +341,8 @@ int main(int argc, char **argv)
     struct ring_buffer *rb = ring_buffer__new(bpf_map__fd(skel->maps.events), handle_event, NULL, NULL);
     if (!rb) {
         std::cerr << "Failed to create ring buffer\n";
-        goto cleanup;
+        process_monitor_bpf__destroy(skel);
+        return 1;
     }
 
     // 메인 루프
@@ -361,7 +358,6 @@ int main(int argc, char **argv)
         }
     }
 
-cleanup:
     ring_buffer__free(rb);
     process_monitor_bpf__destroy(skel);
     return err < 0 ? -err : 0;
