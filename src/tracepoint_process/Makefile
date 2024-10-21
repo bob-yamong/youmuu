@@ -8,21 +8,22 @@ LIBBPF_OBJ := $(abspath $(OUTPUT)/libbpf.a)
 BPFTOOL_OUTPUT ?= $(abspath $(OUTPUT)/bpftool)
 BPFTOOL ?= $(BPFTOOL_OUTPUT)/bootstrap/bpftool
 ARCH ?= $(shell uname -m | sed 's/x86_64/x86/' \
-			 | sed 's/aarch64/arm64/' \
-			 | sed 's/ppc64le/powerpc/' \
-			 | sed 's/mips.*/mips/' \
-			 | sed 's/arm.*/arm/' \
-			 | sed 's/riscv64/riscv/')
+                 | sed 's/aarch64/arm64/' \
+                 | sed 's/ppc64le/powerpc/' \
+                 | sed 's/mips.*/mips/' \
+                 | sed 's/arm.*/arm/' \
+                 | sed 's/riscv64/riscv/')
 VMLINUX := ../../vmlinux/$(ARCH)/vmlinux.h
 # Use our own libbpf API headers and Linux UAPI headers distributed with
 # libbpf to avoid dependency on system-wide headers, which could be missing or
 # outdated
 INCLUDES := -I$(OUTPUT) -I../../libbpf/include/uapi -I$(dir $(VMLINUX))
 CFLAGS := -g -Wall
+CXXFLAGS := -g -Wall -std=c++11  # C++ 컴파일러 플래그 추가
 ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS)
 
 # 다음 줄 추가_추후 삭제
-LIBS := -lelf -lz -lcurl -ljson-c
+LIBS := -lelf -lz -lcurl -ljson-c -lpthread  # pthread 라이브러리 추가
 
 APPS = process_monitor
 
@@ -35,27 +36,28 @@ APPS = process_monitor
 # Use '-idirafter': Don't interfere with include mechanics except where the
 # build would have failed anyways.
 CLANG_BPF_SYS_INCLUDES = $(shell $(CLANG) -v -E - </dev/null 2>&1 \
-	| sed -n '/<...> search starts here:/,/End of search list./{ s| \(/.*\)|-idirafter \1|p }')
+    | sed -n '/<...> search starts here:/,/End of search list./{ s| \(/.*\)|-idirafter \1|p }')
 
 ifeq ($(V),1)
-	Q =
-	msg =
+    Q =
+    msg =
 else
-	Q = @
-	msg = @printf '  %-8s %s%s\n'					\
-		      "$(1)"						\
-		      "$(patsubst $(abspath $(OUTPUT))/%,%,$(2))"	\
-		      "$(if $(3), $(3))";
-	MAKEFLAGS += --no-print-directory
+    Q = @
+    msg = @printf '  %-8s %s%s\n'					\
+              "$(1)"						\
+              "$(patsubst $(abspath $(OUTPUT))/%,%,$(2))"	\
+              "$(if $(3), $(3))";
+    MAKEFLAGS += --no-print-directory
 endif
 
 define allow-override
   $(if $(or $(findstring environment,$(origin $(1))),\
-            $(findstring command line,$(origin $(1)))),,\
+                $(findstring command line,$(origin $(1)))),,\
     $(eval $(1) = $(2)))
 endef
 
 $(call allow-override,CC,$(CROSS_COMPILE)cc)
+$(call allow-override,CXX,$(CROSS_COMPILE)g++)  # C++ 컴파일러 설정
 $(call allow-override,LD,$(CROSS_COMPILE)ld)
 
 .PHONY: all
@@ -74,9 +76,9 @@ $(OUTPUT) $(OUTPUT)/libbpf $(BPFTOOL_OUTPUT):
 $(LIBBPF_OBJ): $(wildcard $(LIBBPF_SRC)/*.[ch] $(LIBBPF_SRC)/Makefile) | $(OUTPUT)/libbpf
 	$(call msg,LIB,$@)
 	$(Q)$(MAKE) -C $(LIBBPF_SRC) BUILD_STATIC_ONLY=1		      \
-		    OBJDIR=$(dir $@)/libbpf DESTDIR=$(dir $@)		      \
-		    INCLUDEDIR= LIBDIR= UAPIDIR=			      \
-		    install
+		OBJDIR=$(dir $@)/libbpf DESTDIR=$(dir $@)		      \
+		INCLUDEDIR= LIBDIR= UAPIDIR=			      \
+		install
 
 # Build bpftool
 $(BPFTOOL): | $(BPFTOOL_OUTPUT)
@@ -97,14 +99,14 @@ $(OUTPUT)/%.skel.h: $(OUTPUT)/%.bpf.o | $(OUTPUT) $(BPFTOOL)
 # Build user-space code
 $(patsubst %,$(OUTPUT)/%.o,$(APPS)): %.o: %.skel.h
 
-$(OUTPUT)/%.o: %.c $(wildcard %.h) | $(OUTPUT)
-	$(call msg,CC,$@)
-	$(Q)$(CC) $(CFLAGS) $(INCLUDES) -c $(filter %.c,$^) -o $@
+$(OUTPUT)/%.o: %.cpp $(wildcard %.h) | $(OUTPUT)  # C++ 파일 컴파일 규칙 추가
+	$(call msg,CXX,$@)
+	$(Q)$(CXX) $(CXXFLAGS) $(INCLUDES) -c $(filter %.cpp,$^) -o $@
 
 # Build application binary
 $(APPS): %: $(OUTPUT)/%.o $(LIBBPF_OBJ) | $(OUTPUT)
 	$(call msg,BINARY,$@)
-	$(Q)$(CC) $(CFLAGS) $^ $(ALL_LDFLAGS) $(LIBS) -o $@
+	$(Q)$(CXX) $(CXXFLAGS) $^ $(ALL_LDFLAGS) $(LIBS) -o $@
 
 # delete failed targets
 .DELETE_ON_ERROR:
