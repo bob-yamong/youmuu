@@ -13,20 +13,63 @@
 char LICENSE[] SEC("license") = "GPL";
 
 static __always_inline struct current_task get_task_struct() {
-    struct current_task ct = {};
+    struct current_task ct = {0};
 
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    if (task == NULL) {
+    struct task_struct *cur_task = (struct task_struct *)bpf_get_current_task();
+    if (cur_task == NULL) {
         bpf_printk("failed to get cur task\n");
         return ct;
     }
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
+    __u64 uid_gid = bpf_get_current_uid_gid();
+    
+    ct.cgroup_id = bpf_get_current_cgroup_id();
+    ct.ns_id = BPF_CORE_READ(cur_task, nsproxy, pid_ns_for_children, ns.inum);
+    ct.ppid = BPF_CORE_READ(cur_task, real_parent, tgid);
     ct.pid = pid_tgid >> 32;
     ct.tid = (__u32)pid_tgid;
-    ct.ns_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
+    ct.uid = uid_gid;
+    ct.gid = uid_gid >> 32;
 
     return ct;
+}
+
+static __always_inline void count_loss(void) {
+    u32 key = 0;
+    u64 *count = bpf_map_lookup_elem(&loss_counter, &key);
+    if (count) {
+        __sync_fetch_and_add(count, 1);
+    }
+}
+
+static __always_inline bool should_log_event(__u32 ns_id, __s32 event_id) {
+    struct event_key event_key = {
+        .ns_id = ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    return (watched && *watched == LOGGING);
+}
+
+static __always_inline struct event_t *ring_buffer(__u64 event_id, struct current_task ct) {
+    struct event_t *e;
+    e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
+    if (!e) {
+        count_loss();
+        return NULL;
+    } else {
+        e->event_id = event_id;
+        e->cgroup_id = ct.cgroup_id;
+        e->ns_id = ct.ns_id;
+        e->ppid = ct.ppid;
+        e->pid = ct.pid;    
+        e->tid = ct.tid;
+        e->uid = ct.uid;
+        e->gid = ct.gid;
+    }
+    return e;
 }
 
 // network events related tracepoints
@@ -39,27 +82,13 @@ int trace_sys_enter_socket(struct trace_event_raw_sys_enter *ctx) {
     __s32 protocol = BPF_CORE_READ(ctx, args[2]);
 
     struct current_task ct = get_task_struct();
-
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
-    };
-
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            struct event_t *e;
-            e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
-            if (e) {
-                e->ns_id = ct.ns_id;
-                e->pid = ct.pid;
-                e->tid = ct.tid;
-                e->event_id = event_id;
-                e->arg_s32[0] = domain;
-                e->arg_s32[1] = type;
-                e->arg_s32[2] = protocol;
-                bpf_ringbuf_submit(e, 0);
-            }
+    if (should_log_event(ct.ns_id, event_id)) {
+        struct event_t *e = ring_buffer(event_id, ct);
+        if (e) {
+            e->arg_s32[0] = domain;
+            e->arg_s32[1] = type;
+            e->arg_s32[2] = protocol;
+            bpf_ringbuf_submit(e, 0);
         }
     }
 
