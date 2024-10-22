@@ -397,7 +397,7 @@ int main(int argc, char **argv)
 
         init_syscall_map(skel);
 
-        // 작업 스레드 풀 생성 (예: 4개의 스레드)
+        // 작업 스레드 풀 생성 (현재 4개 스레드)
         const int num_workers = 4;
         for (int i = 0; i < num_workers; ++i) {
             worker_threads.emplace_back(worker_thread_func, i);
