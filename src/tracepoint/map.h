@@ -78,4 +78,18 @@ struct {
     __type(value, struct sock_addr_args);
 } accept4_args_map SEC(".maps");
 
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 10000);
+    __type(key, struct map_key);
+    __type(value, struct sock_addr_args);
+} recvfrom_args_map SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 10000);
+    __type(key, struct map_key);
+    __type(value, struct msg_args);
+} recvmsg_args_map SEC(".maps");
+
 #endif

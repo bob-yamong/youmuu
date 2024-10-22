@@ -13,11 +13,12 @@ struct event_t {
     struct current_task task;
     __s32 event_id;
 
-    __u64 ret;
+    __s64 ret;
 
     __s32 arg_s32[6];
     __u32 arg_u32[6];
     __u64 arg_u64[6];
+    __u8 arg_str[256];
 
     bool is_valid;
     bool is_null;
@@ -28,7 +29,6 @@ struct event_t {
     __u16 port;
     __u16 addr_family;
     __u8 ipv6_addr[16];
-
 };
 
 struct event_key {
@@ -51,6 +51,15 @@ struct getsockopt_args {
 struct sock_addr_args {
     void *addr_ptr;
     __u64 *addrlen_ptr;
+};
+
+struct msghdr_args {
+    void *msg_name;
+    int msg_namelen;
+};
+
+struct msg_args {
+    struct msghdr *msg_ptr;
 };
 
 struct EventEntry {

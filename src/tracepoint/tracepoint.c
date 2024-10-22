@@ -513,10 +513,10 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
             break;
         case SYS_EXIT_SOCKET:
             if (e->ret < 0) {
-                printf("Exit socket: failed, %s, error_code=%llu\n",
+                printf("Exit socket: failed, %s, error_code=%lld\n",
                         task_info, e->ret);
             } else {
-                printf("Exit socket: success, %s, ret=%llu\n",
+                printf("Exit socket: success, %s, ret=%lld\n",
                         task_info, e->ret);
             }
             break;
@@ -526,10 +526,10 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
             break;
         case SYS_EXIT_SOCKETPAIR:
             if (e->ret < 0) {
-                printf("Exit socketpair: failed, %s, error_code=%llu\n",
+                printf("Exit socketpair: failed, %s, error_code=%lld\n",
                         task_info, e->ret);
-            } else if (e->is_valid) {
-                printf("Exit socketpair: success, %s, sv[0]=%d, sv[1]=%d, ret=%llu\n",
+            } else if (e->is_valid == true) {
+                printf("Exit socketpair: success, %s, sv[0]=%d, sv[1]=%d, ret=%lld\n",
                         task_info, e->sv[0], e->sv[1], e->ret);
             } else {
                 printf("Exit socketpair: success but failed to read socket values, %s, ret=%lld\n",
@@ -547,10 +547,10 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
             break;
         case SYS_EXIT_SETSOCKOPT:
             if (e->ret < 0) {
-                printf("Exit setsockopt: failed, %s, error_code=%llu\n",
+                printf("Exit setsockopt: failed, %s, error_code=%lld\n",
                         task_info, e->ret);
             } else {
-                printf("Exit setsockopt: success, %s, ret=%llu\n",
+                printf("Exit setsockopt: success, %s, ret=%lld\n",
                         task_info, e->ret);
             }
             break;
@@ -560,13 +560,13 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
             break;
         case SYS_EXIT_GETSOCKOPT:
             if (e->ret < 0) {
-                printf("Exit getsockopt: failed, %s, error_code=%llu\n",
+                printf("Exit getsockopt: failed, %s, error_code=%lld\n",
                         task_info, e->ret);
             } else if (e->is_valid == true) {
-                printf("Exit getsockopt: success, %s, optval=%u, optlen=%u, ret=%llu\n",
+                printf("Exit getsockopt: success, %s, optval=%u, optlen=%u, ret=%lld\n",
                         task_info, e->arg_u32[0], e->arg_u32[1], e->ret);
             } else {
-                printf("Exit getsockopt: success, %s, failed to read optval, ret=%llu\n",
+                printf("Exit getsockopt: success, %s, failed to read optval, ret=%lld\n",
                         task_info, e->ret);
             }
             break;
@@ -576,7 +576,7 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
             break;
         case SYS_EXIT_GETSOCKNAME:
             if (e->ret < 0) {
-                printf("Exit getsockname: failed, %s, error_code=%llu\n",
+                printf("Exit getsockname: failed, %s, error_code=%lld\n",
                         task_info, e->ret);
             } else if (e->is_valid == true) {
                 char ip_str[INET6_ADDRSTRLEN] = {0};
@@ -585,11 +585,11 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
                 } else if (e->addr_family == AF_INET6) {
                     inet_ntop(AF_INET6, e->ipv6_addr, ip_str, INET6_ADDRSTRLEN);
                 }
-                printf("Exit getsockname: success, %s, address=%s:%u, family=%s, ret=%llu\n",
+                printf("Exit getsockname: success, %s, address=%s:%u, ip_version=%s, ret=%lld\n",
                         task_info, ip_str, e->port, 
                         e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown", e->ret);
             } else {
-                printf("Exit getsockname: success, %s, failed to read socket address info, ret=%llu\n",
+                printf("Exit getsockname: success, %s, failed to read socket address info, ret=%lld\n",
                         task_info, e->ret);
             }
             break;
@@ -599,7 +599,7 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
             break;
         case SYS_EXIT_GETPEERNAME:
             if (e->ret < 0) {
-                printf("Exit getpeername: failed, %s, error_code=%llu\n",
+                printf("Exit getpeername: failed, %s, error_code=%lld\n",
                         task_info, e->ret);
             } else if (e->is_valid == true) {
                 char ip_str[INET6_ADDRSTRLEN] = {0};
@@ -608,11 +608,11 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
                 } else if (e->addr_family == AF_INET6) {
                     inet_ntop(AF_INET6, e->ipv6_addr, ip_str, INET6_ADDRSTRLEN);
                 }
-                printf("Exit getpeername: success, %s, address=%s:%u, family=%s, ret=%llu\n",
+                printf("Exit getpeername: success, %s, address=%s:%u, ip_version=%s, ret=%lld\n",
                         task_info, ip_str, e->port, 
                         e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown", e->ret);
             } else {
-                printf("Exit getpeername: success, %s, failed to read socket address info, ret=%llu\n",
+                printf("Exit getpeername: success, %s, failed to read socket address info, ret=%lld\n",
                         task_info, e->ret);
             }
             break;
@@ -624,7 +624,7 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
                 } else if (e->addr_family == AF_INET6) {
                     inet_ntop(AF_INET6, e->ipv6_addr, ip_str, INET6_ADDRSTRLEN);
                 }
-                printf("Enter bind: %s, socktfd=%d, addr=%s:%u, family=%s\n",
+                printf("Enter bind: %s, socktfd=%d, addr=%s:%u, ip_version=%s\n",
                         task_info, e->arg_s32[0], ip_str, e->port, 
                         e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown");
             } else {
@@ -634,10 +634,10 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
             break;
         case SYS_EXIT_BIND:
             if (e->ret < 0) {
-                printf("Exit bind: failed, %s, error_code=%llu\n",
+                printf("Exit bind: failed, %s, error_code=%lld\n",
                         task_info, e->ret);
             } else {
-                printf("Exit bind: success, %s, ret=%llu\n",
+                printf("Exit bind: success, %s, ret=%lld\n",
                         task_info, e->ret);
             }
             break;
@@ -647,10 +647,10 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
             break;
         case SYS_EXIT_LISTEN:
             if (e->ret < 0) {
-                printf("Exit listen: failed, %s, error_code=%llu\n",
+                printf("Exit listen: failed, %s, error_code=%lld\n",
                         task_info, e->ret);
             } else {
-                printf("Exit listen: success, %s, ret=%llu\n",
+                printf("Exit listen: success, %s, ret=%lld\n",
                         task_info, e->ret);
             }
             break;
@@ -660,10 +660,10 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
             break;
         case SYS_EXIT_ACCEPT:
             if (e->ret < 0) {
-                printf("Exit accept: failed, %s, error_code=%llu\n",
+                printf("Exit accept: failed, %s, error_code=%lld\n",
                         task_info, e->ret);
             } else if (e->is_null == true) {
-                printf("Exit accept: success, %s, socket address info is not requested, ret=%llu\n",
+                printf("Exit accept: success, %s, socket address info is not requested, ret=%lld\n",
                         task_info, e->ret);
             } else if (e->is_valid == true) {
                 char ip_str[INET6_ADDRSTRLEN] = {0};
@@ -672,11 +672,11 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
                 } else if (e->addr_family == AF_INET6) {
                     inet_ntop(AF_INET6, e->ipv6_addr, ip_str, INET6_ADDRSTRLEN);
                 }
-                printf("Exit accept: success, %s, address=%s:%u, family=%s, ret=%llu\n",
+                printf("Exit accept: success, %s, address=%s:%u, ip_version=%s, ret=%lld\n",
                         task_info, ip_str, e->port, 
                         e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown", e->ret);
             } else {
-                printf("Exit accept: success, %s, failed to read socket address info, ret=%llu\n",
+                printf("Exit accept: success, %s, failed to read socket address info, ret=%lld\n",
                         task_info, e->ret);
             }
             break;
@@ -686,10 +686,10 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
             break;
         case SYS_EXIT_ACCEPT4:
             if (e->ret < 0) {
-                printf("Exit accept4: failed, %s, error_code=%llu\n",
+                printf("Exit accept4: failed, %s, error_code=%lld\n",
                         task_info, e->ret);
             } else if (e->is_null == true) {
-                printf("Exit accept4: success, %s, socket address info is not requested, ret=%llu\n",
+                printf("Exit accept4: success, %s, socket address info is not requested, ret=%lld\n",
                         task_info, e->ret);
             } else if (e->is_valid == true) {
                 char ip_str[INET6_ADDRSTRLEN] = {0};
@@ -698,11 +698,11 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
                 } else if (e->addr_family == AF_INET6) {
                     inet_ntop(AF_INET6, e->ipv6_addr, ip_str, INET6_ADDRSTRLEN);
                 }
-                printf("Exit accept4: success, %s, address=%s:%u, family=%s, ret=%llu\n",
+                printf("Exit accept4: success, %s, address=%s:%u, ip_version=%s, ret=%lld\n",
                         task_info, ip_str, e->port, 
                         e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown", e->ret);
             } else {
-                printf("Exit accept4: success, %s, failed to read socket address info, ret=%llu\n",
+                printf("Exit accept4: success, %s, failed to read socket address info, ret=%lld\n",
                         task_info, e->ret);
             }
             break;
@@ -714,7 +714,7 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
                 } else if (e->addr_family == AF_INET6) {
                     inet_ntop(AF_INET6, e->ipv6_addr, ip_str, INET6_ADDRSTRLEN);
                 }
-                printf("Enter connect: %s, socketfd=%d, addr=%s:%u, family=%s\n",
+                printf("Enter connect: %s, socketfd=%d, addr=%s:%u, ip_version=%s\n",
                         task_info, e->arg_s32[0], ip_str, e->port, 
                         e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown");
             } else {
@@ -724,10 +724,10 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
             break;
         case SYS_EXIT_CONNECT:
             if (e->ret < 0) {
-                printf("Exit connect: failed, %s, error_code=%llu\n",
+                printf("Exit connect: failed, %s, error_code=%lld\n",
                         task_info, e->ret);
             } else {
-                printf("Exit connect: success, %s, ret=%llu\n",
+                printf("Exit connect: success, %s, ret=%lld\n",
                         task_info, e->ret);
             }
             break;
@@ -737,10 +737,69 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
             break;
         case SYS_EXIT_SHUTDOWN:
             if (e->ret < 0) {
-                printf("Exit shutdown: failed, %s, error_code=%llu\n",
+                printf("Exit shutdown: failed, %s, error_code=%lld\n",
                         task_info, e->ret);
             } else {
-                printf("Exit shutdown: success, %s, ret=%llu\n",
+                printf("Exit shutdown: success, %s, ret=%lld\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_RECVFROM:
+            printf("Enter recvfrom: %s, socktfd=%d, msg_len=%llu, flags=%d\n",
+                    task_info, e->arg_s32[0], e->arg_u64[0], e->arg_s32[1]);
+            break;
+        case SYS_EXIT_RECVFROM:
+            if (e->ret < 0) {
+                printf("Exit recvfrom: failed, %s, error_code=%lld\n",
+                        task_info, e->ret);
+            } else if (e->is_valid == true) {
+                char ip_str[INET6_ADDRSTRLEN] = {0};
+                if (e->addr_family == AF_INET) {
+                    inet_ntop(AF_INET, &(e->ip), ip_str, INET_ADDRSTRLEN);
+                } else if (e->addr_family == AF_INET6) {
+                    inet_ntop(AF_INET6, e->ipv6_addr, ip_str, INET6_ADDRSTRLEN);
+                }
+                printf("Exit recvfrom: success, %s, src_addr=%s:%u, ip_version=%s, ret=%lld\n",
+                        task_info, ip_str, e->port, 
+                        e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown", e->ret);
+            } else {
+                printf("Exit recvfrom: success, %s, failed to read source info, ret=%lld\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_RECVMSG:
+            printf("Enter recvmsg: %s, socktfd=%d, msg_len=%llu, flags=%d\n",
+                    task_info, e->arg_s32[0], e->arg_u64[0], e->arg_s32[1]);
+            break;
+        case SYS_EXIT_RECVMSG:
+            if (e->ret < 0) {
+                printf("Exit recvmsg: failed, %s, error_code=%lld\n",
+                        task_info, e->ret);
+            } else if (e->is_valid == true) {
+                char ip_str[INET6_ADDRSTRLEN] = {0};
+                if (e->addr_family == AF_INET) {
+                    inet_ntop(AF_INET, &(e->ip), ip_str, INET_ADDRSTRLEN);
+                } else if (e->addr_family == AF_INET6) {
+                    inet_ntop(AF_INET6, e->ipv6_addr, ip_str, INET6_ADDRSTRLEN);
+                }
+                printf("Exit recvmsg: success, %s, src_addr=%s:%u, ip_version=%s, ret=%lld\n",
+                        task_info, ip_str, e->port, 
+                        e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown", e->ret);
+            } else {
+                printf("Exit recvmsg: success, %s, failed to read source info, ret=%lld\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_RECVMMSG:
+            printf("Enter recvmmsg: %s, socktfd=%d, vlen=%u, flags=%d\n",
+                    task_info, e->arg_s32[0], e->arg_u32[0], e->arg_s32[1]);
+            break;
+        case SYS_EXIT_RECVMMSG:
+            if (e->ret < 0) {
+                printf("Exit recvmmsg: failed, %s, error_code=%lld\n",
+                        task_info, e->ret);
+            } else {
+                printf("Exit recvmmsg: success, %s, ret=%lld\n",
                         task_info, e->ret);
             }
             break;
@@ -752,20 +811,94 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
                 } else if (e->addr_family == AF_INET6) {
                     inet_ntop(AF_INET6, e->ipv6_addr, ip_str, INET6_ADDRSTRLEN);
                 }
-                printf("Enter sendto: %s, socktfd=%d, len=%llu, flags=%d, dest_addr=%s:%u, family=%s\n",
+                printf("Enter sendto: %s, socktfd=%d, msg_len=%llu, flags=%d, dest_addr=%s:%u, ip_version=%s\n",
                         task_info, e->arg_s32[0], e->arg_u64[0], e->arg_s32[1], ip_str, e->port, 
                         e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown");
             } else {
-                printf("Enter sendto: %s, socktfd=%d, len=%llu, flags=%d, failed to read destination info\n",
+                printf("Enter sendto: %s, socktfd=%d, msg_len=%llu, flags=%d, failed to read destination info\n",
                         task_info, e->arg_s32[0], e->arg_u64[0], e->arg_s32[1]);
             }
             break;
         case SYS_EXIT_SENDTO:
             if (e->ret < 0) {
-                printf("Exit sendto: failed, %s, error_code=%llu\n",
+                printf("Exit sendto: failed, %s, error_code=%lld\n",
                         task_info, e->ret);
             } else {
-                printf("Exit sendto: success, %s, ret=%llu\n",
+                printf("Exit sendto: success, %s, ret=%lld\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_SENDMSG:
+            if (e->is_valid == true) {
+                char ip_str[INET6_ADDRSTRLEN] = {0};
+                if (e->addr_family == AF_INET) {
+                    inet_ntop(AF_INET, &(e->ip), ip_str, INET_ADDRSTRLEN);
+                } else if (e->addr_family == AF_INET6) {
+                    inet_ntop(AF_INET6, e->ipv6_addr, ip_str, INET6_ADDRSTRLEN);
+                }
+                printf("Enter sendmsg: %s, socktfd=%d, flags=%d, dest_addr=%s:%u, ip_version=%s\n",
+                        task_info, e->arg_s32[0], e->arg_s32[1], ip_str, e->port, 
+                        e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown");
+            } else {
+                printf("Enter sendmsg: %s, socktfd=%d, flags=%d, failed to read destination info\n",
+                        task_info, e->arg_s32[0], e->arg_s32[1]);
+            }
+            break;
+        case SYS_EXIT_SENDMSG:
+            if (e->ret < 0) {
+                printf("Exit sendmsg: failed, %s, error_code=%lld\n",
+                        task_info, e->ret);
+            } else {
+                printf("Exit sendmsg: success, %s, ret=%lld\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_SENDMMSG:
+            printf("Enter sendmmsg: %s, socktfd=%d, vlen=%u, flags=%d\n",
+                    task_info, e->arg_s32[0], e->arg_u32[0], e->arg_s32[1]);
+            break;
+        case SYS_EXIT_SENDMMSG:
+            if (e->ret < 0) {
+                printf("Exit sendmmsg: failed, %s, error_code=%lld\n",
+                        task_info, e->ret);
+            } else {
+                printf("Exit sendmmsg: success, %s, ret=%lld\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_SETHOSTNAME:
+            if (e->is_valid == true) {
+                printf("Enter sethostname: %s, hostname=%s, len=%llu\n",
+                        task_info, e->arg_str, e->arg_u64[0]);
+            } else {
+                printf("Enter sethostname: %s, failed to read hostname, len=%llu\n",
+                        task_info, e->arg_u64[0]);
+            }
+            break;
+        case SYS_EXIT_SETHOSTNAME:
+            if (e->ret < 0) {
+                printf("Exit sethostname: failed, %s, error_code=%lld\n",
+                        task_info, e->ret);
+            } else {
+                printf("Exit sethostname: success, %s, ret=%lld\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_SETDOMAINNAME:
+            if (e->is_valid == true) {
+                printf("Enter setdomainname: %s, domainname=%s, len=%llu\n",
+                        task_info, e->arg_str, e->arg_u64[0]);
+            } else {
+                printf("Enter setdomainname: %s, failed to read domainname, len=%llu\n",
+                        task_info, e->arg_u64[0]);
+            }
+            break;
+        case SYS_EXIT_SETDOMAINNAME:
+            if (e->ret < 0) {
+                printf("Exit setdomainname: failed, %s, error_code=%lld\n",
+                        task_info, e->ret);
+            } else {
+                printf("Exit setdomainname: success, %s, ret=%lld\n",
                         task_info, e->ret);
             }
             break;
