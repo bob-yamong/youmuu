@@ -9,6 +9,9 @@
 
 typedef unsigned int u32;
 
+// debug
+static int cnt = 0;
+
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 1024);
@@ -153,7 +156,8 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e)
         return 0;
-
+    e->timestamp = bpf_ktime_get_ns();
+    e->cnt = ++cnt;
     e->pid = pid;
     e->tid = tid;
     e->ppid = ppid;

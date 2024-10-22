@@ -8,6 +8,8 @@
 #define MAX_CGROUP_NAME_LEN 64  // cgroup 이름의 최대 길이 정의
 
 struct event {
+    __u64 timestamp;
+    __u64 cnt;
     __u32 pid;
     __u32 tid;
     __u32 ppid;

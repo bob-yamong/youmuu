@@ -7,6 +7,8 @@
 #include <vector>
 #include <signal.h>
 #include <unistd.h>
+#include <string>
+#include <iomanip>
 #include <sys/resource.h>
 #include <sys/syscall.h>
 #include <bpf/libbpf.h>
@@ -14,139 +16,53 @@
 #include "event.h"
 #include "container_info.h"
 
-static bool exiting = false;
-struct process_monitor_bpf *skel;
-
+// 이벤트 큐 및 동기화 객체
 std::queue<event> event_queue;
 std::mutex queue_mutex;
 std::condition_variable queue_cv;
 
-static void sig_handler(int sig)
-{
-    exiting = true;
-}
+// 작업 스레드 종료 플래그
+bool stop_workers = false;
+struct process_monitor_bpf *skel;
+static bool exiting = false;
 
-void init_syscall_map(struct process_monitor_bpf *skel)
-{
-    struct {
-        int nr;
-        const char *name;
-    } syscall_list[] = {
-        // 프로세스 관련
-        { __NR_fork, "fork" },
-        { __NR_vfork, "vfork" },
-        { __NR_clone, "clone" },
-        { __NR_execve, "execve" },
-        { __NR_exit, "exit" },
-        { __NR_exit_group, "exit_group" },
-        { __NR_wait4, "wait4" },
-        { __NR_waitid, "waitid" },
-        { __NR_kill, "kill" },
-        { __NR_tkill, "tkill" },
-        { __NR_tgkill, "tgkill" },
-        { __NR_ptrace, "ptrace" },
-        { __NR_setpgid, "setpgid" },
-        { __NR_setsid, "setsid" },
-        { __NR_setuid, "setuid" },
-        { __NR_setgid, "setgid" },
-        { __NR_setreuid, "setreuid" },
-        { __NR_setregid, "setregid" },
-        { __NR_setresuid, "setresuid" },
-        { __NR_setresgid, "setresgid" },
-        { __NR_setgroups, "setgroups" },
-        { __NR_prctl, "prctl" },
-        { __NR_capset, "capset" },
-        { __NR_setpriority, "setpriority" },
-        { __NR_sched_setscheduler, "sched_setscheduler" },
-        { __NR_sched_setparam, "sched_setparam" },
-        { __NR_sched_setaffinity, "sched_setaffinity" },
-        { __NR_sched_yield, "sched_yield" },
+// 작업 스레드 함수
+void worker_thread_func(int worker_id) {
+    while (true) {
+        std::unique_lock<std::mutex> lock(queue_mutex);
+        queue_cv.wait(lock, [] { return !event_queue.empty() || stop_workers; });
 
-        // 파일 시스템 관련
-        { __NR_open, "open" },
-        { __NR_openat, "openat" },
-        { __NR_close, "close" },
-        { __NR_read, "read" },
-        { __NR_write, "write" },
-        { __NR_lseek, "lseek" },
-        { __NR_unlink, "unlink" },
-        { __NR_rename, "rename" },
-        { __NR_mkdir, "mkdir" },
-        { __NR_rmdir, "rmdir" },
-        { __NR_chdir, "chdir" },
-        { __NR_chmod, "chmod" },
-        { __NR_chown, "chown" },
-        { __NR_mount, "mount" },
-        { __NR_umount2, "umount2" },
+        if (stop_workers && event_queue.empty())
+            break;
 
-        // 네트워크 관련
-        { __NR_socket, "socket" },
-        { __NR_connect, "connect" },
-        { __NR_accept, "accept" },
-        { __NR_bind, "bind" },
-        { __NR_listen, "listen" },
-        { __NR_sendto, "sendto" },
-        { __NR_recvfrom, "recvfrom" },
-        { __NR_setsockopt, "setsockopt" },
-        { __NR_getsockopt, "getsockopt" },
-        // 기타 시스템 콜 추가
-        { __NR_brk, "brk" },
-        { __NR_munmap, "munmap" },
-        { __NR_mprotect, "mprotect" },
-        { __NR_mmap, "mmap" },
-        { __NR_mremap, "mremap" },
-        { __NR_getpid, "getpid" },
-        { __NR_getppid, "getppid" },
-        { __NR_getuid, "getuid" },
-        { __NR_geteuid, "geteuid" },
-        { __NR_getgid, "getgid" },
-        { __NR_getegid, "getegid" },
-        { __NR_times, "times" },
-        { __NR_nanosleep, "nanosleep" },
-        { __NR_clock_gettime, "clock_gettime" },
-        { __NR_gettimeofday, "gettimeofday" },
-        { __NR_settimeofday, "settimeofday" },
-        { __NR_getrlimit, "getrlimit" },
-        { __NR_setrlimit, "setrlimit" },
-        { __NR_sysinfo, "sysinfo" },
-        { __NR_getdents, "getdents" },
-        { __NR_fstat, "fstat" },
-        { __NR_stat, "stat" },
-        { __NR_lstat, "lstat" },
-        { __NR_pipe, "pipe" },
-        { __NR_pipe2, "pipe2" },
-        { __NR_dup, "dup" },
-        { __NR_dup2, "dup2" },
-        { __NR_dup3, "dup3" },
-        { __NR_ioctl, "ioctl" },
-        { __NR_fcntl, "fcntl" },
-        { __NR_fsync, "fsync" },
-        { __NR_fdatasync, "fdatasync" },
-        { __NR_sync, "sync" },
-        { __NR_syncfs, "syncfs" }
-    };
+        // 큐에서 이벤트를 꺼냄
+        event evt = event_queue.front();
+        event_queue.pop();
+        lock.unlock();
 
-    for (size_t i = 0; i < sizeof(syscall_list) / sizeof(syscall_list[0]); i++) {
-        int key = syscall_list[i].nr;
-        char value[16] = {0};  // 16바이트 버퍼 생성
-        strncpy(value, syscall_list[i].name, sizeof(value) - 1); 
-        bpf_map__update_elem(skel->maps.syscall_map, &key, sizeof(key), value, sizeof(value), BPF_ANY);
-    }
-}
+        // 이벤트 처리
+        // (기존 handle_event 함수의 로직을 여기로 옮김)
+        const struct event *e = &evt;
+        __u64 key = e->cgroup_id;
+        __u64 value = 1;
 
-static int handle_event(void *ctx, void *data, size_t data_sz)
-{
-    const struct event *e = static_cast<const struct event*>(data);
-    __u64 key = e->cgroup_id;
-    __u64 value = 1;
+        if (bpf_map__lookup_elem(skel->maps.container_cgroup_id, &key, sizeof(key), &value, sizeof(value), 0) == 0) {
+            std::cout << "[" 
+                      << std::setw(13) << std::setfill('0') << e->cnt 
+                      << "] Process syscall: " << e->syscall 
+                      << " (nr=" << e->syscall_nr 
+                      << ", pid=" << e->pid
+                      << ", tid=" << e->tid 
+                      << ", ppid=" << e->ppid 
+                      << ", uid=" << e->uid 
+                      << ", comm=" << e->comm
+                      << ", cgroup_id=" << e->cgroup_id 
+                      << ", cgroup_name=" << e->cgroup_name 
+                      << ")\n";
 
-    if (bpf_map__lookup_elem(skel->maps.container_cgroup_id, &key, sizeof(key), &value, sizeof(value), 0) == 0) {
-        std::cout << "Process syscall: " << e->syscall << " (nr=" << e->syscall_nr << ", pid=" << e->pid
-                  << ", tid=" << e->tid << ", ppid=" << e->ppid << ", uid=" << e->uid << ", comm=" << e->comm
-                  << ", cgroup_id=" << e->cgroup_id << ", cgroup_name=" << e->cgroup_name << ")\n";
-
-        switch (e->syscall_nr) {
-            // 프로세스 관련
+            switch (e->syscall_nr) {
+                // (기존 switch 문 내용 그대로 유지)
+                // 프로세스 관련
             case __NR_fork:
             case __NR_vfork:
             case __NR_clone:
@@ -286,79 +202,259 @@ static int handle_event(void *ctx, void *data, size_t data_sz)
             default:
                 std::cout << "Other system call: " << e->syscall << "\n";
                 break;
+            }
         }
     }
+}
+
+// 링버퍼 핸들러 수정: 이벤트를 큐에 추가
+static int handle_event(void *ctx, void *data, size_t data_sz)
+{
+    const struct event *e = static_cast<const struct event*>(data);
+
+    // 이벤트를 큐에 추가
+    {
+        std::lock_guard<std::mutex> lock(queue_mutex);
+        event_queue.push(*e);
+    }
+    queue_cv.notify_one(); // 작업 스레드에 알림
 
     return 0;
+}
+
+// 스레드 풀
+std::vector<std::thread> worker_threads;
+
+// 시그널 핸들러
+static void sig_handler(int sig)
+{
+    exiting = true;
+    stop_workers = true;
+    queue_cv.notify_all(); // 모든 작업 스레드를 깨움
+}
+
+void init_syscall_map(struct process_monitor_bpf *skel)
+{
+    // (기존 init_syscall_map 함수 내용 그대로 유지)
+    struct {
+        int nr;
+        const char *name;
+    } syscall_list[] = {
+        // 프로세스 관련
+        { __NR_fork, "fork" },
+        { __NR_vfork, "vfork" },
+        { __NR_clone, "clone" },
+        { __NR_execve, "execve" },
+        { __NR_exit, "exit" },
+        { __NR_exit_group, "exit_group" },
+        { __NR_wait4, "wait4" },
+        { __NR_waitid, "waitid" },
+        { __NR_kill, "kill" },
+        { __NR_tkill, "tkill" },
+        { __NR_tgkill, "tgkill" },
+        { __NR_ptrace, "ptrace" },
+        { __NR_setpgid, "setpgid" },
+        { __NR_setsid, "setsid" },
+        { __NR_setuid, "setuid" },
+        { __NR_setgid, "setgid" },
+        { __NR_setreuid, "setreuid" },
+        { __NR_setregid, "setregid" },
+        { __NR_setresuid, "setresuid" },
+        { __NR_setresgid, "setresgid" },
+        { __NR_setgroups, "setgroups" },
+        { __NR_prctl, "prctl" },
+        { __NR_capset, "capset" },
+        { __NR_setpriority, "setpriority" },
+        { __NR_sched_setscheduler, "sched_setscheduler" },
+        { __NR_sched_setparam, "sched_setparam" },
+        { __NR_sched_setaffinity, "sched_setaffinity" },
+        { __NR_sched_yield, "sched_yield" },
+
+        // 파일 시스템 관련
+        { __NR_open, "open" },
+        { __NR_openat, "openat" },
+        { __NR_close, "close" },
+        { __NR_read, "read" },
+        { __NR_write, "write" },
+        { __NR_lseek, "lseek" },
+        { __NR_unlink, "unlink" },
+        { __NR_rename, "rename" },
+        { __NR_mkdir, "mkdir" },
+        { __NR_rmdir, "rmdir" },
+        { __NR_chdir, "chdir" },
+        { __NR_chmod, "chmod" },
+        { __NR_chown, "chown" },
+        { __NR_mount, "mount" },
+        { __NR_umount2, "umount2" },
+
+        // 네트워크 관련
+        { __NR_socket, "socket" },
+        { __NR_connect, "connect" },
+        { __NR_accept, "accept" },
+        { __NR_bind, "bind" },
+        { __NR_listen, "listen" },
+        { __NR_sendto, "sendto" },
+        { __NR_recvfrom, "recvfrom" },
+        { __NR_setsockopt, "setsockopt" },
+        { __NR_getsockopt, "getsockopt" },
+        // 기타 시스템 콜 추가
+        { __NR_brk, "brk" },
+        { __NR_munmap, "munmap" },
+        { __NR_mprotect, "mprotect" },
+        { __NR_mmap, "mmap" },
+        { __NR_mremap, "mremap" },
+        { __NR_getpid, "getpid" },
+        { __NR_getppid, "getppid" },
+        { __NR_getuid, "getuid" },
+        { __NR_geteuid, "geteuid" },
+        { __NR_getgid, "getgid" },
+        { __NR_getegid, "getegid" },
+        { __NR_times, "times" },
+        { __NR_nanosleep, "nanosleep" },
+        { __NR_clock_gettime, "clock_gettime" },
+        { __NR_gettimeofday, "gettimeofday" },
+        { __NR_settimeofday, "settimeofday" },
+        { __NR_getrlimit, "getrlimit" },
+        { __NR_setrlimit, "setrlimit" },
+        { __NR_sysinfo, "sysinfo" },
+        { __NR_getdents, "getdents" },
+        { __NR_fstat, "fstat" },
+        { __NR_stat, "stat" },
+        { __NR_lstat, "lstat" },
+        { __NR_pipe, "pipe" },
+        { __NR_pipe2, "pipe2" },
+        { __NR_dup, "dup" },
+        { __NR_dup2, "dup2" },
+        { __NR_dup3, "dup3" },
+        { __NR_ioctl, "ioctl" },
+        { __NR_fcntl, "fcntl" },
+        { __NR_fsync, "fsync" },
+        { __NR_fdatasync, "fdatasync" },
+        { __NR_sync, "sync" },
+        { __NR_syncfs, "syncfs" }
+    };
+
+    for (size_t i = 0; i < sizeof(syscall_list) / sizeof(syscall_list[0]); i++) {
+        int key = syscall_list[i].nr;
+        char value[16] = {0};  // 16바이트 버퍼 생성
+        strncpy(value, syscall_list[i].name, sizeof(value) - 1); 
+        bpf_map__update_elem(skel->maps.syscall_map, &key, sizeof(key), value, sizeof(value), BPF_ANY);
+    }
 }
 
 int main(int argc, char **argv)
 {
     int err;
 
+    // Ctrl-C 핸들러 등록
     signal(SIGINT, sig_handler);
     signal(SIGTERM, sig_handler);
 
-    skel = process_monitor_bpf__open_and_load();
-    if (!skel) {
-        std::cerr << "Failed to load and attach BPF skeleton.\n";
-        return 1;
-    }
+    try {
+        // BPF 애플리케이션 로드 및 검증
+        skel = process_monitor_bpf__open_and_load();
+        if (!skel) {
+            std::cerr << "Failed to load BPF skeleton.\n";
+            return 1;
+        }
 
-    std::cout << "BPF program started successfully!\n";
-
-    int detected_containers = ContainerManager::getContainerPIDs();
-    if (detected_containers <= 0) {
-        std::cerr << "No running containers found.\n";
-        process_monitor_bpf__destroy(skel);
-        return 1;
-    }
-    std::cout << "Detected " << detected_containers << " containers.\n";
-
-    for (const auto& container : ContainerManager::containers) {
-        __u32 key_pid = container.pid;
-        __u32 value_pid = 1;
-        __u64 key_inode = ContainerManager::getContainerInode(container.id);
-        __u64 value_inode = 1;
-
-        err = bpf_map__update_elem(skel->maps.container_pids, &key_pid, sizeof(key_pid),&value_pid, sizeof(value_pid), BPF_ANY);
+        // BPF 프로그램 연결
+        err = process_monitor_bpf__attach(skel);
         if (err) {
-            std::cerr << "Failed to add container PID to map: " << strerror(errno) << "\n";
-            continue;
+            std::cerr << "Failed to attach BPF skeleton.\n";
+            process_monitor_bpf__destroy(skel);
+            return 1;
         }
 
-        err = bpf_map__update_elem(skel->maps.container_cgroup_id, &key_inode, sizeof(key_inode),&value_inode, sizeof(value_inode), BPF_ANY);
-        if (err) {
-            std::cerr << "Failed to add container inode to map: " << strerror(errno) << "\n";
-            continue;
+        std::cout << "BPF 프로그램을 성공적으로 시작했습니다! 프로세스 모니터링을 시작합니다...\n";
+
+        std::cout << "컨테이너 PID 자동 감지 중...\n";
+        int detected_containers = ContainerManager::getContainerPIDs();
+        if (detected_containers <= 0) {
+            std::cerr << "실행 중인 컨테이너를 찾을 수 없습니다.\n";
+            process_monitor_bpf__destroy(skel);
+            return 1;
+        }
+        std::cout << detected_containers << "개의 컨테이너를 감지했습니다.\n";
+
+        for (const auto& container : ContainerManager::containers) {
+            __u32 key_pid = static_cast<__u32>(container.pid);
+            __u32 value_pid = 1;
+            __u64 key_inode = static_cast<__u64>(ContainerManager::getContainerInode(container.id));
+            __u64 value_inode = 1;
+
+            err = bpf_map__update_elem(skel->maps.container_pids, &key_pid, sizeof(key_pid), &value_pid, sizeof(value_pid), BPF_ANY);
+            if (err) {
+                std::cerr << "컨테이너 PID " << container.pid << "를 맵에 추가하는데 실패했습니다: " << strerror(errno) << "\n";
+                continue;
+            }
+
+            err = bpf_map__update_elem(skel->maps.container_cgroup_id, &key_inode, sizeof(key_inode),&value_inode, sizeof(value_inode), BPF_ANY);
+            if (err) {
+                std::cerr << "컨테이너 inode " << key_inode << "를 맵에 추가하는데 실패했습니다: " << strerror(errno) << "\n";
+                continue;
+            }
+
+            std::cout << "컨테이너 ID: " << container.id << ", PID: " << container.pid << ", inode: " << key_inode << "를 모니터링 중\n";
         }
 
-        std::cout << "Monitoring container ID: " << container.id << ", PID: " << container.pid << ", inode: " << key_inode << "\n";
-    }
+        init_syscall_map(skel);
 
-    init_syscall_map(skel);
+        // 작업 스레드 풀 생성 (예: 4개의 스레드)
+        const int num_workers = 4;
+        for (int i = 0; i < num_workers; ++i) {
+            worker_threads.emplace_back(worker_thread_func, i);
+        }
 
-    struct ring_buffer *rb = ring_buffer__new(bpf_map__fd(skel->maps.events), handle_event, NULL, NULL);
-    if (!rb) {
-        std::cerr << "Failed to create ring buffer\n";
+        // 링버퍼 설정
+        struct ring_buffer *rb = ring_buffer__new(bpf_map__fd(skel->maps.events), handle_event, NULL, NULL);
+        if (!rb) {
+            std::cerr << "Failed to create ring buffer\n";
+            process_monitor_bpf__destroy(skel);
+            return 1;
+        }
+
+        // 메인 루프
+        while (!exiting) {
+            err = ring_buffer__poll(rb, 100);
+            if (err == -EINTR) {
+                err = 0;
+                break;
+            }
+            if (err < 0) {
+                std::cerr << "Error polling ring buffer: " << err << "\n";
+                break;
+            }
+        }
+
+        // 링버퍼 정리
+        ring_buffer__free(rb);
+
+        // 작업 스레드 종료 요청 및 정리
+        {
+            std::lock_guard<std::mutex> lock(queue_mutex);
+            stop_workers = true;
+        }
+        queue_cv.notify_all();
+        for (auto &t : worker_threads) {
+            if (t.joinable()) {
+                t.join();
+            }
+        }
+
+        // BPF 스켈레톤 정리
         process_monitor_bpf__destroy(skel);
+    }
+    catch (const std::bad_alloc& e) {
+        std::cerr << "Memory allocation failed: " << e.what() << "\n";
+        if (skel) process_monitor_bpf__destroy(skel);
+        return 1;
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Exception: " << e.what() << "\n";
+        if (skel) process_monitor_bpf__destroy(skel);
         return 1;
     }
 
-    // 메인 루프
-    while (!exiting) {
-        err = ring_buffer__poll(rb, 100);
-        if (err == -EINTR) {
-            err = 0;
-            break;
-        }
-        if (err < 0) {
-            std::cerr << "Error polling ring buffer: " << err << "\n";
-            break;
-        }
-    }
-
-    ring_buffer__free(rb);
-    process_monitor_bpf__destroy(skel);
     return err < 0 ? -err : 0;
 }

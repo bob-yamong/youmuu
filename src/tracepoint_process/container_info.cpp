@@ -39,13 +39,28 @@ int ContainerManager::getContainerPIDs() {
             int arraylen = json_object_array_length(jobj);
             for (int i = 0; i < arraylen; i++) {
                 json_object *container = json_object_array_get_idx(jobj, i);
-                json_object *id_obj, *state_obj, *pid_obj;
-                if (json_object_object_get_ex(container, "Id", &id_obj) &&
-                    json_object_object_get_ex(state_obj, "Pid", &pid_obj)) {
+                json_object *id_obj;
+                if (json_object_object_get_ex(container, "Id", &id_obj)) {
                     ContainerInfo info;
                     info.id = json_object_get_string(id_obj);
-                    info.pid = json_object_get_int(pid_obj);
-                    containers.push_back(info);
+
+                    std::string inspect_url = "http://localhost/containers/" + info.id + "/json";
+                    std::string inspect_response;
+                    curl_easy_setopt(curl, CURLOPT_URL, inspect_url.c_str());
+                    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &inspect_response);
+                    res = curl_easy_perform(curl);
+                    if (res == CURLE_OK) {
+                        json_object *inspect_jobj = json_tokener_parse(inspect_response.c_str());
+                        if (inspect_jobj) {
+                            json_object *state_obj, *pid_obj;
+                            if (json_object_object_get_ex(inspect_jobj, "State", &state_obj) &&
+                                json_object_object_get_ex(state_obj, "Pid", &pid_obj)) {
+                                info.pid = json_object_get_int(pid_obj);
+                                containers.push_back(info);
+                            }
+                            json_object_put(inspect_jobj);
+                        }
+                    }
                 }
             }
             json_object_put(jobj);
@@ -53,23 +68,32 @@ int ContainerManager::getContainerPIDs() {
 
         curl_easy_cleanup(curl);
     }
+
     return containers.size();
 }
 
 unsigned long ContainerManager::getContainerInode(const std::string &container_id) {
     char pattern[PATH_MAX];
-    snprintf(pattern, sizeof(pattern), "/sys/fs/cgroup/*/%s", container_id.c_str());
+    snprintf(pattern, sizeof(pattern), "/sys/fs/cgroup/system.slice/docker-%s*", container_id.c_str());
 
     glob_t globbuf;
     unsigned long inode = 0;
+
     if (glob(pattern, 0, NULL, &globbuf) == 0) {
         if (globbuf.gl_pathc > 0) {
             struct stat sb;
             if (stat(globbuf.gl_pathv[0], &sb) == 0) {
                 inode = sb.st_ino;
+            } else {
+                std::cerr << "Failed to get inode for container ID: " << container_id << std::endl;
             }
+        } else {
+            std::cerr << "No matching files for container ID: " << container_id << std::endl;
         }
         globfree(&globbuf);
+    } else {
+        std::cerr << "Failed to perform glob for pattern: " << pattern << std::endl;
     }
+
     return inode;
 }
