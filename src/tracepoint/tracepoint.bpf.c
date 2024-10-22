@@ -9,6 +9,8 @@
 #define ALLOW 0
 #define BLOCK 1
 #define LOGGING 2
+#define AF_INET 2
+#define AF_INET6 10
 
 char LICENSE[] SEC("license") = "GPL";
 
@@ -62,80 +64,86 @@ static __always_inline struct event_t *ring_buffer(__u64 event_id, struct curren
         return NULL;
     } else {
         e->event_id = event_id;
-        e->task.timestamp = ct.timestamp;
-        e->task.cgroup_id = ct.cgroup_id;
-        e->task.ns_id = ct.ns_id;
-        e->task.ppid = ct.ppid;
-        e->task.pid = ct.pid;    
-        e->task.tid = ct.tid;
-        e->task.uid = ct.uid;
-        e->task.gid = ct.gid;
+        e->task = ct;
     }
     return e;
+}
+
+static __always_inline struct map_key get_map_key(struct current_task *ct) {
+    struct map_key key = {
+        .pid = ct->pid,
+        .tid = ct->tid,
+        .ns_id = ct->ns_id
+    };
+    return key;
 }
 
 // network events related tracepoints
 SEC("tracepoint/syscalls/sys_enter_socket")
 int trace_sys_enter_socket(struct trace_event_raw_sys_enter *ctx) {
     __s32 event_id = SYS_ENTER_SOCKET;
-
-    __s32 domain = BPF_CORE_READ(ctx, args[0]);
-    __s32 type = BPF_CORE_READ(ctx, args[1]);
-    __s32 protocol = BPF_CORE_READ(ctx, args[2]);
-
     struct current_task ct = get_task_struct();
-    if (should_log_event(ct.ns_id, event_id)) {
-        struct event_t *e = ring_buffer(event_id, ct);
-        if (e) {
-            e->arg_s32[0] = domain;
-            e->arg_s32[1] = type;
-            e->arg_s32[2] = protocol;
-            bpf_ringbuf_submit(e, 0);
-        }
+
+    if (!should_log_event(ct.ns_id, event_id)) {
+        return 0;
+    }
+    
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e) {
+        return 0;
     }
 
+    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+    e->arg_s32[1] = BPF_CORE_READ(ctx, args[1]);
+    e->arg_s32[2] = BPF_CORE_READ(ctx, args[2]);
+
+    bpf_ringbuf_submit(e, 0);
     return 0;
 }
 
 SEC("tracepoint/syscalls/sys_exit_socket")
 int trace_sys_exit_socket(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_SOCKET;
-    __s64 ret = BPF_CORE_READ(ctx, ret);
-    
+    __s32 event_id = SYS_EXIT_SOCKET;    
     struct current_task ct = get_task_struct();
-    if (should_log_event(ct.ns_id, event_id)) {
-        struct event_t *e = ring_buffer(event_id, ct);
-        if (e) {
-            e->ret = ret;
-            bpf_ringbuf_submit(e, 0);
-        }
+
+    if (!should_log_event(ct.ns_id, event_id)) {
+        return 0;
     }
 
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e) {
+        return 0;
+    }
+
+    e->ret = BPF_CORE_READ(ctx, ret);;
+
+    bpf_ringbuf_submit(e, 0);
     return 0;
 }
 
 SEC("tracepoint/syscalls/sys_enter_socketpair")
 int trace_sys_enter_socketpair(struct trace_event_raw_sys_enter *ctx) {
     __s32 event_id = SYS_ENTER_SOCKETPAIR;
-
-    __s32 domain = BPF_CORE_READ(ctx, args[0]);
-    __s32 type = BPF_CORE_READ(ctx, args[1]);
-    __s32 protocol = BPF_CORE_READ(ctx, args[2]);
     void *sv_ptr = (void *)BPF_CORE_READ(ctx, args[3]);
-
     struct current_task ct = get_task_struct();
-    bpf_map_update_elem(&socketpair_args_map, &ct, &sv_ptr, BPF_ANY);
-
-    if (should_log_event(ct.ns_id, event_id)) {
-        struct event_t *e = ring_buffer(event_id, ct);
-        if (e) {
-            e->arg_s32[0] = domain;
-            e->arg_s32[1] = type;
-            e->arg_s32[2] = protocol;
-            bpf_ringbuf_submit(e, 0);
-        }
-    }
+    struct map_key key = get_map_key(&ct);
     
+    bpf_map_update_elem(&socketpair_args_map, &key, &sv_ptr, BPF_ANY);
+
+    if (!should_log_event(ct.ns_id, event_id)) {
+        return 0;
+    }
+
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e) {
+        return 0;
+    }
+
+    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+    e->arg_s32[1] = BPF_CORE_READ(ctx, args[1]);
+    e->arg_s32[2] = BPF_CORE_READ(ctx, args[2]);
+
+    bpf_ringbuf_submit(e, 0);
     return 0;
 }
 
@@ -143,31 +151,38 @@ SEC("tracepoint/syscalls/sys_exit_socketpair")
 int trace_sys_exit_socketpair(struct trace_event_raw_sys_exit *ctx) {
     __s32 event_id = SYS_EXIT_SOCKETPAIR;
     __s64 ret = BPF_CORE_READ(ctx, ret);
-    
     struct current_task ct = get_task_struct();
-    
-    if (should_log_event(ct.ns_id, event_id)) {
-        __u64 *sv_ptr = bpf_map_lookup_elem(&socketpair_args_map, &ct);
-        if (sv_ptr && ret >= 0) {
+    struct map_key key = get_map_key(&ct);
+
+    if (!should_log_event(ct.ns_id, event_id)) {
+        goto cleanup;
+    }
+
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e) {
+        goto cleanup;
+    }
+
+    e->ret = ret;
+    e->sv[0] = -1;
+    e->sv[1] = -1;
+    e->is_valid = false;
+
+    if (ret >= 0) {
+        __u64 *sv_ptr = bpf_map_lookup_elem(&socketpair_args_map, &key);
+        if (sv_ptr) {
             __s32 sv[2];
-            struct event_t *e = ring_buffer(event_id, ct);
-            if (e) {
-                long err = bpf_probe_read_user(sv, sizeof(sv), (void *)*sv_ptr);
-                if (err == 0) {
-                    e->ret = ret;
-                    e->sv[0] = sv[0];
-                    e->sv[1] = sv[1];
-                    bpf_ringbuf_submit(e, 0);
-                } else {
-                    e->ret = ret;
-                    e->sv[0] = -1;
-                    e->sv[1] = -1;
-                    bpf_ringbuf_submit(e, 0);
-                }
+            if (bpf_probe_read_user(sv, sizeof(sv), (void *)*sv_ptr) == 0) {
+                e->sv[0] = sv[0];
+                e->sv[1] = sv[1];
+                e->is_valid = true;
             }
         }
     }
+
+    bpf_ringbuf_submit(e, 0);
     
+cleanup:
     bpf_map_delete_elem(&socketpair_args_map, &ct);
     return 0;
 }
@@ -175,57 +190,53 @@ int trace_sys_exit_socketpair(struct trace_event_raw_sys_exit *ctx) {
 SEC("tracepoint/syscalls/sys_enter_setsockopt")
 int trace_sys_enter_setsockopt(struct trace_event_raw_sys_enter *ctx) {
     __s32 event_id = SYS_ENTER_SETSOCKOPT;
-
-    __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
-    __s32 level = BPF_CORE_READ(ctx, args[1]);
-    __s32 optname = BPF_CORE_READ(ctx, args[2]);
-    void *optval_ptr = (void *)BPF_CORE_READ(ctx, args[3]);
-    __s32 optlen = BPF_CORE_READ(ctx, args[4]);
-
     struct current_task ct = get_task_struct();
-    
-    if (should_log_event(ct.ns_id, event_id)) {
-        __u32 optval;
-        struct event_t *e = ring_buffer(event_id, ct);
-        if (e) {
-            long err = bpf_probe_read_user(&optval, sizeof(optval), optval_ptr);
-            if (err == 0) {
-                e->arg_s32[0] = sockfd;
-                e->arg_s32[1] = level;
-                e->arg_s32[2] = optname;
-                e->arg_u32[0] = optval;
-                e->arg_s32[3] = optlen;
-                e->is_valid = true;
-                bpf_ringbuf_submit(e, 0);
-            } else {
-                e->arg_s32[0] = sockfd;
-                e->arg_s32[1] = level;
-                e->arg_s32[2] = optname;
-                e->arg_s32[3] = optlen;
-                e->is_valid = false;
-                bpf_ringbuf_submit(e, 0);
-            }
-        }
+
+    if (!should_log_event(ct.ns_id, event_id)) {
+        return 0;
     }
 
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e) {
+        return 0;
+    }
+
+    e->is_valid = false;
+    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+    e->arg_s32[1] = BPF_CORE_READ(ctx, args[1]);
+    e->arg_s32[2] = BPF_CORE_READ(ctx, args[2]);
+    e->arg_s32[3] = BPF_CORE_READ(ctx, args[4]);
+
+    void *optval_ptr = (void *)BPF_CORE_READ(ctx, args[3]);
+    if (optval_ptr) {
+        __u32 optval;
+        if (bpf_probe_read_user(&optval, sizeof(optval), optval_ptr) == 0) {
+            e->arg_u32[0] = optval;
+            e->is_valid = true;
+        }
+    }
+    
+    bpf_ringbuf_submit(e, 0);
     return 0;
 }
 
 SEC("tracepoint/syscalls/sys_exit_setsockopt")
 int trace_sys_exit_setsockopt(struct trace_event_raw_sys_exit *ctx) {
     __s32 event_id = SYS_EXIT_SETSOCKOPT;
-    __s64 ret = BPF_CORE_READ(ctx, ret);
-    
     struct current_task ct = get_task_struct();
 
-    if (should_log_event(ct.ns_id, event_id)) {
-        struct event_t *e = ring_buffer(event_id, ct);
-        if (e) {
-            e->ret = ret;
-            bpf_ringbuf_submit(e, 0);
-        }
+    if (!should_log_event(ct.ns_id, event_id)) {
+        return 0;
     }
 
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e) {
+        return 0;
+    }
+
+    e->ret = BPF_CORE_READ(ctx, ret);
+
+    bpf_ringbuf_submit(e, 0);
     return 0;
 }
 
@@ -901,61 +912,77 @@ int trace_sys_exit_recvmmsg(struct trace_event_raw_sys_exit *ctx) {
 SEC("tracepoint/syscalls/sys_enter_sendto")
 int trace_sys_enter_sendto(struct trace_event_raw_sys_enter *ctx) {
     __s32 event_id = SYS_ENTER_SENDTO;
-
-    __s32 sockfd = BPF_CORE_READ(ctx, args[0]);
-    void *buf_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
-    __u64 len = BPF_CORE_READ(ctx, args[2]);
-    __s32 flags = BPF_CORE_READ(ctx, args[3]);
-    void *dest_addr_ptr = (void *)BPF_CORE_READ(ctx, args[4]);
-    __u32 addrlen = BPF_CORE_READ(ctx, args[5]);
-
     struct current_task ct = get_task_struct();
 
-    if (should_log_event(ct.ns_id, event_id)) {
-        struct event_t *e = ring_buffer(event_id, ct);
-        if (e) {
-            struct sockaddr_in dest_addr;
-            long err = bpf_probe_read_user(&dest_addr, sizeof(dest_addr), dest_addr_ptr);
-            if (err == 0) {
-                __u32 ip = dest_addr.sin_addr.s_addr;
-                __u16 port = bpf_ntohs(dest_addr.sin_port);
-                e->arg_s32[0] = sockfd;
-                e->arg_u64[0] = len;
-                e->arg_s32[1] = flags;
-                e->ip = ip;
-                e->port = port;
-                e->arg_u32[0] = addrlen;
-                e->is_valid = 1;
-                bpf_ringbuf_submit(e, 0);
-            } else {
-                e->arg_s32[0] = sockfd;
-                e->arg_u64[0] = len;
-                e->arg_s32[1] = flags;
-                e->arg_u32[0] = addrlen;
-                e->is_valid = 0;
-                bpf_ringbuf_submit(e, 0);
-            }
+    if (!should_log_event(ct.ns_id, event_id)) {
+        return 0;
+    }
+
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e) {
+        return 0;
+    }
+
+    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+    e->arg_u64[0] = BPF_CORE_READ(ctx, args[2]);
+    e->arg_s32[1] = BPF_CORE_READ(ctx, args[3]);
+    e->ip = 0;
+    e->port = 0;
+    e->is_valid = false;
+    e->addr_family = 0;
+
+    void *dest_addr_ptr = (void *)BPF_CORE_READ(ctx, args[4]);
+    __u32 addrlen = e->arg_u32[0];
+
+    if (!dest_addr_ptr) {
+        goto submit;
+    }
+
+    __u16 family;
+    if (bpf_probe_read_user(&family, sizeof(family), dest_addr_ptr) != 0) {
+        goto submit;
+    }
+
+    e->addr_family = family;
+
+    if (family == AF_INET) {
+        struct sockaddr_in dest_addr;
+        if (bpf_probe_read_user(&dest_addr, sizeof(dest_addr), dest_addr_ptr) == 0) {
+            e->ip = dest_addr.sin_addr.s_addr;
+            e->port = bpf_ntohs(dest_addr.sin_port);
+            e->is_valid = true;
+        }
+    } else if (family == AF_INET6) {
+        struct sockaddr_in6 dest_addr6;
+        if (bpf_probe_read_user(&dest_addr6, sizeof(dest_addr6), dest_addr_ptr) == 0) {
+            bpf_probe_read(e->ipv6_addr, sizeof(e->ipv6_addr), &dest_addr6.sin6_addr);
+            e->port = bpf_ntohs(dest_addr6.sin6_port);
+            e->is_valid = true;
         }
     }
 
+submit:
+    bpf_ringbuf_submit(e, 0);
     return 0;
 }
 
 SEC("tracepoint/syscalls/sys_exit_sendto")
 int trace_sys_exit_sendto(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_SENDTO;
-    __s64 ret = BPF_CORE_READ(ctx, ret);
-    
+    __s32 event_id = SYS_EXIT_SENDTO;    
     struct current_task ct = get_task_struct();
-    
-    if (should_log_event(ct.ns_id, event_id)) {
-        struct event_t *e = ring_buffer(event_id, ct);
-        if (e) {
-            e->ret = ret;
-            bpf_ringbuf_submit(e, 0);
-        }
+
+    if (!should_log_event(ct.ns_id, event_id)) {
+        return 0;
     }
-    
+
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e) {
+        return 0;
+    }
+
+    e->ret = BPF_CORE_READ(ctx, ret);
+
+    bpf_ringbuf_submit(e, 0);    
     return 0;
 }
 

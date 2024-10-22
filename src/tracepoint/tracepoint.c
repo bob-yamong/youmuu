@@ -503,7 +503,6 @@ static void get_task_info_str(const struct current_task *task, char *buffer, siz
 
 static int handle_event(void *ctx, void *data, size_t data_sz) {
     const struct event_t *e = data;
-    char ip_str[INET_ADDRSTRLEN];
     char task_info[256];
     get_task_info_str(&e->task, task_info, sizeof(task_info));
     
@@ -529,9 +528,12 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
             if (e->ret < 0) {
                 printf("Exit socketpair: failed, %s, error_code=%llu\n",
                         task_info, e->ret);
-            } else {
+            } else if (e->is_valid) {
                 printf("Exit socketpair: success, %s, sv[0]=%d, sv[1]=%d, ret=%llu\n",
                         task_info, e->sv[0], e->sv[1], e->ret);
+            } else {
+                printf("Exit socketpair: success but failed to read socket values, %s, ret=%lld\n",
+                        task_info, e->ret);
             }
             break;
         case SYS_ENTER_SETSOCKOPT:
@@ -539,7 +541,7 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
                 printf("Enter setsockopt: %s, fd=%d, level=%d, optname=%d, optval=%u, optlen=%d\n",
                         task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2], e->arg_u32[0], e->arg_s32[3]);
             } else {
-                printf("Enter setsockopt: %s, fd=%d, level=%d, optname=%d, failed to get optval, optlen=%d\n",
+                printf("Enter setsockopt: %s, fd=%d, level=%d, optname=%d, failed to read optval, optlen=%d\n",
                         task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2], e->arg_s32[3]);
             }
             break;
@@ -554,13 +556,19 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
             break;
         case SYS_ENTER_SENDTO:
             if (e->is_valid == 1) {
-                inet_ntop(AF_INET, &(e->ip), ip_str, INET_ADDRSTRLEN);
-                printf("Enter sendto: %s, fd=%d, len=%llu, flags=%d, dest_addr=%s:%u, addr_len=%u\n",
+                char ip_str[INET6_ADDRSTRLEN] = {0};
+                if (e->addr_family == AF_INET) {
+                    inet_ntop(AF_INET, &(e->ip), ip_str, INET_ADDRSTRLEN);
+                } else if (e->addr_family == AF_INET6) {
+                    inet_ntop(AF_INET6, e->ipv6_addr, ip_str, INET6_ADDRSTRLEN);
+                }
+                printf("Enter sendto: %s, fd=%d, len=%llu, flags=%d, dest_addr=%s:%u, family=%s\n",
                         task_info, e->arg_s32[0], e->arg_u64[0], e->arg_s32[1], 
-                        ip_str, e->port, e->arg_u32[0]);
+                        ip_str, e->port, e->addr_family == AF_INET ? "IPv4" : 
+                        e->addr_family == AF_INET6 ? "IPv6" : "Unknown");
             } else {
-                printf("Enter sendto: %s, fd=%d, len=%d, flags=%d, failed to get destination info, addr_len=%d\n",
-                        task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2], e->arg_s32[3]);
+                printf("Enter sendto: %s, fd=%d, len=%llu, flags=%d, failed to read destination info\n",
+                        task_info, e->arg_s32[0], e->arg_u64[0], e->arg_s32[1]);
             }
             break;
         case SYS_EXIT_SENDTO:

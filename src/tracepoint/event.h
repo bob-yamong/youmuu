@@ -25,12 +25,20 @@ struct event_t {
 
     __u32 ip;
     __u16 port;
+    __u16 addr_family;
+    __u8 ipv6_addr[16];
 };
 
 struct event_key {
     __u64 ns_id;
     __s32 event_id;
     char argument[256];
+};
+
+struct map_key {
+    __u32 pid;
+    __u32 tid;
+    __u32 ns_id;
 };
 
 struct EventEntry {
