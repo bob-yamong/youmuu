@@ -9,9 +9,6 @@
 
 typedef unsigned int u32;
 
-// debug
-static int cnt = 0;
-
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 1024);
@@ -117,6 +114,9 @@ static inline int has_filename_arg(int syscall_nr) {
     return 0;
 }
 
+// debug
+__u64 cnt = 0;
+
 SEC("tracepoint/raw_syscalls/sys_enter")
 int sys_enter(struct trace_event_raw_sys_enter *ctx)
 {
@@ -153,11 +153,12 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
 
 
     struct event *e;
+    cnt++;
     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e)
         return 0;
     e->timestamp = bpf_ktime_get_ns();
-    e->cnt = ++cnt;
+    e->cnt = cnt;
     e->pid = pid;
     e->tid = tid;
     e->ppid = ppid;

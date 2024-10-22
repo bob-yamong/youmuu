@@ -1,3 +1,4 @@
+// process_monitor.cpp
 // SPDX-License-Identifier: GPL-2.0
 #include <iostream>
 #include <queue>
@@ -16,13 +17,20 @@
 #include "event.h"
 #include "container_info.h"
 
-// 이벤트 큐 및 동기화 객체
-std::queue<event> event_queue;
+// 최대 큐 크기 정의
+#define MAX_QUEUE_SIZE 10000
+
+// 두 개의 이벤트 큐 및 동기화 객체
+std::queue<event> event_queue1;
+std::queue<event> event_queue2;
 std::mutex queue_mutex;
 std::condition_variable queue_cv;
 
 // 전역 뮤텍스 선언
 std::mutex cout_mutex;
+
+// 큐 상태 플래그
+bool full_flag = false; // 0: 큐1 사용, 1: 큐2 사용
 
 // 작업 스레드 종료 플래그
 bool stop_workers = false;
@@ -33,177 +41,199 @@ static bool exiting = false;
 void worker_thread_func(int worker_id) {
     while (true) {
         std::unique_lock<std::mutex> lock(queue_mutex);
-        queue_cv.wait(lock, [] { return !event_queue.empty() || stop_workers; });
+        queue_cv.wait(lock, [] { 
+            return (!event_queue1.empty() || !event_queue2.empty()) || stop_workers; 
+        });
 
-        if (stop_workers && event_queue.empty())
+        if (stop_workers && event_queue1.empty() && event_queue2.empty())
             break;
 
-        // 큐에서 이벤트를 꺼냄
-        event evt = event_queue.front();
-        event_queue.pop();
+        event evt;
+        bool processed = false;
+
+        // 큐1에서 이벤트 처리
+        if (!event_queue1.empty()) {
+            evt = event_queue1.front();
+            event_queue1.pop();
+            processed = true;
+
+            // 큐1이 비어있으면 full_flag를 0으로 설정
+            if (event_queue1.empty()) {
+                full_flag = false;
+            }
+        }
+        // 큐2에서 이벤트 처리
+        else if (!event_queue2.empty()) {
+            evt = event_queue2.front();
+            event_queue2.pop();
+            processed = true;
+        }
+
         lock.unlock();
 
-        // 이벤트 처리
-        const struct event *e = &evt;
-        __u64 key = e->cgroup_id;
-        __u64 value = 1;
+        if (processed) {
+            // 이벤트 처리
+            const struct event *e = &evt;
+            __u64 key = e->cgroup_id;
+            __u64 value = 1;
 
-        if (bpf_map__lookup_elem(skel->maps.container_cgroup_id, &key, sizeof(key), &value, sizeof(value), 0) == 0) {
-            std::lock_guard<std::mutex> cout_lock(cout_mutex);
-            std::cout << "[" 
-                      << std::setw(13) << std::setfill('0') << e->cnt 
-                      << "] Process syscall: " << e->syscall 
-                      << " (nr=" << e->syscall_nr 
-                      << ", pid=" << e->pid
-                      << ", tid=" << e->tid 
-                      << ", ppid=" << e->ppid 
-                      << ", uid=" << e->uid 
-                      << ", comm=" << e->comm
-                      << ", cgroup_id=" << e->cgroup_id 
-                      << ", cgroup_name=" << e->cgroup_name 
-                      << ")\n";
+            if (bpf_map__lookup_elem(skel->maps.container_cgroup_id, &key, sizeof(key), &value, sizeof(value), 0) == 0) {
+                std::lock_guard<std::mutex> cout_lock(cout_mutex);
+                std::cout << "[" 
+                          << std::setw(13) << std::setfill('0') << e->cnt 
+                          << "] Process syscall: " << e->syscall 
+                          << " (nr=" << e->syscall_nr 
+                          << ", pid=" << e->pid
+                          << ", tid=" << e->tid 
+                          << ", ppid=" << e->ppid 
+                          << ", uid=" << e->uid 
+                          << ", comm=" << e->comm
+                          << ", cgroup_id=" << e->cgroup_id 
+                          << ", cgroup_name=" << e->cgroup_name 
+                          << ")\n";
 
-            switch (e->syscall_nr) {
-                // 프로세스 관련
-            case __NR_fork:
-            case __NR_vfork:
-            case __NR_clone:
-                std::cout << "New process creation\n";
-                break;
-            case __NR_execve:
-                std::cout << "Executing new program: " << e->filename << "\n";
-                for (int i = 0; i < MAX_ARGS && e->argv[i][0] != '\0'; i++) {
-                    std::cout << "Arg " << i << ": " << e->argv[i] << "\n";
+                switch (e->syscall_nr) {
+                    // 프로세스 관련
+                case __NR_fork:
+                case __NR_vfork:
+                case __NR_clone:
+                    std::cout << "New process creation\n";
+                    break;
+                case __NR_execve:
+                    std::cout << "Executing new program: " << e->filename << "\n";
+                    for (int i = 0; i < MAX_ARGS && e->argv[i][0] != '\0'; i++) {
+                        std::cout << "Arg " << i << ": " << e->argv[i] << "\n";
+                    }
+                    break;
+                case __NR_exit:
+                case __NR_exit_group:
+                    std::cout << "Process exit\n";
+                    break;
+                case __NR_wait4:
+                case __NR_waitid:
+                    std::cout << "Waiting for child process\n";
+                    break;
+                case __NR_kill:
+                case __NR_tkill:
+                case __NR_tgkill:
+                    std::cout << "Sending signal " << e->args[1] << " to process/thread\n";
+                    break;
+                case __NR_ptrace:
+                    std::cout << "Ptrace call with request " << e->args[0] << "\n";
+                    break;
+
+                // 파일 시스템 관련
+                case __NR_open:
+                case __NR_openat:
+                case __NR_unlink:
+                case __NR_unlinkat:
+                case __NR_mkdir:
+                case __NR_mkdirat:
+                case __NR_rmdir:
+                case __NR_renameat:
+                case __NR_renameat2:
+                case __NR_symlink:
+                case __NR_symlinkat:
+                case __NR_link:
+                case __NR_linkat:
+                case __NR_chmod:
+                case __NR_fchmodat:
+                case __NR_chown:
+                case __NR_lchown:
+                case __NR_fchownat:
+                case __NR_access:
+                case __NR_faccessat:
+                case __NR_stat:
+                case __NR_lstat:
+                case __NR_newfstatat:
+                case __NR_truncate:
+                case __NR_readlink:
+                case __NR_readlinkat:
+                    if (e->filename[0] != '\0') {
+                        std::cout << "File operation: " << e->syscall << " on file: " << e->filename << "\n";
+                    }
+                    break;
+                case __NR_close:
+                    std::cout << "Closing file descriptor: " << e->args[0] << "\n";
+                    break;
+                case __NR_read:
+                case __NR_write:
+                    std::cout << (e->syscall_nr == __NR_read ? "Read" : "Write") << " operation on fd " << e->args[0]
+                              << ", " << e->args[2] << " bytes\n";
+                    break;
+                case __NR_mount:
+                    std::cout << "Mounting filesystem\n";
+                    break;
+                case __NR_umount2:
+                    std::cout << "Unmounting filesystem\n";
+                    break;
+
+                // 네트워크 관련
+                case __NR_socket:
+                    std::cout << "Creating socket: domain " << e->args[0] << ", type " << e->args[1]
+                              << ", protocol " << e->args[2] << "\n";
+                    break;
+                case __NR_connect:
+                    std::cout << "Connecting to socket\n";
+                    break;
+                case __NR_accept:
+                    std::cout << "Accepting connection on socket\n";
+                    break;
+                case __NR_bind:
+                    std::cout << "Binding socket\n";
+                    break;
+                case __NR_listen:
+                    std::cout << "Listening on socket\n";
+                    break;
+                case __NR_sendto:
+                case __NR_recvfrom:
+                    std::cout << (e->syscall_nr == __NR_sendto ? "Sending" : "Receiving") << " on socket " << e->args[0]
+                              << ", " << e->args[2] << " bytes\n";
+                    break;
+                case __NR_setsockopt:
+                case __NR_getsockopt:
+                    std::cout << (e->syscall_nr == __NR_setsockopt ? "Setting" : "Getting") << " socket option\n";
+                    break;
+
+                // 프로세스 제어 관련
+                case __NR_setpgid:
+                case __NR_setsid:
+                case __NR_setuid:
+                case __NR_setgid:
+                case __NR_setreuid:
+                case __NR_setregid:
+                case __NR_setresuid:
+                case __NR_setresgid:
+                case __NR_setgroups:
+                case __NR_capset:
+                    std::cout << "Changing process attributes: " << e->syscall << "\n";
+                    break;
+                case __NR_prctl:
+                    std::cout << "Process control operation: " << e->args[0] << "\n";
+                    break;
+                case __NR_setpriority:
+                case __NR_sched_setscheduler:
+                case __NR_sched_setparam:
+                case __NR_sched_setaffinity:
+                    std::cout << "Changing process scheduling: " << e->syscall << "\n";
+                    break;
+                case __NR_sched_yield:
+                    std::cout << "Yielding processor\n";
+                    break;
+                case __NR_mprotect: 
+                    std::cout << "mprotect called with addr=" << e->args[0] << ", len=" << e->args[1] << ", prot=" << e->args[2] << "\n";
+                    break;
+                case __NR_mmap:
+                    std::cout << "mmap called with addr=" << e->args[0] << ", len=" << e->args[1] << ", prot=" << e->args[2]
+                              << ", flags=" << e->args[3] << ", fd=" << e->args[4] << ", offset=" << e->args[5] << "\n";
+                    break;
+                case __NR_munmap:
+                    std::cout << "munmap called with addr=" << e->args[0] << ", len=" << e->args[1] << "\n";
+                    break;
+                default:
+                    std::cout << "Other system call: " << e->syscall << "\n";
+                    break;
                 }
-                break;
-            case __NR_exit:
-            case __NR_exit_group:
-                std::cout << "Process exit\n";
-                break;
-            case __NR_wait4:
-            case __NR_waitid:
-                std::cout << "Waiting for child process\n";
-                break;
-            case __NR_kill:
-            case __NR_tkill:
-            case __NR_tgkill:
-                std::cout << "Sending signal " << e->args[1] << " to process/thread\n";
-                break;
-            case __NR_ptrace:
-                std::cout << "Ptrace call with request " << e->args[0] << "\n";
-                break;
-
-            // 파일 시스템 관련
-            case __NR_open:
-            case __NR_openat:
-            case __NR_unlink:
-            case __NR_unlinkat:
-            case __NR_mkdir:
-            case __NR_mkdirat:
-            case __NR_rmdir:
-            case __NR_renameat:
-            case __NR_renameat2:
-            case __NR_symlink:
-            case __NR_symlinkat:
-            case __NR_link:
-            case __NR_linkat:
-            case __NR_chmod:
-            case __NR_fchmodat:
-            case __NR_chown:
-            case __NR_lchown:
-            case __NR_fchownat:
-            case __NR_access:
-            case __NR_faccessat:
-            case __NR_stat:
-            case __NR_lstat:
-            case __NR_newfstatat:
-            case __NR_truncate:
-            case __NR_readlink:
-            case __NR_readlinkat:
-                if (e->filename[0] != '\0') {
-                    std::cout << "File operation: " << e->syscall << " on file: " << e->filename << "\n";
-                }
-                break;
-            case __NR_close:
-                std::cout << "Closing file descriptor: " << e->args[0] << "\n";
-                break;
-            case __NR_read:
-            case __NR_write:
-                std::cout << (e->syscall_nr == __NR_read ? "Read" : "Write") << " operation on fd " << e->args[0]
-                          << ", " << e->args[2] << " bytes\n";
-                break;
-            case __NR_mount:
-                std::cout << "Mounting filesystem\n";
-                break;
-            case __NR_umount2:
-                std::cout << "Unmounting filesystem\n";
-                break;
-
-            // 네트워크 관련
-            case __NR_socket:
-                std::cout << "Creating socket: domain " << e->args[0] << ", type " << e->args[1]
-                          << ", protocol " << e->args[2] << "\n";
-                break;
-            case __NR_connect:
-                std::cout << "Connecting to socket\n";
-                break;
-            case __NR_accept:
-                std::cout << "Accepting connection on socket\n";
-                break;
-            case __NR_bind:
-                std::cout << "Binding socket\n";
-                break;
-            case __NR_listen:
-                std::cout << "Listening on socket\n";
-                break;
-            case __NR_sendto:
-            case __NR_recvfrom:
-                std::cout << (e->syscall_nr == __NR_sendto ? "Sending" : "Receiving") << " on socket " << e->args[0]
-                          << ", " << e->args[2] << " bytes\n";
-                break;
-            case __NR_setsockopt:
-            case __NR_getsockopt:
-                std::cout << (e->syscall_nr == __NR_setsockopt ? "Setting" : "Getting") << " socket option\n";
-                break;
-
-            // 프로세스 제어 관련
-            case __NR_setpgid:
-            case __NR_setsid:
-            case __NR_setuid:
-            case __NR_setgid:
-            case __NR_setreuid:
-            case __NR_setregid:
-            case __NR_setresuid:
-            case __NR_setresgid:
-            case __NR_setgroups:
-            case __NR_capset:
-                std::cout << "Changing process attributes: " << e->syscall << "\n";
-                break;
-            case __NR_prctl:
-                std::cout << "Process control operation: " << e->args[0] << "\n";
-                break;
-            case __NR_setpriority:
-            case __NR_sched_setscheduler:
-            case __NR_sched_setparam:
-            case __NR_sched_setaffinity:
-                std::cout << "Changing process scheduling: " << e->syscall << "\n";
-                break;
-            case __NR_sched_yield:
-                std::cout << "Yielding processor\n";
-                break;
-            case __NR_mprotect: 
-                std::cout << "mprotect called with addr=" << e->args[0] << ", len=" << e->args[1] << ", prot=" << e->args[2] << "\n";
-                break;
-            case __NR_mmap:
-                std::cout << "mmap called with addr=" << e->args[0] << ", len=" << e->args[1] << ", prot=" << e->args[2]
-                          << ", flags=" << e->args[3] << ", fd=" << e->args[4] << ", offset=" << e->args[5] << "\n";
-                break;
-            case __NR_munmap:
-                std::cout << "munmap called with addr=" << e->args[0] << ", len=" << e->args[1] << "\n";
-                break;
-            default:
-                std::cout << "Other system call: " << e->syscall << "\n";
-                break;
             }
         }
     }
@@ -214,18 +244,29 @@ static int handle_event(void *ctx, void *data, size_t data_sz)
 {
     const struct event *e = static_cast<const struct event*>(data);
 
-    // 이벤트를 큐에 추가
-    {
-        std::lock_guard<std::mutex> lock(queue_mutex);
-        event_queue.push(*e);
+    std::lock_guard<std::mutex> lock(queue_mutex);
+
+    if (!full_flag) {
+        if (event_queue1.size() < MAX_QUEUE_SIZE) {
+            event_queue1.push(*e);
+        } else {
+            full_flag = true;
+            event_queue2.push(*e);
+        }
+    } else {
+        if (event_queue2.size() >= MAX_QUEUE_SIZE) {
+            // 큐2도 꽉 찼을 경우 이벤트를 버리거나 추가적인 처리를 할 수 있습니다.
+            std::cerr << "Both queues are full. Dropping event with cnt: " << e->cnt << "\n";
+            // 필요에 따라 로그를 남기거나 추가 처리를 할 수 있습니다.
+        } else {
+            event_queue2.push(*e);
+        }
     }
+
     queue_cv.notify_one(); // 작업 스레드에 알림
 
     return 0;
 }
-
-// 스레드 풀
-std::vector<std::thread> worker_threads;
 
 // 시그널 핸들러
 static void sig_handler(int sig)
@@ -347,7 +388,7 @@ int main(int argc, char **argv)
 {
     int err;
 
-    // Ctrl-C 핸들러 등록
+    // 시그널 핸들러 등록
     signal(SIGINT, sig_handler);
     signal(SIGTERM, sig_handler);
 
@@ -390,9 +431,11 @@ int main(int argc, char **argv)
                 continue;
             }
 
-            err = bpf_map__update_elem(skel->maps.container_cgroup_id, &key_inode, sizeof(key_inode),&value_inode, sizeof(value_inode), BPF_ANY);
+            err = bpf_map__update_elem(skel->maps.container_cgroup_id, &key_inode, sizeof(key_inode), &value_inode, sizeof(value_inode), BPF_ANY);
             if (err) {
                 std::cerr << "컨테이너 inode " << key_inode << "를 맵에 추가하는데 실패했습니다: " << strerror(errno) << "\n";
+                // PID 맵에서 제거
+                bpf_map__delete_elem(skel->maps.container_pids, &key_pid, sizeof(key_pid), BPF_ANY);
                 continue;
             }
 
@@ -403,6 +446,7 @@ int main(int argc, char **argv)
 
         // 작업 스레드 풀 생성 (현재 4개 스레드)
         const int num_workers = 4;
+        std::vector<std::thread> worker_threads;
         for (int i = 0; i < num_workers; ++i) {
             worker_threads.emplace_back(worker_thread_func, i);
         }
