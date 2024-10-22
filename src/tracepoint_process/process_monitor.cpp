@@ -21,6 +21,9 @@ std::queue<event> event_queue;
 std::mutex queue_mutex;
 std::condition_variable queue_cv;
 
+// 전역 뮤텍스 선언
+std::mutex cout_mutex;
+
 // 작업 스레드 종료 플래그
 bool stop_workers = false;
 struct process_monitor_bpf *skel;
@@ -46,6 +49,7 @@ void worker_thread_func(int worker_id) {
         __u64 value = 1;
 
         if (bpf_map__lookup_elem(skel->maps.container_cgroup_id, &key, sizeof(key), &value, sizeof(value), 0) == 0) {
+            std::lock_guard<std::mutex> cout_lock(cout_mutex);
             std::cout << "[" 
                       << std::setw(13) << std::setfill('0') << e->cnt 
                       << "] Process syscall: " << e->syscall 
