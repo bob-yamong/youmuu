@@ -187,16 +187,6 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
         e->filename[0] = '\0';
     }
 
-    // if(syscall_nr == __NR_write){
-    //     struct file *file;
-    //     int fd = ctx->args[0];
-    //     bpf_probe_read(&file, sizeof(file), &fget(fd));
-    //     bpf_probe_read_str(&e->filename, sizeof(e->filename), file->f_path.dentry->d_name.name);
-    // } else {
-    //     e->filename[0] = '\0';
-    // }
-
-    // execve 시스템 콜인 경우 argv 읽기
     if (syscall_nr == __NR_execve || syscall_nr == __NR_execveat) {
         const char **argv = (const char **)ctx->args[1];
         for (int i = 0; i < MAX_ARGS; i++) {

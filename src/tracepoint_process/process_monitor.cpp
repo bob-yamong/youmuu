@@ -41,7 +41,6 @@ void worker_thread_func(int worker_id) {
         lock.unlock();
 
         // 이벤트 처리
-        // (기존 handle_event 함수의 로직을 여기로 옮김)
         const struct event *e = &evt;
         __u64 key = e->cgroup_id;
         __u64 value = 1;
@@ -61,7 +60,6 @@ void worker_thread_func(int worker_id) {
                       << ")\n";
 
             switch (e->syscall_nr) {
-                // (기존 switch 문 내용 그대로 유지)
                 // 프로세스 관련
             case __NR_fork:
             case __NR_vfork:
@@ -235,7 +233,6 @@ static void sig_handler(int sig)
 
 void init_syscall_map(struct process_monitor_bpf *skel)
 {
-    // (기존 init_syscall_map 함수 내용 그대로 유지)
     struct {
         int nr;
         const char *name;
