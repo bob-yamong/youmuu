@@ -11,6 +11,7 @@
 #include <arpa/inet.h>
 #include <time.h>
 #include <sys/time.h>
+#include <sys/sysinfo.h>
 #include "tracepoint.skel.h"
 #include "event.h"
 
@@ -475,18 +476,26 @@ void get_user_input(struct tracepoint_bpf *skel, __u64 ns_id, __u32 event_id) {
 }
 
 static void get_task_info_str(const struct current_task *task, char *buffer, size_t buffer_size) {
+    struct sysinfo si;
     char timestamp[26];
+    time_t current_time, boot_time, timer, actual_time;
 
-    time_t current_time = time(NULL);
-    time_t timer = task->timestamp / 1000000000; // 나노초를 초로 변환
-    time_t actual_time = current_time + timer;
+    current_time = time(NULL);
+    if (sysinfo(&si) != 0) {
+        snprintf(buffer, buffer_size, "Error getting system info");
+        return;
+    }
+    boot_time = current_time - si.uptime;
+    timer = task->timestamp / 1000000000;
+    unsigned long long nanoseconds = task->timestamp % 1000000000;
+    actual_time = boot_time + timer;
     struct tm *tm_info = localtime(&actual_time);
     strftime(timestamp, 26, "%Y-%m-%d %H:%M:%S", tm_info);
 
     snprintf(buffer, buffer_size,
              "timestamp=%s.%09llu, cgroup_id=%llu, ns_id=%u, "
              "ppid=%u, pid=%u, tid=%u, uid=%u, gid=%u",
-             timestamp, task->timestamp % 1000000000,
+             timestamp, nanoseconds,
              task->cgroup_id, task->ns_id,
              task->ppid, task->pid, task->tid,
              task->uid, task->gid);
