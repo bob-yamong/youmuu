@@ -20,6 +20,7 @@ struct event_t {
     __u64 arg_u64[6];
 
     bool is_valid;
+    bool is_null;
     
     __s32 sv[2];
 
@@ -27,6 +28,7 @@ struct event_t {
     __u16 port;
     __u16 addr_family;
     __u8 ipv6_addr[16];
+
 };
 
 struct event_key {
@@ -39,6 +41,16 @@ struct map_key {
     __u32 pid;
     __u32 tid;
     __u32 ns_id;
+};
+
+struct getsockopt_args {
+    void *optval_ptr;
+    __u32 *optlen_ptr;
+};
+
+struct sock_addr_args {
+    void *addr_ptr;
+    __u64 *addrlen_ptr;
 };
 
 struct EventEntry {

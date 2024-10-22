@@ -489,12 +489,12 @@ static void get_task_info_str(const struct current_task *task, char *buffer, siz
     timer = task->timestamp / 1000000000;
     unsigned long long nanoseconds = task->timestamp % 1000000000;
     actual_time = boot_time + timer;
-    struct tm *tm_info = localtime(&actual_time);
+    struct tm *tm_info = gmtime(&actual_time);
     strftime(timestamp, 26, "%Y-%m-%d %H:%M:%S", tm_info);
 
     snprintf(buffer, buffer_size,
-             "timestamp=%s.%09llu, cgroup_id=%llu, ns_id=%u, "
-             "ppid=%u, pid=%u, tid=%u, uid=%u, gid=%u",
+             "timestamp=%s.%9llu, cgroup_id=%20llu, ns_id=%9u, "
+             "ppid=%9u, pid=%9u, tid=%9u, uid=%9u, gid=%9u",
              timestamp, nanoseconds,
              task->cgroup_id, task->ns_id,
              task->ppid, task->pid, task->tid,
@@ -537,11 +537,11 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
             }
             break;
         case SYS_ENTER_SETSOCKOPT:
-            if (e->is_valid == 1) {
-                printf("Enter setsockopt: %s, fd=%d, level=%d, optname=%d, optval=%u, optlen=%d\n",
+            if (e->is_valid == true) {
+                printf("Enter setsockopt: %s, socktfd=%d, level=%d, optname=%d, optval=%u, optlen=%d\n",
                         task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2], e->arg_u32[0], e->arg_s32[3]);
             } else {
-                printf("Enter setsockopt: %s, fd=%d, level=%d, optname=%d, failed to read optval, optlen=%d\n",
+                printf("Enter setsockopt: %s, socktfd=%d, level=%d, optname=%d, failed to read optval, optlen=%d\n",
                         task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2], e->arg_s32[3]);
             }
             break;
@@ -554,20 +554,209 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
                         task_info, e->ret);
             }
             break;
-        case SYS_ENTER_SENDTO:
-            if (e->is_valid == 1) {
+        case SYS_ENTER_GETSOCKOPT:
+            printf("Enter getsockopt: %s, socketfd=%d, level=%d, optname=%d\n",
+                    task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
+            break;
+        case SYS_EXIT_GETSOCKOPT:
+            if (e->ret < 0) {
+                printf("Exit getsockopt: failed, %s, error_code=%llu\n",
+                        task_info, e->ret);
+            } else if (e->is_valid == true) {
+                printf("Exit getsockopt: success, %s, optval=%u, optlen=%u, ret=%llu\n",
+                        task_info, e->arg_u32[0], e->arg_u32[1], e->ret);
+            } else {
+                printf("Exit getsockopt: success, %s, failed to read optval, ret=%llu\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_GETSOCKNAME:
+            printf("Enter getsockname: %s, socketfd=%d\n",
+                    task_info, e->arg_s32[0]);
+            break;
+        case SYS_EXIT_GETSOCKNAME:
+            if (e->ret < 0) {
+                printf("Exit getsockname: failed, %s, error_code=%llu\n",
+                        task_info, e->ret);
+            } else if (e->is_valid == true) {
                 char ip_str[INET6_ADDRSTRLEN] = {0};
                 if (e->addr_family == AF_INET) {
                     inet_ntop(AF_INET, &(e->ip), ip_str, INET_ADDRSTRLEN);
                 } else if (e->addr_family == AF_INET6) {
                     inet_ntop(AF_INET6, e->ipv6_addr, ip_str, INET6_ADDRSTRLEN);
                 }
-                printf("Enter sendto: %s, fd=%d, len=%llu, flags=%d, dest_addr=%s:%u, family=%s\n",
-                        task_info, e->arg_s32[0], e->arg_u64[0], e->arg_s32[1], 
-                        ip_str, e->port, e->addr_family == AF_INET ? "IPv4" : 
-                        e->addr_family == AF_INET6 ? "IPv6" : "Unknown");
+                printf("Exit getsockname: success, %s, address=%s:%u, family=%s, ret=%llu\n",
+                        task_info, ip_str, e->port, 
+                        e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown", e->ret);
             } else {
-                printf("Enter sendto: %s, fd=%d, len=%llu, flags=%d, failed to read destination info\n",
+                printf("Exit getsockname: success, %s, failed to read socket address info, ret=%llu\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_GETPEERNAME:
+            printf("Enter getpeername: %s, socketfd=%d\n",
+                    task_info, e->arg_s32[0]);
+            break;
+        case SYS_EXIT_GETPEERNAME:
+            if (e->ret < 0) {
+                printf("Exit getpeername: failed, %s, error_code=%llu\n",
+                        task_info, e->ret);
+            } else if (e->is_valid == true) {
+                char ip_str[INET6_ADDRSTRLEN] = {0};
+                if (e->addr_family == AF_INET) {
+                    inet_ntop(AF_INET, &(e->ip), ip_str, INET_ADDRSTRLEN);
+                } else if (e->addr_family == AF_INET6) {
+                    inet_ntop(AF_INET6, e->ipv6_addr, ip_str, INET6_ADDRSTRLEN);
+                }
+                printf("Exit getpeername: success, %s, address=%s:%u, family=%s, ret=%llu\n",
+                        task_info, ip_str, e->port, 
+                        e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown", e->ret);
+            } else {
+                printf("Exit getpeername: success, %s, failed to read socket address info, ret=%llu\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_BIND:
+            if (e->is_valid == true) {
+                char ip_str[INET6_ADDRSTRLEN] = {0};
+                if (e->addr_family == AF_INET) {
+                    inet_ntop(AF_INET, &(e->ip), ip_str, INET_ADDRSTRLEN);
+                } else if (e->addr_family == AF_INET6) {
+                    inet_ntop(AF_INET6, e->ipv6_addr, ip_str, INET6_ADDRSTRLEN);
+                }
+                printf("Enter bind: %s, socktfd=%d, addr=%s:%u, family=%s\n",
+                        task_info, e->arg_s32[0], ip_str, e->port, 
+                        e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown");
+            } else {
+                printf("Enter bind: %s, socktfd=%d, failed to read address info\n",
+                        task_info, e->arg_s32[0]);
+            }
+            break;
+        case SYS_EXIT_BIND:
+            if (e->ret < 0) {
+                printf("Exit bind: failed, %s, error_code=%llu\n",
+                        task_info, e->ret);
+            } else {
+                printf("Exit bind: success, %s, ret=%llu\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_LISTEN:
+            printf("Enter listen: %s, socktfd=%d, backlog=%d\n",
+                    task_info, e->arg_s32[0], e->arg_s32[1]);
+            break;
+        case SYS_EXIT_LISTEN:
+            if (e->ret < 0) {
+                printf("Exit listen: failed, %s, error_code=%llu\n",
+                        task_info, e->ret);
+            } else {
+                printf("Exit listen: success, %s, ret=%llu\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_ACCEPT:
+            printf("Enter accept: %s, socktfd=%d\n",
+                    task_info, e->arg_s32[0]);
+            break;
+        case SYS_EXIT_ACCEPT:
+            if (e->ret < 0) {
+                printf("Exit accept: failed, %s, error_code=%llu\n",
+                        task_info, e->ret);
+            } else if (e->is_null == true) {
+                printf("Exit accept: success, %s, socket address info is not requested, ret=%llu\n",
+                        task_info, e->ret);
+            } else if (e->is_valid == true) {
+                char ip_str[INET6_ADDRSTRLEN] = {0};
+                if (e->addr_family == AF_INET) {
+                    inet_ntop(AF_INET, &(e->ip), ip_str, INET_ADDRSTRLEN);
+                } else if (e->addr_family == AF_INET6) {
+                    inet_ntop(AF_INET6, e->ipv6_addr, ip_str, INET6_ADDRSTRLEN);
+                }
+                printf("Exit accept: success, %s, address=%s:%u, family=%s, ret=%llu\n",
+                        task_info, ip_str, e->port, 
+                        e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown", e->ret);
+            } else {
+                printf("Exit accept: success, %s, failed to read socket address info, ret=%llu\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_ACCEPT4:
+            printf("Enter accept4: %s, socktfd=%d, flags=%d\n",
+                    task_info, e->arg_s32[0], e->arg_s32[1]);
+            break;
+        case SYS_EXIT_ACCEPT4:
+            if (e->ret < 0) {
+                printf("Exit accept4: failed, %s, error_code=%llu\n",
+                        task_info, e->ret);
+            } else if (e->is_null == true) {
+                printf("Exit accept4: success, %s, socket address info is not requested, ret=%llu\n",
+                        task_info, e->ret);
+            } else if (e->is_valid == true) {
+                char ip_str[INET6_ADDRSTRLEN] = {0};
+                if (e->addr_family == AF_INET) {
+                    inet_ntop(AF_INET, &(e->ip), ip_str, INET_ADDRSTRLEN);
+                } else if (e->addr_family == AF_INET6) {
+                    inet_ntop(AF_INET6, e->ipv6_addr, ip_str, INET6_ADDRSTRLEN);
+                }
+                printf("Exit accept4: success, %s, address=%s:%u, family=%s, ret=%llu\n",
+                        task_info, ip_str, e->port, 
+                        e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown", e->ret);
+            } else {
+                printf("Exit accept4: success, %s, failed to read socket address info, ret=%llu\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_CONNECT:
+            if (e->is_valid == true) {
+                char ip_str[INET6_ADDRSTRLEN] = {0};
+                if (e->addr_family == AF_INET) {
+                    inet_ntop(AF_INET, &(e->ip), ip_str, INET_ADDRSTRLEN);
+                } else if (e->addr_family == AF_INET6) {
+                    inet_ntop(AF_INET6, e->ipv6_addr, ip_str, INET6_ADDRSTRLEN);
+                }
+                printf("Enter connect: %s, socketfd=%d, addr=%s:%u, family=%s\n",
+                        task_info, e->arg_s32[0], ip_str, e->port, 
+                        e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown");
+            } else {
+                printf("Enter connect: %s, socketfd=%d, failed to read address info\n",
+                        task_info, e->arg_s32[0]);
+            }
+            break;
+        case SYS_EXIT_CONNECT:
+            if (e->ret < 0) {
+                printf("Exit connect: failed, %s, error_code=%llu\n",
+                        task_info, e->ret);
+            } else {
+                printf("Exit connect: success, %s, ret=%llu\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_SHUTDOWN:
+            printf("Enter shutdown: %s, socketfd=%d, how=%d\n",
+                    task_info, e->arg_s32[0], e->arg_s32[1]);
+            break;
+        case SYS_EXIT_SHUTDOWN:
+            if (e->ret < 0) {
+                printf("Exit shutdown: failed, %s, error_code=%llu\n",
+                        task_info, e->ret);
+            } else {
+                printf("Exit shutdown: success, %s, ret=%llu\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_SENDTO:
+            if (e->is_valid == true) {
+                char ip_str[INET6_ADDRSTRLEN] = {0};
+                if (e->addr_family == AF_INET) {
+                    inet_ntop(AF_INET, &(e->ip), ip_str, INET_ADDRSTRLEN);
+                } else if (e->addr_family == AF_INET6) {
+                    inet_ntop(AF_INET6, e->ipv6_addr, ip_str, INET6_ADDRSTRLEN);
+                }
+                printf("Enter sendto: %s, socktfd=%d, len=%llu, flags=%d, dest_addr=%s:%u, family=%s\n",
+                        task_info, e->arg_s32[0], e->arg_u64[0], e->arg_s32[1], ip_str, e->port, 
+                        e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown");
+            } else {
+                printf("Enter sendto: %s, socktfd=%d, len=%llu, flags=%d, failed to read destination info\n",
                         task_info, e->arg_s32[0], e->arg_u64[0], e->arg_s32[1]);
             }
             break;
@@ -581,8 +770,8 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
             }
             break;
         default:
-            printf("Unknown event: %s\n",
-                    task_info);
+            printf("Unknown event: %s, event_id=%d\n",
+                    task_info, e->event_id);
     }
 
     return 0;
