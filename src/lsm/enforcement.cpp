@@ -181,12 +181,7 @@ void print_policies(int map_fd) {
             for (int i = 0; i < value.num_file_policies; i++) {
                 printf("  Path: %s\n", value.file_policies[i].path);
                 printf("  Flags: ");
-                if (value.file_policies[i].flags & POLICY_FILE_READ) printf("READ ");
-                if (value.file_policies[i].flags & POLICY_FILE_WRITE) printf("WRITE ");
-                if (value.file_policies[i].flags & POLICY_FILE_EXEC) printf("EXEC ");
-                if (value.file_policies[i].flags & POLICY_FILE_APPEND) printf("APPEND ");
-                if (value.file_policies[i].flags & POLICY_FILE_RENAME) printf("RENAME ");
-                if (value.file_policies[i].flags & POLICY_FILE_DELETE) printf("DELETE ");
+                for (const auto &flag: flagsToString(value.file_policies[i].flags)) cout << flag << " ";
                 printf("\n");
             }
 
@@ -195,13 +190,21 @@ void print_policies(int map_fd) {
             for (int i = 0; i < value.num_network_policies; i++) {
                 char ip_str[INET_ADDRSTRLEN];
                 inet_ntop(AF_INET, &(value.network_policies[i].ip), ip_str, INET_ADDRSTRLEN);
-                printf("  IP: %s, Port: %u, Protocol: %u\n", ip_str, ntohs(value.network_policies[i].port), value.network_policies[i].protocol);
+                int prefix_len = 32;
+                uint32_t mask = value.network_policies[i].subnet_mask;
+                if (!mask) {
+                    prefix_len = 0;
+                }
+                else {
+                    while ((mask & 1) == 0) {
+                        prefix_len--;
+                        mask >>= 1;
+                    }
+                }
+
+                printf("  IP: %s/%d, Port: %u, Protocol: %u\n", ip_str, prefix_len, ntohs(value.network_policies[i].port), value.network_policies[i].protocol);
                 printf("  Flags: ");
-                if (value.network_policies[i].flags & POLICY_NET_CONNECT) printf("CONNECT ");
-                if (value.network_policies[i].flags & POLICY_NET_BIND) printf("BIND ");
-                if (value.network_policies[i].flags & POLICY_NET_ACCEPT) printf("ACCEPT ");
-                if (value.network_policies[i].flags & POLICY_NET_SEND) printf("SEND ");
-                if (value.network_policies[i].flags & POLICY_NET_RECV) printf("RECV ");
+                for (const auto &flag: flagsToString(value.network_policies[i].flags)) cout << flag << " ";
                 printf("\n");
             }
 
@@ -210,10 +213,7 @@ void print_policies(int map_fd) {
             for (int i = 0; i < value.num_process_policies; i++) {
                 printf("  Command: %s\n", value.process_policies[i].comm);
                 printf("  Flags: ");
-                if (value.process_policies[i].flags & POLICY_PROC_FORK) printf("FORK ");
-                if (value.process_policies[i].flags & POLICY_PROC_EXEC) printf("EXEC ");
-                if (value.process_policies[i].flags & POLICY_PROC_KILL) printf("KILL ");
-                if (value.process_policies[i].flags & POLICY_PROC_PTRACE) printf("PTRACE ");
+                for (const auto &flag: flagsToString(value.process_policies[i].flags)) cout << flag << " ";
                 printf("\n");
             }
 
@@ -407,9 +407,11 @@ int update_policy_with_file(int map_fd, char* abs_file_name) {
         if (!container.network_policies.empty()) {
             value.num_network_policies = 0;
             for (const auto& network : container.network_policies) {
+                char ip_str[INET_ADDRSTRLEN];
                 uint32_t ip_network_order = htonl(network.ip_info.ip);
-                value.network_policies[value.num_network_policies].ip = ip_network_order;
-                value.network_policies[value.num_network_policies].subnet_mask = htonl(network.ip_info.subnet_mask);
+                inet_ntop(AF_INET, &ip_network_order, ip_str, INET_ADDRSTRLEN);
+                inet_pton(AF_INET, ip_str, &value.network_policies[value.num_network_policies].ip);
+                value.network_policies[value.num_network_policies].subnet_mask = network.ip_info.subnet_mask;
                 value.network_policies[value.num_network_policies].port = network.port;
                 value.network_policies[value.num_network_policies].protocol = network.protocol;
                 value.network_policies[value.num_network_policies].flags = network.flags;
@@ -469,16 +471,17 @@ int get_menu(char *input) {
     if (strcmp(input, "1") == 0) {
         return ADD_POLICY;
     } else if (strcmp(input, "2") == 0) {
+        return UPDATE_POLICY_FILE;
+    }  else if (strcmp(input, "3") == 0) {
         return DELETE_POLICY;
-    } else if (strcmp(input, "3") == 0) {
-        return SHOW_POLICY;
     } else if (strcmp(input, "4") == 0) {
-        return SHOW_LOG;
+        return SHOW_POLICY;
     } else if (strcmp(input, "5") == 0) {
+        return SHOW_LOG;
+    } else if (strcmp(input, "6") == 0) {
         return EXIT;
     } else {
         return -1;
-        
     }
 }
 

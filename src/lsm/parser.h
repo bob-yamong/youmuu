@@ -311,7 +311,7 @@ Policy parseYamlPolicy(const std::string& filename) {
                     current_process_policy = nullptr;
                 }
                 else if (current_field == "port" && current_network_policy) {
-                    current_network_policy->port = stoi(value);
+                    current_network_policy->port = htons(stoi(value));
                 }
                 else if (current_field == "protocol" && current_network_policy) {
                     current_network_policy->protocol = stoi(value);

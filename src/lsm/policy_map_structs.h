@@ -70,11 +70,11 @@ struct file_policy {
 };
 
 // 네트워크 관련 플래그
-#define POLICY_NET_CONNECT  (1 << 0)   // 네트워크 연결 허용
-#define POLICY_NET_BIND     (1 << 1)   // 포트 바인딩 허용
-#define POLICY_NET_ACCEPT   (1 << 2)  // 연결 수락 허용
-#define POLICY_NET_SEND     (1 << 3)  // 데이터 전송 허용
-#define POLICY_NET_RECV     (1 << 4)  // 데이터 수신 허용
+#define POLICY_NET_CONNECT  (1 << 6)   // 네트워크 연결 허용
+#define POLICY_NET_BIND     (1 << 7)   // 포트 바인딩 허용
+#define POLICY_NET_ACCEPT   (1 << 8)  // 연결 수락 허용
+#define POLICY_NET_SEND     (1 << 9)  // 데이터 전송 허용
+#define POLICY_NET_RECV     (1 << 10)  // 데이터 수신 허용
 struct network_policy {
     __be32 ip;
     __be32 subnet_mask;
@@ -85,10 +85,10 @@ struct network_policy {
 };
 
 // 프로세스 관련 플래그
-#define POLICY_PROC_FORK    (1 << 0)  // 프로세스 포크 허용
-#define POLICY_PROC_EXEC    (1 << 1)  // 새 프로그램 실행 허용
-#define POLICY_PROC_KILL    (1 << 2)  // 프로세스 종료 허용
-#define POLICY_PROC_PTRACE  (1 << 3)  // ptrace 사용 허용
+#define POLICY_PROC_FORK    (1 << 11)  // 프로세스 포크 허용
+#define POLICY_PROC_EXEC    (1 << 12)  // 새 프로그램 실행 허용
+#define POLICY_PROC_KILL    (1 << 13)  // 프로세스 종료 허용
+#define POLICY_PROC_PTRACE  (1 << 14)  // ptrace 사용 허용
 struct process_policy {
     char comm[16];
     int uid[MAX_UID_LIST];
