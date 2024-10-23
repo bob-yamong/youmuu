@@ -92,4 +92,39 @@ struct {
     __type(value, struct msg_args);
 } recvmsg_args_map SEC(".maps");
 
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 10000);
+    __type(key, struct map_key);
+    __type(value, struct poll_args);
+} poll_args_map SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 10000);
+    __type(key, struct map_key);
+    __type(value, struct poll_args);
+} ppoll_args_map SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 10000);
+    __type(key, struct map_key);
+    __type(value, struct epoll_args);
+} epoll_wait_args_map SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 10000);
+    __type(key, struct map_key);
+    __type(value, struct epoll_args);
+} epoll_pwait_args_map SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 10000);
+    __type(key, struct map_key);
+    __type(value, struct epoll_args);
+} epoll_pwait2_args_map SEC(".maps");
+
 #endif

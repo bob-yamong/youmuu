@@ -116,7 +116,7 @@ static inline bool read_sockaddr(struct event_t *e, void *addr_ptr) {
     return false;
 }
 
-// network events related tracepoints
+// 네트워크 관련 이벤트
 SEC("tracepoint/syscalls/sys_enter_socket")
 int trace_sys_enter_socket(struct trace_event_raw_sys_enter *ctx) {
     __s32 event_id = SYS_ENTER_SOCKET;
@@ -229,11 +229,11 @@ int trace_sys_enter_setsockopt(struct trace_event_raw_sys_enter *ctx) {
     if (!e) 
         return 0;
 
-    e->is_valid = false;
     e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
     e->arg_s32[1] = BPF_CORE_READ(ctx, args[1]);
     e->arg_s32[2] = BPF_CORE_READ(ctx, args[2]);
     e->arg_s32[3] = BPF_CORE_READ(ctx, args[4]);
+    e->is_valid = false;
 
     void *optval_ptr = (void *)BPF_CORE_READ(ctx, args[3]);
     if (optval_ptr) {
@@ -376,12 +376,11 @@ int trace_sys_exit_getsockname(struct trace_event_raw_sys_exit *ctx) {
 
     if (ret >= 0) {
         struct sock_addr_args *args = bpf_map_lookup_elem(&getsockname_args_map, &key);
-        if (!args) 
-            goto submit;
-        read_sockaddr(e, args->addr_ptr);
+        if (args && args->addr_ptr) {
+            read_sockaddr(e, args->addr_ptr);
+        }
     }
 
-submit:
     bpf_ringbuf_submit(e, 0);
 
 cleanup:
@@ -434,12 +433,11 @@ int trace_sys_exit_getpeername(struct trace_event_raw_sys_exit *ctx) {
 
     if (ret >= 0) {
         struct sock_addr_args *args = bpf_map_lookup_elem(&getpeername_args_map, &key);
-        if (!args) 
-            goto submit;
-        read_sockaddr(e, args->addr_ptr);
+        if (args && args->addr_ptr) {
+            read_sockaddr(e, args->addr_ptr);
+        }
     }
-
-submit:
+    
     bpf_ringbuf_submit(e, 0);
 
 cleanup:
@@ -572,14 +570,13 @@ int trace_sys_exit_accept(struct trace_event_raw_sys_exit *ctx) {
 
     if (ret >= 0) {
         struct sock_addr_args *args = bpf_map_lookup_elem(&accept_args_map, &key);
-        if (!args) {
+        if (args && args->addr_ptr) {
+            read_sockaddr(e, args->addr_ptr);
+        } else {
             e->is_null = true;
-            goto submit;
         }
-        read_sockaddr(e, args->addr_ptr);
     }
 
-submit:
     bpf_ringbuf_submit(e, 0);
 
 cleanup:
@@ -636,14 +633,13 @@ int trace_sys_exit_accept4(struct trace_event_raw_sys_exit *ctx) {
 
     if (ret >= 0) {
         struct sock_addr_args *args = bpf_map_lookup_elem(&accept4_args_map, &key);
-        if (!args) {
+        if (args && args->addr_ptr) {
+            read_sockaddr(e, args->addr_ptr);
+        } else {
             e->is_null = true;
-            goto submit;
         }
-        read_sockaddr(e, args->addr_ptr);
     }
 
-submit:
     bpf_ringbuf_submit(e, 0);
 
 cleanup:
@@ -774,12 +770,13 @@ int trace_sys_exit_recvfrom(struct trace_event_raw_sys_exit *ctx) {
 
     if (ret >= 0) {
         struct sock_addr_args *args = bpf_map_lookup_elem(&recvfrom_args_map, &key);
-        if (!args) 
-            goto submit;
-        read_sockaddr(e, args->addr_ptr);
+        if (args && args->addr_ptr) {
+            read_sockaddr(e, args->addr_ptr);
+        } else {
+            e->is_null = true;
+        }
     }
-        
-submit:
+
     bpf_ringbuf_submit(e, 0);
 
 cleanup:
@@ -831,16 +828,14 @@ int trace_sys_exit_recvmsg(struct trace_event_raw_sys_exit *ctx) {
 
     if (ret >= 0) {
         struct msg_args *args = bpf_map_lookup_elem(&recvmsg_args_map, &key);
-        if (!args) 
-            goto submit;
-
-        struct msghdr_args msg;
-        if (bpf_probe_read_user(&msg, sizeof(msg), args->msg_ptr) != 0)
-            goto submit;
-        read_sockaddr(e, msg.msg_name);
+        if (args) {
+            struct msghdr msg;
+            if (bpf_probe_read_user(&msg, sizeof(msg), args->msg_ptr) == 0) {
+                read_sockaddr(e, msg.msg_name);
+            }
+        }
     }
-        
-submit:
+    
     bpf_ringbuf_submit(e, 0);
 
 cleanup:
@@ -943,14 +938,12 @@ int trace_sys_enter_sendmsg(struct trace_event_raw_sys_enter *ctx) {
     init_socket_fields(e);
 
     void *msg_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
-    if (!msg_ptr) {
-        e->is_null = true;
-        goto submit;
+    if (msg_ptr) {
+        struct msghdr msg;
+        if (bpf_probe_read_user(&msg, sizeof(msg), msg_ptr) != 0)
+            goto submit;
+        read_sockaddr(e, msg.msg_name);
     }
-    struct msghdr_args msg;
-    if (bpf_probe_read_user(&msg, sizeof(msg), msg_ptr) != 0)
-        goto submit;
-    read_sockaddr(e, msg.msg_name);
 
 submit:
     bpf_ringbuf_submit(e, 0);
@@ -1102,81 +1095,76 @@ int trace_sys_exit_setdomainname(struct trace_event_raw_sys_exit *ctx) {
     return 0;
 }
 
-SEC("tracepoint/syscalls/sys_enter_ioctl")
+SEC("tracepoint/syscalls/sys_enter_ioctl")  // 설정 변경 탐지 모니터링 필요?
 int trace_sys_enter_ioctl(struct trace_event_raw_sys_enter *ctx) {
     __s32 event_id = SYS_ENTER_IOCTL;
-
-    __s32 fd = BPF_CORE_READ(ctx, args[0]);
-    __u64 op = BPF_CORE_READ(ctx, args[1]);
-    char *argp = (char *)BPF_CORE_READ(ctx, args[2]);
-
     struct current_task ct = get_task_struct();
-
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
-    };
-
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            bpf_printk("Enter ioctl: ns_id=%llu, pid=%u, fd=%d, cmd=%llu, arg_ptr=%p\n", 
-                    ct.ns_id, ct.pid, fd, op, argp);
-        }
-    }
-
+    
+    if(!should_log_event(ct.ns_id, event_id))
+        return 0;
+    
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e)
+        return 0;
+    
+    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+    e->arg_u64[0] = BPF_CORE_READ(ctx, args[1]);
+    
+    bpf_ringbuf_submit(e, 0);
     return 0;
 }
 
 SEC("tracepoint/syscalls/sys_exit_ioctl")
 int trace_sys_exit_ioctl(struct trace_event_raw_sys_exit *ctx) {
     __s32 event_id = SYS_EXIT_IOCTL;
-    __s64 ret = BPF_CORE_READ(ctx, ret);
-    
     struct current_task ct = get_task_struct();
 
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
-    };
+    if (!should_log_event(ct.ns_id, event_id)) 
+        return 0;
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            if (ret < 0) {
-                bpf_printk("Exit ioctl: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
-            } else {
-                bpf_printk("Exit ioctl: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
-            }
-        }
-    }
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e)
+        return 0;
     
+    e->ret = BPF_CORE_READ(ctx, ret);
+
+    bpf_ringbuf_submit(e, 0);
     return 0;
 }
 
 SEC("tracepoint/syscalls/sys_enter_poll")
 int trace_sys_enter_poll(struct trace_event_raw_sys_enter *ctx) {
     __s32 event_id = SYS_ENTER_POLL;
-
-    struct pollfd *fds = (struct pollfd *)BPF_CORE_READ(ctx, args[0]);
-    __u64 nfds = BPF_CORE_READ(ctx, args[1]);
-    __s32 timeout = BPF_CORE_READ(ctx, args[2]);
-
     struct current_task ct = get_task_struct();
-
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
+    struct map_key key = get_map_key(&ct);
+    struct pollfd *fds_ptr = (struct pollfd *)BPF_CORE_READ(ctx, args[0]);
+    struct poll_args args = {
+        .fds = fds_ptr
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            bpf_printk("Enter poll: ns_id=%llu, pid=%u, fds_ptr=%p, nfds=%u, timeout=%d\n", 
-                    ct.ns_id, ct.pid, fds, nfds, timeout);
+    bpf_map_update_elem(&poll_args_map, &key, &args, BPF_ANY);
+
+    if (!should_log_event(ct.ns_id, event_id)) 
+        return 0;
+    
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e) 
+        return 0;
+    
+    e->arg_u64[0] = BPF_CORE_READ(ctx, args[1]);
+    e->arg_s32[0] = BPF_CORE_READ(ctx, args[2]);
+    e->is_valid = false;
+
+    if (fds_ptr) {
+        struct pollfd pfd;
+        if (bpf_probe_read_user(&pfd, sizeof(pfd), fds_ptr) == 0) {
+            e->arg_s32[1] = pfd.fd;
+            e->arg_s32[2] = pfd.events;
+            e->is_valid = true;
         }
     }
 
+    bpf_ringbuf_submit(e, 0);
     return 0;
 }
 
@@ -1184,63 +1172,80 @@ SEC("tracepoint/syscalls/sys_exit_poll")
 int trace_sys_exit_poll(struct trace_event_raw_sys_exit *ctx) {
     __s32 event_id = SYS_EXIT_POLL;
     __s64 ret = BPF_CORE_READ(ctx, ret);
-    
     struct current_task ct = get_task_struct();
+    struct map_key key = get_map_key(&ct);
 
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
-    };
-    
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            if (ret < 0) {
-                bpf_printk("Exit poll: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
-            } else {
-                bpf_printk("Exit poll: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+    if (!should_log_event(ct.ns_id, event_id)) 
+        goto cleanup;
+
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e) 
+        goto cleanup;
+
+    e->ret = ret;
+    e->is_valid = false;
+
+    if (ret >= 0) {
+        struct poll_args *args = bpf_map_lookup_elem(&poll_args_map, &key);
+        if (args && args->fds) {
+            struct pollfd pfd;
+            if (bpf_probe_read_user(&pfd, sizeof(pfd), args->fds) == 0) {
+                e->arg_s32[0] = pfd.revents;
+                e->is_valid = true;
             }
         }
     }
-    
+
+    bpf_ringbuf_submit(e, 0);
+
+cleanup:
+    bpf_map_delete_elem(&poll_args_map, &key);    
     return 0;
 }
 
 SEC("tracepoint/syscalls/sys_enter_ppoll")
 int trace_sys_enter_ppoll(struct trace_event_raw_sys_enter *ctx) {
     __s32 event_id = SYS_ENTER_PPOLL;
-
-    struct pollfd *fds = (struct pollfd *)BPF_CORE_READ(ctx, args[0]);
-    __u64 nfds = BPF_CORE_READ(ctx, args[1]);
-    void *tsp = (void *)BPF_CORE_READ(ctx, args[2]);
-    void *sigmask = (void *)BPF_CORE_READ(ctx, args[3]);
-
     struct current_task ct = get_task_struct();
-
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
+    struct map_key key = get_map_key(&ct);
+    struct pollfd *fds_ptr = (struct pollfd *)BPF_CORE_READ(ctx, args[0]);
+    struct poll_args args = {
+        .fds = fds_ptr
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            if (sigmask == NULL && tsp == NULL) {
-                bpf_printk("Enter ppoll: ns_id=%llu, pid=%u, fds_ptr=%p, nfds=%u, tsp_ptr=NULL (wait infinite), sigmask_ptr=NULL (using default sigmask)\n", 
-                    ct.ns_id, ct.pid, fds, nfds);
-            } else if (sigmask == NULL) {
-                bpf_printk("Enter ppoll: ns_id=%llu, pid=%u, fds_ptr=%p, nfds=%u, tsp_ptr=%p, sigmask_ptr=NULL (using default sigmask)\n", 
-                    ct.ns_id, ct.pid, fds, nfds, tsp);
-            } else if (tsp == NULL) {
-                bpf_printk("Enter ppoll: ns_id=%llu, pid=%u, fds_ptr=%p, nfds=%u, tsp_ptr=NULL (wait infinite), sigmask_ptr=%p\n", 
-                    ct.ns_id, ct.pid, fds, nfds, sigmask);
-            } else {
-                bpf_printk("Enter ppoll: ns_id=%llu, pid=%u, fds_ptr=%p, nfds=%u, tsp_ptr=%p, sigmask_ptr=%p\n", 
-                    ct.ns_id, ct.pid, fds, nfds, tsp, sigmask);
-            }
+    bpf_map_update_elem(&poll_args_map, &key, &args, BPF_ANY);
+
+    if (!should_log_event(ct.ns_id, event_id)) 
+        return 0;
+    
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e) 
+        return 0;
+
+    e->arg_u64[0] = BPF_CORE_READ(ctx, args[1]);
+    void *tsp = (void *)BPF_CORE_READ(ctx, args[2]);
+    e->is_valid = false;
+
+    if (fds_ptr) {
+        struct pollfd pfd;
+        if (bpf_probe_read_user(&pfd, sizeof(pfd), fds_ptr) == 0) {
+            e->arg_s32[1] = pfd.fd;
+            e->arg_s32[2] = pfd.events;
+            e->is_valid = true;
         }
     }
 
+    if (tsp) {
+        struct timespec_args ts;
+        if (bpf_probe_read_user(&ts, sizeof(ts), tsp) == 0) {
+            e->arg_u64[1] = ts.tv_sec;
+            e->arg_u64[2] = ts.tv_nsec;
+        }
+    } else {
+        e->arg_u64[1] = 999999999;
+    }
+
+    bpf_ringbuf_submit(e, 0);
     return 0;
 }
 
@@ -1248,210 +1253,182 @@ SEC("tracepoint/syscalls/sys_exit_ppoll")
 int trace_sys_exit_ppoll(struct trace_event_raw_sys_exit *ctx) {
     __s32 event_id = SYS_EXIT_PPOLL;
     __s64 ret = BPF_CORE_READ(ctx, ret);
-    
     struct current_task ct = get_task_struct();
+    struct map_key key = get_map_key(&ct);
 
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
-    };
-    
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            if (ret < 0) {
-                bpf_printk("Exit ppoll: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
-            } else {
-                bpf_printk("Exit ppoll: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+    if (!should_log_event(ct.ns_id, event_id)) 
+        goto cleanup;
+
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e) 
+        goto cleanup;
+
+    e->ret = ret;
+    e->is_valid = false;
+
+    if (ret >= 0) {
+        struct poll_args *args = bpf_map_lookup_elem(&poll_args_map, &key);
+        if (args && args->fds) {
+            struct pollfd pfd;
+            if (bpf_probe_read_user(&pfd, sizeof(pfd), args->fds) == 0) {
+                e->arg_s32[0] = pfd.revents;
+                e->is_valid = true;
             }
         }
     }
-    
+
+    bpf_ringbuf_submit(e, 0);
+
+cleanup:
+    bpf_map_delete_elem(&poll_args_map, &key);    
     return 0;
 }
 
 SEC("tracepoint/syscalls/sys_enter_epoll_create")
 int trace_sys_enter_epoll_create(struct trace_event_raw_sys_enter *ctx) {
     __s32 event_id = SYS_ENTER_EPOLL_CREATE;
-
-    __s32 size = BPF_CORE_READ(ctx, args[0]);
-
     struct current_task ct = get_task_struct();
 
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
-    };
-
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            bpf_printk("Enter epoll_create: ns_id=%llu, pid=%u, size=%d\n", 
-                    ct.ns_id, ct.pid, size);
-        }
-    }
-
+    if (!should_log_event(ct.ns_id, event_id)) 
+        return 0;
+    
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e) 
+        return 0;
+    
+    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+    
+    bpf_ringbuf_submit(e, 0);
     return 0;
 }
 
 SEC("tracepoint/syscalls/sys_exit_epoll_create")
 int trace_sys_exit_epoll_create(struct trace_event_raw_sys_exit *ctx) {
     __s32 event_id = SYS_EXIT_EPOLL_CREATE;
-    __s64 ret = BPF_CORE_READ(ctx, ret);
-    
     struct current_task ct = get_task_struct();
 
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
-    };
+    if (!should_log_event(ct.ns_id, event_id)) 
+        return 0;
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            if (ret < 0) {
-                bpf_printk("Exit epoll_create: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
-            } else {
-                bpf_printk("Exit epoll_create: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
-            }
-        }
-    }
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e) 
+        return 0;
+
+    e->ret = BPF_CORE_READ(ctx, ret);
     
+    bpf_ringbuf_submit(e, 0);
     return 0;
 }
 
 SEC("tracepoint/syscalls/sys_enter_epoll_create1")
 int trace_sys_enter_epoll_create1(struct trace_event_raw_sys_enter *ctx) {
     __s32 event_id = SYS_ENTER_EPOLL_CREATE1;
-
-    __s32 flags = BPF_CORE_READ(ctx, args[0]);
-
     struct current_task ct = get_task_struct();
 
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
-    };
-
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            bpf_printk("Enter epoll_create1: ns_id=%llu, pid=%u, flags=%d\n", 
-                    ct.ns_id, ct.pid, flags);
-        }
-    }
-
+    if (!should_log_event(ct.ns_id, event_id)) 
+        return 0;
+    
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e) 
+        return 0;
+    
+    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+    
+    bpf_ringbuf_submit(e, 0);
     return 0;
 }
 
 SEC("tracepoint/syscalls/sys_exit_epoll_create1")
 int trace_sys_exit_epoll_create1(struct trace_event_raw_sys_exit *ctx) {
     __s32 event_id = SYS_EXIT_EPOLL_CREATE1;
-    __s64 ret = BPF_CORE_READ(ctx, ret);
-    
     struct current_task ct = get_task_struct();
 
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
-    };
+    if (!should_log_event(ct.ns_id, event_id)) 
+        return 0;
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            if (ret < 0) {
-                bpf_printk("Exit epoll_create1: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
-            } else {
-                bpf_printk("Exit epoll_create1: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
-            }
-        }
-    }
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e) 
+        return 0;
+
+    e->ret = BPF_CORE_READ(ctx, ret);
     
+    bpf_ringbuf_submit(e, 0);
     return 0;
 }
 
 SEC("tracepoint/syscalls/sys_enter_epoll_ctl")
 int trace_sys_enter_epoll_ctl(struct trace_event_raw_sys_enter *ctx) {
     __s32 event_id = SYS_ENTER_EPOLL_CTL;
-
-    __s32 epfd = BPF_CORE_READ(ctx, args[0]);
-    __s32 op = BPF_CORE_READ(ctx, args[1]);
-    __s32 fd = BPF_CORE_READ(ctx, args[2]);
-    struct epoll_event *event = (struct epoll_event *)BPF_CORE_READ(ctx, args[3]);
-
     struct current_task ct = get_task_struct();
 
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
-    };
+    if (!should_log_event(ct.ns_id, event_id)) 
+        return 0;
+    
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e) 
+        return 0;
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            if (event == NULL) {
-                bpf_printk("Enter epoll_ctl: ns_id=%llu, pid=%u, epfd=%d, op=%d, fd=%d, event_ptr=NULL\n", 
-                        ct.ns_id, ct.pid, epfd, op, fd);
-            } else {
-                bpf_printk("Enter epoll_ctl: ns_id=%llu, pid=%u, epfd=%d, op=%d, fd=%d, event_ptr=%p\n", 
-                        ct.ns_id, ct.pid, epfd, op, fd, event);
-            }
+    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+    e->arg_s32[1] = BPF_CORE_READ(ctx, args[1]);
+    e->arg_s32[2] = BPF_CORE_READ(ctx, args[2]);
+    e->is_valid = false;
+    
+    struct epoll_event *event_ptr = (struct epoll_event *)BPF_CORE_READ(ctx, args[3]);
+    if (event_ptr) {
+        struct epoll_event event;
+        if (bpf_probe_read_user(&event, sizeof(event), event_ptr) == 0) {
+            e->arg_u32[0] = event.events;
+            e->arg_u64[0] = event.data;
+            e->is_valid = true;
         }
     }
-
+    
+    bpf_ringbuf_submit(e, 0);
     return 0;
 }
 
 SEC("tracepoint/syscalls/sys_exit_epoll_ctl")
 int trace_sys_exit_epoll_ctl(struct trace_event_raw_sys_exit *ctx) {
     __s32 event_id = SYS_EXIT_EPOLL_CTL;
-    __s64 ret = BPF_CORE_READ(ctx, ret);
-    
     struct current_task ct = get_task_struct();
 
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
-    };
+    if (!should_log_event(ct.ns_id, event_id)) 
+        return 0;
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            if (ret < 0) {
-                bpf_printk("Exit epoll_ctl: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
-            } else {
-                bpf_printk("Exit epoll_ctl: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
-            }
-        }
-    }
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e)
+        return 0;
     
+    e->ret = BPF_CORE_READ(ctx, ret);
+    
+    bpf_ringbuf_submit(e, 0);
     return 0;
 }
 
 SEC("tracepoint/syscalls/sys_enter_epoll_wait")
 int trace_sys_enter_epoll_wait(struct trace_event_raw_sys_enter *ctx) {
     __s32 event_id = SYS_ENTER_EPOLL_WAIT;
-
-    __s32 epfd = BPF_CORE_READ(ctx, args[0]);
-    struct epoll_event *events = (struct epoll_event *)BPF_CORE_READ(ctx, args[1]);
-    __s32 maxevents = BPF_CORE_READ(ctx, args[2]);
-    __s32 timeout = BPF_CORE_READ(ctx, args[3]);
-
     struct current_task ct = get_task_struct();
-
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
+    struct map_key key = get_map_key(&ct);
+    struct epoll_event *events_ptr = (struct epoll_event *)BPF_CORE_READ(ctx, args[1]);
+    struct epoll_args args = {
+        .events = events_ptr
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            bpf_printk("Enter epoll_wait: ns_id=%llu, pid=%u, epfd=%d, events_ptr=%p, maxevents=%d, timeout=%d\n", 
-                    ct.ns_id, ct.pid, epfd, events, maxevents, timeout);
-        }
-    }
+    bpf_map_update_elem(&epoll_wait_args_map, &key, &args, BPF_ANY);
 
+    if (!should_log_event(ct.ns_id, event_id)) 
+        return 0;
+    
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e) 
+        return 0;
+
+    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+    e->arg_s32[1] = BPF_CORE_READ(ctx, args[2]);
+    e->arg_s32[2] = BPF_CORE_READ(ctx, args[3]);
+    
+    bpf_ringbuf_submit(e, 0);
     return 0;
 }
 
@@ -1459,59 +1436,62 @@ SEC("tracepoint/syscalls/sys_exit_epoll_wait")
 int trace_sys_exit_epoll_wait(struct trace_event_raw_sys_exit *ctx) {
     __s32 event_id = SYS_EXIT_EPOLL_WAIT;
     __s64 ret = BPF_CORE_READ(ctx, ret);
-    
     struct current_task ct = get_task_struct();
+    struct map_key key = get_map_key(&ct);
 
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
-    };
+    if (!should_log_event(ct.ns_id, event_id)) 
+        goto cleanup;
+
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e) 
+        goto cleanup;
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            if (ret < 0) {
-                bpf_printk("Exit epoll_wait: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
-            } else {
-                bpf_printk("Exit epoll_wait: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+    e->ret = ret;
+    e->is_valid = false;
+
+    if (ret >= 0) {
+        struct epoll_args *args = bpf_map_lookup_elem(&epoll_wait_args_map, &key);
+        if (args && args->events) {
+            struct epoll_event events;
+            if (bpf_probe_read_user(&events, sizeof(events), args->events) == 0) {
+                e->arg_u32[0] = events.events;
+                e->arg_u64[0] = events.data;
+                e->is_valid = true;
             }
         }
     }
     
+    bpf_ringbuf_submit(e, 0);
+
+cleanup:
+    bpf_map_delete_elem(&epoll_wait_args_map, &key);
     return 0;
 }
 
 SEC("tracepoint/syscalls/sys_enter_epoll_pwait")
 int trace_sys_enter_epoll_pwait(struct trace_event_raw_sys_enter *ctx) {
     __s32 event_id = SYS_ENTER_EPOLL_PWAIT;
-
-    __s32 epfd = BPF_CORE_READ(ctx, args[0]);
-    struct epoll_event *events = (struct epoll_event *)BPF_CORE_READ(ctx, args[1]);
-    __s32 maxevents = BPF_CORE_READ(ctx, args[2]);
-    __s32 timeout = BPF_CORE_READ(ctx, args[3]);
-    void *sigmask = (void *)BPF_CORE_READ(ctx, args[4]);
-    __s32 sigsetsize = BPF_CORE_READ(ctx, args[5]);
-
     struct current_task ct = get_task_struct();
-
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
+    struct map_key key = get_map_key(&ct);
+    struct epoll_event *events_ptr = (struct epoll_event *)BPF_CORE_READ(ctx, args[1]);
+    struct epoll_args args = {
+        .events = events_ptr
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            if (sigmask == NULL) {
-                bpf_printk("Enter epoll_pwait: ns_id=%llu, pid=%u, epfd=%d, events_ptr=%p, maxevents=%d, timeout=%d, sigmask_ptr=NULL (using default sigmask)\n", 
-                    ct.ns_id, ct.pid, epfd, events, maxevents, timeout);
-            } else {
-                bpf_printk("Enter epoll_pwait: ns_id=%llu, pid=%u, epfd=%d, events_ptr=%p, maxevents=%d, timeout=%d, sigmask_ptr=%p\n", 
-                    ct.ns_id, ct.pid, epfd, events, maxevents, timeout, sigmask);
-            }
-        }
-    }
+    bpf_map_update_elem(&epoll_pwait_args_map, &key, &args, BPF_ANY);
 
+    if (!should_log_event(ct.ns_id, event_id)) 
+        return 0;
+    
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e) 
+        return 0;
+
+    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+    e->arg_s32[1] = BPF_CORE_READ(ctx, args[2]);
+    e->arg_s32[2] = BPF_CORE_READ(ctx, args[3]);
+    
+    bpf_ringbuf_submit(e, 0);
     return 0;
 }
 
@@ -1519,65 +1499,72 @@ SEC("tracepoint/syscalls/sys_exit_epoll_pwait")
 int trace_sys_exit_epoll_pwait(struct trace_event_raw_sys_exit *ctx) {
     __s32 event_id = SYS_EXIT_EPOLL_PWAIT;
     __s64 ret = BPF_CORE_READ(ctx, ret);
-    
     struct current_task ct = get_task_struct();
+    struct map_key key = get_map_key(&ct);
 
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
-    };
+    if (!should_log_event(ct.ns_id, event_id)) 
+        goto cleanup;
+
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e) 
+        goto cleanup;
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            if (ret < 0) {
-                bpf_printk("Exit epoll_pwait: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
-            } else {
-                bpf_printk("Exit epoll_pwait: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+    e->ret = ret;
+    e->is_valid = false;
+
+    if (ret >= 0) {
+        struct epoll_args *args = bpf_map_lookup_elem(&epoll_pwait_args_map, &key);
+        if (args && args->events) {
+            struct epoll_event events;
+            if (bpf_probe_read_user(&events, sizeof(events), args->events) == 0) {
+                e->arg_u32[0] = events.events;
+                e->arg_u64[0] = events.data;
+                e->is_valid = true;
             }
         }
     }
     
+    bpf_ringbuf_submit(e, 0);
+
+cleanup:
+    bpf_map_delete_elem(&epoll_pwait_args_map, &key);
     return 0;
 }
 
 SEC("tracepoint/syscalls/sys_enter_epoll_pwait2")
 int trace_sys_enter_epoll_pwait2(struct trace_event_raw_sys_enter *ctx) {
     __s32 event_id = SYS_ENTER_EPOLL_PWAIT2;
-
-    __s32 epfd = BPF_CORE_READ(ctx, args[0]);
-    struct epoll_event *events = (struct epoll_event *)BPF_CORE_READ(ctx, args[1]);
-    __s32 maxevents = BPF_CORE_READ(ctx, args[2]);
-    void *timeout = (void *)BPF_CORE_READ(ctx, args[3]);
-    void *sigmask = (void *)BPF_CORE_READ(ctx, args[4]);
-    __s32 sigsetsize = BPF_CORE_READ(ctx, args[5]);
-
     struct current_task ct = get_task_struct();
-
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
+    struct map_key key = get_map_key(&ct);
+    struct epoll_event *events_ptr = (struct epoll_event *)BPF_CORE_READ(ctx, args[1]);
+    struct epoll_args args = {
+        .events = events_ptr
     };
 
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            if (sigmask == NULL && timeout == NULL) {
-                bpf_printk("Enter epoll_pwait2: ns_id=%llu, pid=%u, epfd=%d, events_ptr=%p, maxevents=%d, timeout_ptr=NULL (wait infinite), sigmask_ptr=NULL (using default sigmask)\n", 
-                    ct.ns_id, ct.pid, epfd, events, maxevents);
-            } else if (sigmask == NULL) {
-                bpf_printk("Enter epoll_pwait2: ns_id=%llu, pid=%u, epfd=%d, events_ptr=%p, maxevents=%d, timeout_ptr=%p, sigmask_ptr=NULL (using default sigmask)\n", 
-                    ct.ns_id, ct.pid, epfd, events, maxevents, timeout);
-            } else if (timeout == NULL) {
-                bpf_printk("Enter epoll_pwait2: ns_id=%llu, pid=%u, epfd=%d, events_ptr=%p, maxevents=%d, timeout_ptr=NULL (wait infinite), sigmask_ptr=%p\n", 
-                    ct.ns_id, ct.pid, epfd, events, maxevents, sigmask);
-            } else {
-                bpf_printk("Enter epoll_pwait2: ns_id=%llu, pid=%u, epfd=%d, events_ptr=%p, maxevents=%d, timeout=%d, sigmask_ptr=%p\n", 
-                    ct.ns_id, ct.pid, epfd, events, maxevents, timeout, sigmask);
-            }
+    bpf_map_update_elem(&epoll_pwait2_args_map, &key, &args, BPF_ANY);
+
+    if (!should_log_event(ct.ns_id, event_id)) 
+        return 0;
+    
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e) 
+        return 0;
+
+    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+    e->arg_s32[1] = BPF_CORE_READ(ctx, args[2]);
+    void *timeout = (void *)BPF_CORE_READ(ctx, args[3]);
+    
+    if (timeout) {
+        struct timespec_args ts;
+        if (bpf_probe_read_user(&ts, sizeof(ts), timeout) == 0) {
+            e->arg_u64[0] = ts.tv_sec;
+            e->arg_u64[1] = ts.tv_nsec;
         }
+    } else {
+        e->arg_u64[0] = 999999999;
     }
 
+    bpf_ringbuf_submit(e, 0);
     return 0;
 }
 
@@ -1585,25 +1572,35 @@ SEC("tracepoint/syscalls/sys_exit_epoll_pwait2")
 int trace_sys_exit_epoll_pwait2(struct trace_event_raw_sys_exit *ctx) {
     __s32 event_id = SYS_EXIT_EPOLL_PWAIT2;
     __s64 ret = BPF_CORE_READ(ctx, ret);
-    
     struct current_task ct = get_task_struct();
+    struct map_key key = get_map_key(&ct);
 
-    struct event_key event_key = {
-        .ns_id = ct.ns_id,
-        .event_id = event_id,
-    };
+    if (!should_log_event(ct.ns_id, event_id)) 
+        goto cleanup;
+
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e) 
+        goto cleanup;
     
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    if (watched) {
-        if (*watched == LOGGING) {
-            if (ret < 0) {
-                bpf_printk("Exit epoll_pwait2: failed, ns_id=%llu, pid=%u, error_code=%ld\n", ct.ns_id, ct.pid, ret);
-            } else {
-                bpf_printk("Exit epoll_pwait2: success, ns_id=%llu, pid=%u ret=%ld\n", ct.ns_id, ct.pid, ret);
+    e->ret = ret;
+    e->is_valid = false;
+
+    if (ret >= 0) {
+        struct epoll_args *args = bpf_map_lookup_elem(&epoll_pwait2_args_map, &key);
+        if (args && args->events) {
+            struct epoll_event events;
+            if (bpf_probe_read_user(&events, sizeof(events), args->events) == 0) {
+                e->arg_u32[0] = events.events;
+                e->arg_u64[0] = events.data;
+                e->is_valid = true;
             }
         }
     }
     
+    bpf_ringbuf_submit(e, 0);
+
+cleanup:
+    bpf_map_delete_elem(&epoll_pwait2_args_map, &key);
     return 0;
 }
 

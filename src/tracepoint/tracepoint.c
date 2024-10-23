@@ -752,6 +752,9 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
             if (e->ret < 0) {
                 printf("Exit recvfrom: failed, %s, error_code=%lld\n",
                         task_info, e->ret);
+            } else if (e->is_null == true) {
+                printf("Exit recvfrom: success, %s, socket address info is not requested, ret=%lld\n",
+                        task_info, e->ret);
             } else if (e->is_valid == true) {
                 char ip_str[INET6_ADDRSTRLEN] = {0};
                 if (e->addr_family == AF_INET) {
@@ -899,6 +902,164 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
                         task_info, e->ret);
             } else {
                 printf("Exit setdomainname: success, %s, ret=%lld\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_IOCTL:
+            printf("Enter ioctl: %s, fd=%d, op=%llu\n",
+                    task_info, e->arg_s32[0], e->arg_u64[0]);
+            break;
+        case SYS_EXIT_IOCTL:
+            if (e->ret < 0) {
+                printf("Exit ioctl: failed, %s, error_code=%lld\n",
+                        task_info, e->ret);
+            } else {
+                printf("Exit ioctl: success, %s, ret=%lld\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_POLL:
+            if (e->is_valid == true) {
+                printf("Enter poll: %s, nfds=%llu, timeout=%d, pollfd=%d, event=%d\n",
+                        task_info, e->arg_u64[0], e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
+            } else {
+                printf("Enter poll: %s, nfds=%llu, timeout=%d, failed to read pollfd array\n",
+                        task_info, e->arg_u64[0], e->arg_s32[0]);
+            }
+            break;
+        case SYS_EXIT_POLL:
+            if (e->ret < 0) {
+                printf("Exit poll: failed, %s, error_code=%lld\n",
+                        task_info, e->ret);
+            } else if (e->is_valid == true) {
+                printf("Exit poll: success, %s, revents=%d, ret=%llu\n",
+                        task_info, e->arg_s32[0], e->ret);
+            } else {
+                printf("Exit poll: success, %s, failed to read revents, ret=%llu\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_PPOLL:
+            if (e->is_valid) {
+                if (e->arg_u64[1] == 999999999) {
+                    printf("Enter ppoll: %s, nfds=%llu, timeout=infinite, pollfd=%d, event=%d\n",
+                            task_info, e->arg_u64[0], e->arg_s32[1], e->arg_s32[2]);
+                } else {
+                    printf("Enter ppoll: %s, nfds=%llu, timeout=%llu.%09llu, pollfd=%d, event=%d\n",
+                            task_info, e->arg_u64[0], e->arg_u64[1], e->arg_u64[2],
+                            e->arg_s32[1], e->arg_s32[2]);
+                }
+            } else {
+                printf("Enter ppoll: %s, nfds=%llu, failed to read pollfd array\n",
+                        task_info, e->arg_u64[0]);
+            }
+            break;
+        case SYS_EXIT_PPOLL:
+            if (e->ret < 0) {
+                printf("Exit ppoll: failed, %s, error_code=%lld\n",
+                        task_info, e->ret);
+            } else if (e->is_valid == true) {
+                printf("Exit ppoll: success, %s, revents=%d, ret=%lld\n",
+                        task_info, e->arg_s32[0], e->ret);
+            } else {
+                printf("Exit ppoll: success, %s, failed to read revents, ret=%lld\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_EPOLL_CREATE:
+            printf("Enter epoll_create: %s, size=%d\n",
+                    task_info, e->arg_s32[0]);
+            break;
+        case SYS_EXIT_EPOLL_CREATE:
+            if (e->ret < 0) {
+                printf("Exit epoll_create: failed, %s, error_code=%lld\n",
+                        task_info, e->ret);
+            } else {
+                printf("Exit epoll_create: success, %s, ret=%lld\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_EPOLL_CREATE1:
+            printf("Enter epoll_create1: %s, flags=%d\n",
+                    task_info, e->arg_s32[0]);
+            break;
+        case SYS_EXIT_EPOLL_CREATE1:
+            if (e->ret < 0) {
+                printf("Exit epoll_create1: failed, %s, error_code=%lld\n",
+                        task_info, e->ret);
+            } else {
+                printf("Exit epoll_create1: success, %s, ret=%lld\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_EPOLL_CTL:
+            if (e->is_valid == true) {
+                printf("Enter epoll_ctl: %s, epfd=%d, op=%d, fd=%d, event=%u, data=%llu\n",
+                        task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2], e->arg_u32[0], e->arg_u64[0]);
+            } else {
+                printf("Enter epoll_ctl: %s, epfd=%d, op=%d, failed to read event\n",
+                        task_info, e->arg_s32[0], e->arg_s32[1]);
+            }
+            break;
+        case SYS_EXIT_EPOLL_CTL:
+            if (e->ret < 0) {
+                printf("Exit epoll_ctl: failed, %s, error_code=%lld\n",
+                        task_info, e->ret);
+            } else {
+                printf("Exit epoll_ctl: success, %s, ret=%lld\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_EPOLL_WAIT:
+            printf("Enter epoll_wait: %s, epfd=%d, maxevents=%d, timeout=%d\n",
+                    task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
+            break;
+        case SYS_EXIT_EPOLL_WAIT:
+            if (e->ret < 0) {
+                printf("Exit epoll_wait: failed, %s, error_code=%lld\n",
+                        task_info, e->ret);
+            } else if (e->is_valid == true) {
+                printf("Exit epoll_wait: success, %s, events=%d, data=%llu, ret=%lld\n",
+                        task_info, e->arg_s32[0], e->arg_u64[0], e->ret);
+            } else {
+                printf("Exit epoll_wait: success, %s, failed to read revents, ret=%lld\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_EPOLL_PWAIT:
+            printf("Enter epoll_pwait: %s, epfd=%d, maxevents=%d, timeout=%d\n",
+                    task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
+            break;
+        case SYS_EXIT_EPOLL_PWAIT:
+            if (e->ret < 0) {
+                printf("Exit epoll_pwait: failed, %s, error_code=%lld\n",
+                        task_info, e->ret);
+            } else if (e->is_valid == true) {
+                printf("Exit epoll_pwait: success, %s, events=%d, data=%llu, ret=%lld\n",
+                        task_info, e->arg_s32[0], e->arg_u64[0], e->ret);
+            } else {
+                printf("Exit epoll_pwait: success, %s, failed to read revents, ret=%lld\n",
+                        task_info, e->ret);
+            }
+            break;
+        case SYS_ENTER_EPOLL_PWAIT2:
+            if (e->arg_u64[0] == 999999999) {
+                printf("Enter epoll_pwait2: %s, epfd=%d, maxevents=%d, timeout=infinite\n",
+                        task_info, e->arg_s32[0], e->arg_s32[1]);
+            } else {
+                printf("Enter epoll_pwait2: %s, epfd=%d, maxevents=%d, timeout=%llu.%09llu\n",
+                        task_info, e->arg_s32[0], e->arg_s32[1], e->arg_u64[0], e->arg_u64[1]);
+            }
+            break;
+        case SYS_EXIT_EPOLL_PWAIT2:
+            if (e->ret < 0) {
+                printf("Exit epoll_pwait2: failed, %s, error_code=%lld\n",
+                        task_info, e->ret);
+            } else if (e->is_valid == true) {
+                printf("Exit epoll_pwait2: success, %s, events=%d, data=%llu, ret=%lld\n",
+                        task_info, e->arg_s32[0], e->arg_u64[0], e->ret);
+            } else {
+                printf("Exit epoll_pwait2: success, %s, failed to read revents, ret=%lld\n",
                         task_info, e->ret);
             }
             break;
