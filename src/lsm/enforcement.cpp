@@ -11,6 +11,7 @@
 #include "enforcement.skel.h"
 
 #include "policy_map_structs.h"
+#include "parser.h"
 
 #define BPF_FS_PATH "/sys/fs/bpf"
 #define MAP_PIN_PATH "/sys/fs/bpf/policy_map"
@@ -19,6 +20,8 @@
 #define MAX_OUTPUT_LEN 256
 
 static volatile bool exiting = false;
+
+void clear_bpf_map(int map_fd);
 
 static int print_event(void *ctx, void *data, size_t data_sz) {
     event *e = (event *)data;
@@ -374,8 +377,73 @@ int add_policy(int map_fd) {
     return 0;
 }
 
+int update_policy_with_file(int map_fd, char* abs_file_name) {
+    clear_bpf_map(map_fd);
+
+    Policy policy = parseYamlPolicy(abs_file_name);
+
+    for (const auto& container : policy.containers) {
+        struct policy_key key;
+        struct policy_value value;
+
+        int container_pid = get_docker_pid(container.container_name.c_str());
+        key = make_policy_key(container_pid);
+        
+        //file policies
+        if (!container.file_policies.empty()) {
+            value.num_file_policies = 0;
+            for (const auto& file : container.file_policies) {
+                strcpy(value.file_policies[value.num_file_policies].path, file.path.c_str());
+                value.file_policies[value.num_file_policies].flags = file.flags;
+                
+                for (int i = 0; i < file.uid.size(); i++) {
+                    value.file_policies[value.num_file_policies].uid[i] = file.uid[i];
+                }
+                value.num_file_policies++;
+            }
+        }
+        
+        // network policies
+        if (!container.network_policies.empty()) {
+            value.num_network_policies = 0;
+            for (const auto& network : container.network_policies) {
+                uint32_t ip_network_order = htonl(network.ip_info.ip);
+                value.network_policies[value.num_network_policies].ip = ip_network_order;
+                value.network_policies[value.num_network_policies].subnet_mask = htonl(network.ip_info.subnet_mask);
+                value.network_policies[value.num_network_policies].port = network.port;
+                value.network_policies[value.num_network_policies].protocol = network.protocol;
+                value.network_policies[value.num_network_policies].flags = network.flags;
+                
+                for (int i = 0; i < network.uid.size(); i++) {
+                    value.file_policies[value.num_network_policies].uid[i] = network.uid[i];
+                }
+                value.num_network_policies++;
+            }
+        }
+        
+        // process policies
+        if (!container.process_policies.empty()) {
+            value.num_process_policies = 0;
+            for (const auto& process : container.process_policies) {
+                strcpy(value.process_policies[value.num_process_policies].comm, process.comm.c_str());
+                value.process_policies[value.num_process_policies].flags = process.flags;
+                
+                for (int i = 0; i < process.uid.size(); i++) {
+                    value.process_policies[value.num_process_policies].uid[i] = process.uid[i];
+                }
+                value.num_process_policies++;
+            }
+        }
+        if (bpf_map_update_elem(map_fd, &key, &value, BPF_ANY)) {
+            fprintf(stderr, "Failed to Add policy: mnt ns: %u, pid ns: %u\n", key.mnt_ns_id, key.pid_ns_id, strerror(errno));
+        }
+    }
+    return 0;
+}
+
 enum view_mode {
     ADD_POLICY,
+    UPDATE_POLICY_FILE,
     DELETE_POLICY,
     SHOW_POLICY,
     SHOW_LOG,
@@ -385,6 +453,7 @@ enum view_mode {
 void print_menu() {
     char *menu[] = {
         "Add Policy",
+        "Update policy with file",
         "Delete Policy",
         "Show Policy",
         "Show Log",
@@ -396,7 +465,7 @@ void print_menu() {
     for (int i = 0; i < sizeof(menu) / sizeof(menu[0]); printf("  %d. %s\n", i, menu[i++]));
 }
 
-enum view_mode get_menu(char *input) {
+int get_menu(char *input) {
     if (strcmp(input, "1") == 0) {
         return ADD_POLICY;
     } else if (strcmp(input, "2") == 0) {
@@ -436,11 +505,7 @@ int main(int argc, char **argv)
 {
     struct enforcement_bpf *skel;
     struct ring_buffer *rb = NULL;
-
-    if (signal(SIGINT, handle_signal) == SIG_ERR) {
-        fprintf(stderr, "can't set signal handler: %s\n", strerror(errno));
-        goto cleanup;
-    }
+    int map_fd = -1;
 
     /* Set up libbpf errors and debug info callback */
     // libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
@@ -456,9 +521,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    int err;
-
-    err = enforcement_bpf__load(skel);
+    int err = enforcement_bpf__load(skel);
     if (err) {
         fprintf(stderr, "Failed to load and verify BPF skeleton\n");
         goto cleanup;
@@ -471,7 +534,7 @@ int main(int argc, char **argv)
         goto cleanup;
     }
 
-    int map_fd = bpf_map__fd(skel->maps.policy_map);
+    map_fd = bpf_map__fd(skel->maps.policy_map);
     // check if the map already exists
     if (map_fd < 0) {
         fprintf(stderr, "No existing map found, creating a new one.\n");
@@ -506,11 +569,14 @@ int main(int argc, char **argv)
         goto cleanup;
     }
 
+    if (signal(SIGINT, handle_signal) == SIG_ERR) {
+        fprintf(stderr, "can't set signal handler: %s\n", strerror(errno));
+        goto cleanup;
+    }
+
     printf("Successfully started! Please run `sudo cat /sys/kernel/debug/tracing/trace_pipe` "
            "to see output of the BPF programs.\n");
 
-
-    enum view_mode mode;
     while (!exiting) {
         char cmd[256];
         print_menu();
@@ -520,7 +586,7 @@ int main(int argc, char **argv)
         }
 
         cmd[strcspn(cmd, "\n")] = 0;
-        mode = get_menu(cmd);
+        int mode = get_menu(cmd);
 
         switch (mode)
         {
@@ -533,9 +599,22 @@ int main(int argc, char **argv)
                 printf("Failed to add policy\n");
             }
             break;
+        case UPDATE_POLICY_FILE:
+            printf("Update Policy with file\n");
+            printf("Enter the absolute path of the policy file: ");
+            char abs_file_name[256];
+            if (!fgets(abs_file_name, sizeof(abs_file_name), stdin)) {
+                break;
+            }
+            abs_file_name[strcspn(abs_file_name, "\n")] = 0;
+            if (update_policy_with_file(map_fd, abs_file_name) == 0) {
+                printf("Policy updated successfully\n");
+            } else {
+                printf("Failed to update policy\n");
+            }
+            break;
         case DELETE_POLICY:
             printf("Delete Policy\n");
-
             clear_bpf_map(map_fd);
             printf("Policy map cleared.\n");
             break;
