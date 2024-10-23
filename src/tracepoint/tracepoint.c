@@ -453,16 +453,7 @@ void get_user_input(struct tracepoint_bpf *skel, __u64 ns_id, __u32 event_id) {
     char action_str[10];
     __u32 action = LOGGING;
     int err;
-
-    // printf("Enter action (allow/block/logging, default is logging): ");
-    // if (fgets(action_str, sizeof(action_str), stdin) == NULL) {
-    //     return;
-    // }
-    // action_str[strcspn(action_str, "\n")] = 0;
-
-    // if (strcmp(action_str, "allow") == 0) action = ALLOW;
-    // else if (strcmp(action_str, "block") == 0) action = BLOCK;
-
+    
     struct event_key key = {
         .ns_id = ns_id,
         .event_id = event_id
@@ -530,7 +521,7 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
                         task_info, e->ret);
             } else if (e->is_valid == true) {
                 printf("Exit socketpair: success, %s, sv[0]=%d, sv[1]=%d, ret=%lld\n",
-                        task_info, e->sv[0], e->sv[1], e->ret);
+                        task_info, e->arg_s32[0], e->arg_s32[1], e->ret);
             } else {
                 printf("Exit socketpair: success but failed to read socket values, %s, ret=%lld\n",
                         task_info, e->ret);
@@ -1140,26 +1131,8 @@ container_name:
             get_user_input(skel, ns_id, event_table[i].id);
         }
     }
-    // get_user_input(skel, ns_id, SYS_ENTER_SENDTO);
-    // get_user_input(skel, ns_id, SYS_EXIT_SENDTO);
 
-    while (1) {
-        // char event_str[256];
-        
-        // printf("Enter event (e.g., sys_enter_socket, sys_exit_socket, or 'quit' to exit): ");
-        // if (fgets(event_str, sizeof(event_str), stdin) == NULL) {
-        //     break;
-        // }
-        // event_str[strcspn(event_str, "\n")] = 0;
-        // if (strcmp(event_str, "quit") == 0) goto container_name;
-
-        // __u32 event_id = get_event_id(event_str);
-        // if (event_id == -1) {
-        //     fprintf(stderr, "Unknown event\n");
-        //     continue;
-        // }
-        // get_user_input(skel, ns_id, event_id);
-        
+    while (1) {        
         err = ring_buffer__poll(rb, 100);
         if (err == -EINTR) {
             err = 0;

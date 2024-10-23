@@ -12,7 +12,6 @@ struct current_task  {
 struct event_t {
     struct current_task task;
     __s32 event_id;
-
     __s64 ret;
 
     __s32 arg_s32[6];
@@ -22,8 +21,6 @@ struct event_t {
 
     bool is_valid;
     bool is_null;
-    
-    __s32 sv[2];
 
     __u32 ip;
     __u16 port;

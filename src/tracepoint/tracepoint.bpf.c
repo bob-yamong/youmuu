@@ -194,8 +194,8 @@ int trace_sys_exit_socketpair(struct trace_event_raw_sys_exit *ctx) {
         goto cleanup;
 
     e->ret = ret;
-    e->sv[0] = -1;
-    e->sv[1] = -1;
+    e->arg_s32[0] = -1;
+    e->arg_s32[1] = -1;
     e->is_valid = false;
 
     if (ret >= 0) {
@@ -203,8 +203,8 @@ int trace_sys_exit_socketpair(struct trace_event_raw_sys_exit *ctx) {
         if (sv_ptr) {
             __s32 sv[2];
             if (bpf_probe_read_user(sv, sizeof(sv), (void *)*sv_ptr) == 0) {
-                e->sv[0] = sv[0];
-                e->sv[1] = sv[1];
+                e->arg_s32[0] = sv[0];
+                e->arg_s32[1] = sv[1];
                 e->is_valid = true;
             }
         }
