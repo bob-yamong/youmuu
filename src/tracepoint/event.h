@@ -1,3 +1,5 @@
+#include <pthread.h>
+
 struct current_task  {
     __u64 timestamp;
     __u64 cgroup_id;
@@ -65,6 +67,13 @@ struct timespec_args {
 
 struct epoll_args {
     struct epoll_event *events;
+};
+
+struct thread_ctx {
+    int thread_id;
+    struct ring_buffer *rb;  // 모든 스레드가 같은 링버퍼 공유
+    unsigned long events;
+    pthread_mutex_t *mutex;
 };
 
 struct EventEntry {

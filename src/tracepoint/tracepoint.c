@@ -22,8 +22,15 @@
 #define ALLOW 0
 #define BLOCK 1
 #define LOGGING 2
+#define NUM_THREADS 4
 
+static volatile bool running = true;
+static pthread_mutex_t rb_mutex = PTHREAD_MUTEX_INITIALIZER;
 static struct EventEntry event_table[MAX_EVENTS];
+
+static void sig_handler(int sig) {
+    running = false;
+}
 
 static __u32 hash(const char* str) {
     __u32 hash = 5381;
@@ -450,7 +457,6 @@ __u32 get_event_id(const char* event_str) {
 }
 
 void get_user_input(struct tracepoint_bpf *skel, __u64 ns_id, __u32 event_id) {
-    char action_str[10];
     __u32 action = LOGGING;
     int err;
     
@@ -1058,15 +1064,39 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
             printf("Unknown event: %s, event_id=%d\n",
                     task_info, e->event_id);
     }
-
+    
     return 0;
 }
 
+void *consumer_thread(void *arg) {
+    struct thread_ctx *ctx = (struct thread_ctx *)arg;
+    
+    while (running) {
+        int err = ring_buffer__poll(ctx->rb, 100);
+        if (err > 0) {
+            printf("Thread %d processed %d events (total: %lu)\n", 
+                    ctx->thread_id, err, ctx->events);
+        } else if (err == -EINTR) {
+            // 인터럽트 발생 시 (e.g., Ctrl+C)
+            break;
+        } else if (err < 0) {
+            printf("Thread %d: Error polling ring buffer: %d\n", 
+                    ctx->thread_id, err);
+            break;
+        }
+    }
+    return NULL;
+}
+
 int main(int argc, char **argv) {
-    struct ring_buffer *rb = NULL;
+    signal(SIGINT, sig_handler);
+    signal(SIGTERM, sig_handler);
+
     struct tracepoint_bpf *skel;
     __u64 ns_id;
     int err;
+    struct thread_ctx thread_ctxs[NUM_THREADS];
+    pthread_t threads[NUM_THREADS];
 
     init_event_table();
     skel = tracepoint_bpf__open();
@@ -1087,28 +1117,44 @@ int main(int argc, char **argv) {
         goto cleanup;
     }
 
-    rb = ring_buffer__new(bpf_map__fd(skel->maps.rb), handle_event, NULL, NULL);
+    struct ring_buffer *rb = ring_buffer__new(bpf_map__fd(skel->maps.rb),handle_event,NULL, NULL);
     if (!rb) {
-        err = -1;
         fprintf(stderr, "Failed to create ring buffer\n");
+        err = -1;
         goto cleanup;
+    }
+
+    // 스레드 컨텍스트 초기화
+    for (int i = 0; i < NUM_THREADS; i++) {
+        thread_ctxs[i].thread_id = i;
+        thread_ctxs[i].rb = rb;  // 모든 스레드가 같은 링버퍼 사용
+        thread_ctxs[i].events = 0;
+        thread_ctxs[i].mutex = &rb_mutex;
+    }
+
+    // 스레드 생성
+    for (int i = 0; i < NUM_THREADS; i++) {
+        if (pthread_create(&threads[i], NULL, consumer_thread, &thread_ctxs[i]) != 0) {
+            fprintf(stderr, "Failed to create thread %d\n", i);
+            err = -1;
+            goto cleanup;
+        }
     }
 
     printf("Successfully started!\n");
 
     ContainerRuntime runtime = get_runtime_from_user();
     
-container_name:
     char container_str[256];
     __u32 pid;
 
     printf("Enter container name to restrict (or 'quit' to exit): ");
     if (fgets(container_str, sizeof(container_str), stdin) == NULL) {
-        return 1;
+        goto cleanup;
     }
     container_str[strcspn(container_str, "\n")] = 0;
     if (strcmp(container_str, "quit") == 0) {
-            return 0;
+        goto cleanup;
     }
     
     switch(runtime) {
@@ -1131,19 +1177,22 @@ container_name:
             get_user_input(skel, ns_id, event_table[i].id);
         }
     }
+    printf("\nMonitoring started. Press Ctrl+C to exit...\n\n");
 
-    while (1) {        
-        err = ring_buffer__poll(rb, 100);
-        if (err == -EINTR) {
-            err = 0;
-            break;
-        }
-        if (err < 0) {
-            printf("Error polling ring buffer: %d\n", err);
-            break;
-        }
+    while (running) {
+        sleep(1);
     }
+
 cleanup:
+    running = false;
+    
+    for (int i = 0; i < NUM_THREADS; i++) {
+        pthread_join(threads[i], NULL);
+    }
+
+    if (rb)
+        ring_buffer__free(rb);
+
     tracepoint_bpf__destroy(skel);
     return err != 0;
 }
