@@ -19,8 +19,12 @@ struct {
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
     __uint(max_entries, 1 << 27); // 128MB
-} events SEC(".maps");
+} events_1 SEC(".maps");
 
+struct {
+    __uint(type, BPF_MAP_TYPE_RINGBUF);
+    __uint(max_entries, 1 << 27); // 128MB
+} events_2 SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
@@ -116,6 +120,7 @@ static inline int has_filename_arg(int syscall_nr) {
 
 // debug
 __u64 cnt = 0;
+__u32 rb_flag = 0;
 
 SEC("tracepoint/raw_syscalls/sys_enter")
 int sys_enter(struct trace_event_raw_sys_enter *ctx)
@@ -124,6 +129,7 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     u32 pid = id >> 32;
     u32 tid = id;
     u32 uid = bpf_get_current_uid_gid();
+    u32 event_err_flag = 0;
     
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
@@ -154,9 +160,24 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
 
     struct event *e;
     cnt++;
-    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e)
+    // e = bpf_ringbuf_reserve(&events_1, sizeof(*e), 0);
+    // if (!e)
+    //     e = bpf_ringbuf_reserve(&events_2, sizeof(*e), 0);
+
+    // if (!e)
+    //     return 0;
+
+    if(rb_flag == 0){
+        e = bpf_ringbuf_reserve(&events_1, sizeof(*e), 0);
+        rb_flag = 1;
+    } else {
+        e = bpf_ringbuf_reserve(&events_2, sizeof(*e), 0);
+        rb_flag = 0;
+    }
+
+    if(!e)
         return 0;
+
     e->timestamp = bpf_ktime_get_ns();
     e->cnt = cnt;
     e->pid = pid;

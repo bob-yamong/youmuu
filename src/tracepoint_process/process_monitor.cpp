@@ -1,4 +1,3 @@
-// process_monitor.cpp
 // SPDX-License-Identifier: GPL-2.0
 #include <iostream>
 #include <fstream> // 파일 스트림 포함
@@ -10,11 +9,11 @@
 #include <string>
 #include <iomanip>
 #include <sys/resource.h>
-#include <sys/syscall.h>
 #include <bpf/libbpf.h>
 #include "process_monitor.skel.h"
 #include "event.h"
 #include "container_info.h"
+#include "syscall_list.h"
 
 // concurrentqueue 헤더 포함
 #include "../../concurrentqueue/concurrentqueue.h"
@@ -25,7 +24,44 @@ moodycamel::ConcurrentQueue<event> event_queue;
 // 작업 스레드 종료 플래그
 bool stop_workers = false;
 struct process_monitor_bpf *skel;
+std::atomic<bool> ringbuf_thread_running(true);
 static bool exiting = false;
+
+// 링버퍼 핸들러1
+static int handle_event1(void *ctx, void *data, size_t data_sz)
+{
+    const struct event *e = static_cast<const struct event*>(data);
+    // 디버그 메시지
+    std::cerr << "handle_event1 호출됨: cnt=" << e->cnt << ", syscall_nr=" << e->syscall_nr << "\n";
+    // 큐에 이벤트 enqueue
+    event_queue.enqueue(*e);
+    return 0;
+}
+
+// 링버퍼 핸들러2
+static int handle_event2(void *ctx, void *data, size_t data_sz)
+{
+    const struct event *e = static_cast<const struct event*>(data);
+    // 디버그 메시지
+    std::cerr << "handle_event2 호출됨: cnt=" << e->cnt << ", syscall_nr=" << e->syscall_nr << "\n";
+    // 큐에 이벤트 enqueue
+    event_queue.enqueue(*e);
+    return 0;
+}
+
+// 링버퍼 소비 스레드 함수
+void ringbuf_thread_func(struct ring_buffer *rb) {
+    while (ringbuf_thread_running) {
+        int err = ring_buffer__poll(rb, 100); // 100ms 타임아웃
+        if (err == -EINTR) {
+            break;
+        }
+        if (err < 0) {
+            std::cerr << "Error polling ring buffer: " << err << "\n";
+            break;
+        }
+    }
+}
 
 // 워커 스레드 함수 수정: 각 스레드가 자체 로그 파일을 가짐
 void worker_thread_func(int worker_id) {
@@ -220,135 +256,15 @@ void worker_thread_func(int worker_id) {
     std::cerr << "스레드 " << worker_id << " 종료됨.\n";
 }
 
-// 링버퍼 핸들러 수정: 이벤트를 Lock-Free 큐에 추가
-static int handle_event(void *ctx, void *data, size_t data_sz)
-{
-    const struct event *e = static_cast<const struct event*>(data);
-
-    // 디버그 메시지 추가
-    std::cerr << "handle_event 호출됨: cnt=" << e->cnt << ", syscall_nr=" << e->syscall_nr << "\n";
-
-    // 큐에 이벤트를 푸시
-    event_queue.enqueue(*e);
-
-    return 0;
-}
-
 // 시그널 핸들러
 static void sig_handler(int sig)
 {
     exiting = true;
     stop_workers = true;
-    // 워커 스레드를 깨우기 위해 더미 이벤트 추가는 main에서 처리
+    ringbuf_thread_running = false;
 }
 
-void init_syscall_map(struct process_monitor_bpf *skel)
-{
-    struct {
-        int nr;
-        const char *name;
-    } syscall_list[] = {
-        // 프로세스 관련
-        { __NR_fork, "fork" },
-        { __NR_vfork, "vfork" },
-        { __NR_clone, "clone" },
-        { __NR_execve, "execve" },
-        { __NR_exit, "exit" },
-        { __NR_exit_group, "exit_group" },
-        { __NR_wait4, "wait4" },
-        { __NR_waitid, "waitid" },
-        { __NR_kill, "kill" },
-        { __NR_tkill, "tkill" },
-        { __NR_tgkill, "tgkill" },
-        { __NR_ptrace, "ptrace" },
-        { __NR_setpgid, "setpgid" },
-        { __NR_setsid, "setsid" },
-        { __NR_setuid, "setuid" },
-        { __NR_setgid, "setgid" },
-        { __NR_setreuid, "setreuid" },
-        { __NR_setregid, "setregid" },
-        { __NR_setresuid, "setresuid" },
-        { __NR_setresgid, "setresgid" },
-        { __NR_setgroups, "setgroups" },
-        { __NR_prctl, "prctl" },
-        { __NR_capset, "capset" },
-        { __NR_setpriority, "setpriority" },
-        { __NR_sched_setscheduler, "sched_setscheduler" },
-        { __NR_sched_setparam, "sched_setparam" },
-        { __NR_sched_setaffinity, "sched_setaffinity" },
-        { __NR_sched_yield, "sched_yield" },
 
-        // 파일 시스템 관련
-        { __NR_open, "open" },
-        { __NR_openat, "openat" },
-        { __NR_close, "close" },
-        { __NR_read, "read" },
-        { __NR_write, "write" },
-        { __NR_lseek, "lseek" },
-        { __NR_unlink, "unlink" },
-        { __NR_rename, "rename" },
-        { __NR_mkdir, "mkdir" },
-        { __NR_rmdir, "rmdir" },
-        { __NR_chdir, "chdir" },
-        { __NR_chmod, "chmod" },
-        { __NR_chown, "chown" },
-        { __NR_mount, "mount" },
-        { __NR_umount2, "umount2" },
-
-        // 네트워크 관련
-        { __NR_socket, "socket" },
-        { __NR_connect, "connect" },
-        { __NR_accept, "accept" },
-        { __NR_bind, "bind" },
-        { __NR_listen, "listen" },
-        { __NR_sendto, "sendto" },
-        { __NR_recvfrom, "recvfrom" },
-        { __NR_setsockopt, "setsockopt" },
-        { __NR_getsockopt, "getsockopt" },
-        // 기타 시스템 콜 추가
-        { __NR_brk, "brk" },
-        { __NR_munmap, "munmap" },
-        { __NR_mprotect, "mprotect" },
-        { __NR_mmap, "mmap" },
-        { __NR_mremap, "mremap" },
-        { __NR_getpid, "getpid" },
-        { __NR_getppid, "getppid" },
-        { __NR_getuid, "getuid" },
-        { __NR_geteuid, "geteuid" },
-        { __NR_getgid, "getgid" },
-        { __NR_getegid, "getegid" },
-        { __NR_times, "times" },
-        { __NR_nanosleep, "nanosleep" },
-        { __NR_clock_gettime, "clock_gettime" },
-        { __NR_gettimeofday, "gettimeofday" },
-        { __NR_settimeofday, "settimeofday" },
-        { __NR_getrlimit, "getrlimit" },
-        { __NR_setrlimit, "setrlimit" },
-        { __NR_sysinfo, "sysinfo" },
-        { __NR_getdents, "getdents" },
-        { __NR_fstat, "fstat" },
-        { __NR_stat, "stat" },
-        { __NR_lstat, "lstat" },
-        { __NR_pipe, "pipe" },
-        { __NR_pipe2, "pipe2" },
-        { __NR_dup, "dup" },
-        { __NR_dup2, "dup2" },
-        { __NR_dup3, "dup3" },
-        { __NR_ioctl, "ioctl" },
-        { __NR_fcntl, "fcntl" },
-        { __NR_fsync, "fsync" },
-        { __NR_fdatasync, "fdatasync" },
-        { __NR_sync, "sync" },
-        { __NR_syncfs, "syncfs" }
-    };
-
-    for (size_t i = 0; i < sizeof(syscall_list) / sizeof(syscall_list[0]); i++) {
-        int key = syscall_list[i].nr;
-        char value[16] = {0};  // 16바이트 버퍼 생성
-        strncpy(value, syscall_list[i].name, sizeof(value) - 1); 
-        bpf_map__update_elem(skel->maps.syscall_map, &key, sizeof(key), value, sizeof(value), BPF_ANY);
-    }
-}
 
 int main(int argc, char **argv)
 {
@@ -427,28 +343,30 @@ int main(int argc, char **argv)
         }
 
         // 링버퍼 설정
-        struct ring_buffer *rb = ring_buffer__new(bpf_map__fd(skel->maps.events), handle_event, NULL, NULL);
-        if (!rb) {
+        struct ring_buffer *rb1 = ring_buffer__new(bpf_map__fd(skel->maps.events_1), handle_event1, NULL, NULL);
+        struct ring_buffer *rb2 = ring_buffer__new(bpf_map__fd(skel->maps.events_2), handle_event2, NULL, NULL);
+        if (!rb1 || !rb2) {
             std::cerr << "Failed to create ring buffer\n";
             process_monitor_bpf__destroy(skel);
             return 1;
         }
+        
+        // 링버퍼 읽기 스레드 생성
+        std::thread ringbuf_thread1(ringbuf_thread_func, rb1);
+        std::thread ringbuf_thread2(ringbuf_thread_func, rb2);
 
         // 메인 루프
         while (!exiting) {
-            err = ring_buffer__poll(rb, 1); // 100ms 타임아웃
-            if (err == -EINTR) {
-                err = 0;
-                break;
-            }
-            if (err < 0) {
-                std::cerr << "Error polling ring buffer: " << err << "\n";
-                break;
-            }
+            std::this_thread::sleep_for(std::chrono::seconds(1));
         }
 
+        // 링버퍼 읽기 스레드 종료 요청
+        ringbuf_thread1.join();
+        ringbuf_thread2.join();
+
         // 링버퍼 정리
-        ring_buffer__free(rb);
+        ring_buffer__free(rb1);
+        ring_buffer__free(rb2);
 
         // 워커 스레드 종료 요청 및 정리
         stop_workers = true;
