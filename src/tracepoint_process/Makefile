@@ -19,7 +19,7 @@ VMLINUX := ../../vmlinux/$(ARCH)/vmlinux.h
 # outdated
 INCLUDES := -I$(OUTPUT) -I../../libbpf/include/uapi -I$(dir $(VMLINUX))
 CFLAGS := -g -Wall
-CXXFLAGS := -g -Wall -std=c++11 -pthread # C++ 컴파일러 플래그 추가
+CXXFLAGS := -g -Wall -std=c++11 -pthread -I./concurrentqueue # C++ 컴파일러 플래그 추가
 ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS)
 
 # 다음 줄 추가_추후 삭제

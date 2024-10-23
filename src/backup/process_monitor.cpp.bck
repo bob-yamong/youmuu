@@ -1,4 +1,3 @@
-// process_monitor.cpp
 // SPDX-License-Identifier: GPL-2.0
 #include <iostream>
 #include <queue>
@@ -18,7 +17,7 @@
 #include "container_info.h"
 
 // 최대 큐 크기 정의
-#define MAX_QUEUE_SIZE 1000
+#define MAX_QUEUE_SIZE 10000
 
 // 두 개의 이벤트 큐 및 동기화 객체
 std::queue<event> event_queue1;
@@ -237,6 +236,7 @@ void worker_thread_func(int worker_id) {
             }
         }
     }
+}
 
 // 링버퍼 핸들러 수정: 이벤트를 큐에 추가
 static int handle_event(void *ctx, void *data, size_t data_sz)
@@ -434,7 +434,7 @@ int main(int argc, char **argv)
             if (err) {
                 std::cerr << "컨테이너 inode " << key_inode << "를 맵에 추가하는데 실패했습니다: " << strerror(errno) << "\n";
                 // PID 맵에서 제거
-                bpf_map__delete_elem(skel->maps.container_pids, &key_pid, sizeof(key_pid));
+                bpf_map__delete_elem(skel->maps.container_pids, &key_pid, sizeof(key_pid), BPF_ANY);
                 continue;
             }
 
