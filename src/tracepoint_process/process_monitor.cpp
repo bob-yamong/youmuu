@@ -17,7 +17,7 @@
 #include "container_info.h"
 
 // concurrentqueue 헤더 포함
-#include "concurrentqueue/concurrentqueue.h"
+#include "../../concurrentqueue/concurrentqueue.h"
 
 // concurrentqueue 정의 (Lock-Free Queue)
 moodycamel::ConcurrentQueue<event> event_queue;
