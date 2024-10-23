@@ -10,7 +10,7 @@
 #include <fcntl.h>
 #include "enforcement.skel.h"
 
-#include "shared.h"
+#include "policy_map_structs.h"
 
 #define BPF_FS_PATH "/sys/fs/bpf"
 #define MAP_PIN_PATH "/sys/fs/bpf/policy_map"
@@ -222,6 +222,13 @@ void print_policies(int map_fd) {
         key = next_key;
     }
 }
+
+void flush_input_buffer() {
+    int ch;
+    // Loop until the newline character or EOF is found
+    while ((ch = getchar()) != '\n' && ch != EOF);
+}
+
 int get_yes_no_input(const char* prompt) {
     char input[10];
     printf("%s [y/N]: ", prompt);
@@ -304,19 +311,21 @@ int add_policy(int map_fd) {
                 fprintf(stderr, "Invalid IP address\n");
                 return -1;
             }
-            printf("Enter port: ");
+            printf("Enter port(For ALL, enter 0): ");
             unsigned short port;
             if (scanf("%hu", &port) != 1) {
                 fprintf(stderr, "Invalid input for port\n");
                 return -1;
             }
             np->port = htons(port);
-            printf("Enter protocol: ");
+            printf("Enter protocol (ICMP=1, TCP=6, UDP=17, IGMP=2, IPv4=4, IPv6=6, ALL=0): ");
             if (scanf("%hhu", &np->protocol) != 1) {
                 fprintf(stderr, "Invalid input for protocol\n");
                 return -1;
             }
 
+            flush_input_buffer();
+            printf("Enter network policy\n");
             if (get_yes_no_input("Block Network connect")) np->flags |= POLICY_NET_CONNECT;
             if (get_yes_no_input("Block Network bind")) np->flags |= POLICY_NET_BIND;
             if (get_yes_no_input("Block Nework Accept")) np->flags |= POLICY_NET_ACCEPT;
@@ -334,7 +343,7 @@ int add_policy(int map_fd) {
         case POLICY_PROCESS: {
             struct process_policy *pp = &value.process_policies[value.num_process_policies];
             printf("Enter process command: ");
-            getchar(); // Consume newline
+            fflush(stdin);
             if (fgets(pp->comm, sizeof(pp->comm), stdin) == NULL) {
                 fprintf(stderr, "Failed to read process command\n");
                 return -1;
@@ -343,8 +352,7 @@ int add_policy(int map_fd) {
 
             if (get_yes_no_input("Block Fork")) pp->flags |= POLICY_PROC_FORK;
             if (get_yes_no_input("Block Executing a program in a process")) pp->flags |= POLICY_PROC_EXEC;
-            if (get_yes_no_input("Leave a log")) pp->flags |= POLICY_PROC_KILL;
-            if (get_yes_no_input("Leave a log")) pp->flags |= POLICY_PROC_PTRACE;
+            if (get_yes_no_input("Block Kill")) pp->flags |= POLICY_PROC_KILL;
 
             if (get_yes_no_input("Leave a log")) pp->flags |= POLICY_AUDIT;
             if (get_yes_no_input("Explicit Deny")) pp->flags |= POLICY_DENY;
@@ -361,7 +369,7 @@ int add_policy(int map_fd) {
 
     if (bpf_map_update_elem(map_fd, &key, &value, BPF_ANY)) {
         fprintf(stderr, "Failed to Add policy: mnt ns: %u, pid ns: %u\n", key.mnt_ns_id, key.pid_ns_id, strerror(errno));
-    } 
+    }
 
     return 0;
 }
@@ -405,6 +413,25 @@ enum view_mode get_menu(char *input) {
     }
 }
 
+void clear_bpf_map(int map_fd) {
+    struct policy_key key, next_key;
+    
+    // Start by fetching the first key
+    if (bpf_map_get_next_key(map_fd, NULL, &next_key) == 0) {
+        // While there are still elements in the map
+        do {
+            key = next_key;
+            // Try to delete the current key
+            if (bpf_map_delete_elem(map_fd, &key) != 0) {
+                perror("Failed to delete map element");
+                break;  // Stop on delete failure
+            }
+            // Fetch the next key
+        } while (bpf_map_get_next_key(map_fd, &key, &next_key) == 0);
+    }
+}
+
+
 int main(int argc, char **argv)
 {
     struct enforcement_bpf *skel;
@@ -416,7 +443,7 @@ int main(int argc, char **argv)
     }
 
     /* Set up libbpf errors and debug info callback */
-    libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
+    // libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
     libbpf_set_print(libbpf_print_fn);
 
     /* Bump RLIMIT_MEMLOCK to allow BPF sub-system to do anything */
@@ -429,8 +456,22 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    int err, map_fd = bpf_obj_get(MAP_PIN_PATH);
+    int err;
 
+    err = enforcement_bpf__load(skel);
+    if (err) {
+        fprintf(stderr, "Failed to load and verify BPF skeleton\n");
+        goto cleanup;
+    }
+
+    /* Attach tracepoints */
+    err = enforcement_bpf__attach(skel);
+    if (err) {
+        fprintf(stderr, "Failed to attach BPF skeleton\n");
+        goto cleanup;
+    }
+
+    int map_fd = bpf_map__fd(skel->maps.policy_map);
     // check if the map already exists
     if (map_fd < 0) {
         fprintf(stderr, "No existing map found, creating a new one.\n");
@@ -446,7 +487,8 @@ int main(int argc, char **argv)
             fprintf(stderr, "Failed to open pinned map: %s\n", strerror(errno));
             goto cleanup;
         }
-    } else {
+    }
+    else {
         fprintf(stdout, "Found existing map, reusing it.\n");
 
         bpf_map__set_pin_path(skel->maps.policy_map, MAP_PIN_PATH);
@@ -455,19 +497,6 @@ int main(int argc, char **argv)
             fprintf(stderr, "Failed to reuse existing map: %d\n", err);
             goto cleanup;
         }
-    }
-
-    err = enforcement_bpf__load(skel);
-    if (err) {
-        fprintf(stderr, "Failed to load and verify BPF skeleton\n");
-        goto cleanup;
-    }
-
-    /* Attach tracepoints */
-    err = enforcement_bpf__attach(skel);
-    if (err) {
-        fprintf(stderr, "Failed to attach BPF skeleton\n");
-        goto cleanup;
     }
 
     // 링 버퍼 설정
@@ -506,13 +535,16 @@ int main(int argc, char **argv)
             break;
         case DELETE_POLICY:
             printf("Delete Policy\n");
+
+            clear_bpf_map(map_fd);
+            printf("Policy map cleared.\n");
             break;
         case SHOW_POLICY:
             printf("Show Policy\n");
             print_policies(map_fd);
             break;
         case SHOW_LOG:
-            err = ring_buffer__poll(rb, 100 /* timeout, ms */);
+            err = ring_buffer__poll(rb, 10 /* timeout, ms */);
             if (err < 0) {
                 printf("Error polling ring buffer: %d\n", err);
                 goto cleanup;

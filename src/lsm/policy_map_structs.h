@@ -1,5 +1,5 @@
-#ifndef __SHARED_H
-#define __SHARED_H
+#ifndef POLICY_MAP_STRUCTS_H
+#define POLICY_MAP_STRUCTS_H
 
 #define TASK_COMM_LEN 16
 #define MAX_FILENAME_LEN 127
