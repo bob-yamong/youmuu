@@ -1,5 +1,6 @@
 #include "handler.h"
 
+#define NANOSECONDS_IN_A_SECOND 1000000000
 #define MAX_EVENT_ID 1024
 
 static void get_task_info_str(const struct current_task *task, char *buffer, size_t buffer_size) {
@@ -13,8 +14,8 @@ static void get_task_info_str(const struct current_task *task, char *buffer, siz
         return;
     }
     boot_time = current_time - si.uptime;
-    timer = task->timestamp / 1000000000;
-    unsigned long long nanoseconds = task->timestamp % 1000000000;
+    timer = task->timestamp / NANOSECONDS_IN_A_SECOND;
+    unsigned long long nanoseconds = task->timestamp % NANOSECONDS_IN_A_SECOND;
     actual_time = boot_time + timer;
     struct tm *tm_info = gmtime(&actual_time);
     strftime(timestamp, 26, "%Y-%m-%d %H:%M:%S", tm_info);
