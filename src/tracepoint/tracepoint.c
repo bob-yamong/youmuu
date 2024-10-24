@@ -4,9 +4,9 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
+#include <asm/unistd_64.h>
 #include <bpf/libbpf.h>
 #include "tracepoint.skel.h"
-#include "event.h"
 #include "handler.h"
 
 #define MAX_CMD_LEN 1024
@@ -155,7 +155,7 @@ __u64 get_namespace_id(int container_pid) {
     }
     link_target[len] = '\0';
 
-    unsigned int ns_id;
+    __u32 ns_id;
     if (sscanf(link_target, "pid:[%u]", &ns_id) != 1) {
         fprintf(stderr, "Failed to parse namespace ID\n");
         close(fd);
@@ -168,20 +168,35 @@ __u64 get_namespace_id(int container_pid) {
     return ns_id;
 }
 
-void get_user_input(struct tracepoint_bpf *skel, __u64 ns_id, __u32 event_id) {
+void get_user_input(struct tracepoint_bpf *skel, __u32 ns_id) {
     __u32 action = LOGGING;
     int err;
     
-    struct event_key key = {
-        .ns_id = ns_id,
-        .event_id = event_id
+    long syscalls[] = {
+        __NR_socket, __NR_socketpair, __NR_setsockopt, __NR_getsockopt,
+        __NR_getsockname, __NR_getpeername, __NR_bind, __NR_listen,
+        __NR_accept, __NR_accept4, __NR_connect, __NR_shutdown,
+        __NR_recvfrom, __NR_recvmsg, __NR_recvmmsg, __NR_sendto,
+        __NR_sendmsg, __NR_sendmmsg, __NR_sethostname, __NR_setdomainname, 
+        __NR_ioctl, __NR_poll, __NR_ppoll, __NR_epoll_create, 
+        __NR_epoll_create1, __NR_epoll_ctl, __NR_epoll_wait, __NR_epoll_pwait, 
+        __NR_epoll_pwait2
     };
-    err = bpf_map__update_elem(skel->maps.event_policy_map, &key, sizeof(key), &action, sizeof(action), BPF_ANY);
-    if (err) {
-        fprintf(stderr, "Failed to update map: %d\n", err);
-        return;
+
+    for (size_t i = 0; i < sizeof(syscalls) / sizeof(syscalls[0]); i++) {
+        struct event_key key = {
+            .ns_id = ns_id,
+            .event_id = syscalls[i]
+        };
+        
+        err = bpf_map__update_elem(skel->maps.event_policy_map, &key, sizeof(key), &action, sizeof(action), BPF_ANY);
+        if (err) {
+            fprintf(stderr, "Failed to update map for enter event: %d\n", err);
+            continue;
+        }
+        
+        printf("Updated map for syscall %ld\n", syscalls[i]);
     }
-    printf("Updated map with action: %d, namespace_id: %llu, event_id: %d\n", action, ns_id, event_id);
 }
 
 int main(int argc, char **argv) {
@@ -190,10 +205,9 @@ int main(int argc, char **argv) {
 
     struct tracepoint_bpf *skel;
     struct ring_buffer *rb;
-    __u64 ns_id;
+    __u32 ns_id;
     int err;
 
-    init_event_table();
     skel = tracepoint_bpf__open();
     if (!skel) {
         fprintf(stderr, "Failed to open and load BPF skeleton\n");
@@ -252,11 +266,8 @@ int main(int argc, char **argv) {
             goto cleanup;
     }
     ns_id = get_namespace_id(pid);
-    for (int i = 0; i < MAX_EVENTS; i++) {
-        if (event_table[i].name != NULL) {
-            get_user_input(skel, ns_id, event_table[i].id);
-        }
-    }
+    get_user_input(skel, ns_id);
+
     printf("\nMonitoring started. Press Ctrl+C to exit...\n\n");
 
     while (running) {
