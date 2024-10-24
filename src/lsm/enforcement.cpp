@@ -378,9 +378,13 @@ int add_policy(int map_fd) {
 }
 
 int update_policy_with_file(int map_fd, char* abs_file_name) {
-    clear_bpf_map(map_fd);
-
     Policy policy = parseYamlPolicy(abs_file_name);
+
+    if (policy.containers.empty()) {
+        fprintf(stderr, "No policy found in the file\n");
+        return -1;
+    }
+    clear_bpf_map(map_fd);
 
     for (const auto& container : policy.containers) {
         struct policy_key key;
