@@ -8,9 +8,8 @@
 #include <arpa/inet.h>
 #include <time.h>
 #include <sys/sysinfo.h>
-#include "syscall.h"
+#include <asm/unistd_64.h>
 #include "structs.h"
-#include "event.h"
 
 int handle_event(void *ctx, void *data, size_t data_sz);
 

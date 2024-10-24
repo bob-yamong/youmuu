@@ -22,7 +22,7 @@ CFLAGS := -g -Wall -pthread
 ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS) -pthread
 
 APPS = tracepoint
-SRCS = tracepoint.c event.c handler.c
+SRCS = tracepoint.c handler.c
 OBJS = $(patsubst %.c,$(OUTPUT)/%.o,$(SRCS))
 
 # Get Clang's default includes on this system. We'll explicitly add these dirs
