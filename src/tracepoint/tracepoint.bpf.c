@@ -15,6 +15,8 @@
 
 char LICENSE[] SEC("license") = "GPL";
 
+__u64 count = 0;
+
 static __always_inline struct current_task get_task_struct() {
     struct current_task ct = {0};
 
@@ -55,8 +57,10 @@ static __always_inline struct event_t *ring_buffer(__u64 event_id, struct curren
     if (!e) {
         return NULL;
     } else {
+        count ++;
         e->event_id = event_id;
         e->task = ct;
+        e->task.count = count;
     }
     return e;
 }

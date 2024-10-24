@@ -18,9 +18,9 @@ void get_task_info_str(const struct current_task *task, char *buffer, size_t buf
     strftime(timestamp, 26, "%Y-%m-%d %H:%M:%S", tm_info);
 
     snprintf(buffer, buffer_size,
-             "timestamp=%s.%9llu, cgroup_id=%20llu, ns_id=%9u, "
+             "count=%20llu, timestamp=%s.%9llu, cgroup_id=%20llu, ns_id=%9u, "
              "ppid=%9u, pid=%9u, tid=%9u, uid=%9u, gid=%9u",
-             timestamp, nanoseconds,
+             task->count, timestamp, nanoseconds,
              task->cgroup_id, task->ns_id,
              task->ppid, task->pid, task->tid,
              task->uid, task->gid);

@@ -2,6 +2,7 @@
 #define STRUCTS_H
 
 struct current_task  {
+    __u64 count;
     __u64 timestamp;
     __u64 cgroup_id;
     __u32 ns_id;
