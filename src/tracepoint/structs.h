@@ -15,7 +15,7 @@ struct current_task  {
 
 struct event_t {
     struct current_task task;
-    __s32 event_id;
+    __s64 event_id;
     __s64 ret;
 
     __s32 arg_s32[6];
@@ -23,6 +23,7 @@ struct event_t {
     __u64 arg_u64[6];
     __u8 arg_str[256];
 
+    bool is_enter;
     bool is_valid;
     bool is_null;
 

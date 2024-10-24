@@ -51,7 +51,7 @@ static __always_inline bool should_log_event(__u32 ns_id, __s32 event_id) {
     return (watched && *watched == LOGGING);
 }
 
-static __always_inline struct event_t *ring_buffer(__u64 event_id, struct current_task ct) {
+static __always_inline struct event_t *ring_buffer(__s64 event_id, struct current_task ct) {
     struct event_t *e;
     e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
     if (!e) {
@@ -74,7 +74,20 @@ static __always_inline struct map_key get_map_key(struct current_task *ct) {
     return key;
 }
 
-static __always_inline struct event_t* handle_event_logging(__s32 event_id) {
+static __always_inline struct event_t* handle_enter_event(__s64 event_id) {
+    struct current_task ct = get_task_struct();
+    if (!should_log_event(ct.ns_id, event_id)) 
+        return NULL;
+
+    struct event_t *e = ring_buffer(event_id, ct);
+    if (!e)
+        return NULL;
+
+    e->is_enter = true;
+    return e;
+}
+
+static __always_inline struct event_t* handle_exit_event(__s64 event_id) {
     struct current_task ct = get_task_struct();
 
     if (!should_log_event(ct.ns_id, event_id)) 
@@ -84,6 +97,7 @@ static __always_inline struct event_t* handle_event_logging(__s32 event_id) {
     if (!e)
         return NULL;
 
+    e->is_enter = false;
     return e;
 }
 
@@ -128,8 +142,7 @@ static inline bool read_sockaddr(struct event_t *e, void *addr_ptr) {
 // 네트워크 관련 이벤트
 SEC("tracepoint/syscalls/sys_enter_socket")
 int trace_sys_enter_socket(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_SOCKET;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -143,12 +156,12 @@ int trace_sys_enter_socket(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_socket")
 int trace_sys_exit_socket(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_SOCKET;    
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
-    e->ret = BPF_CORE_READ(ctx, ret);;
+    e->ret = BPF_CORE_READ(ctx, ret);
+    bpf_printk("event_id=%lld\n", BPF_CORE_READ(ctx, id));
 
     bpf_ringbuf_submit(e, 0);
     return 0;
@@ -156,14 +169,13 @@ int trace_sys_exit_socket(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_socketpair")
 int trace_sys_enter_socketpair(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_SOCKETPAIR;
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
     void *sv_ptr = (void *)BPF_CORE_READ(ctx, args[3]);
     
     bpf_map_update_elem(&socketpair_args_map, &key, &sv_ptr, BPF_ANY);
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -177,12 +189,11 @@ int trace_sys_enter_socketpair(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_socketpair")
 int trace_sys_exit_socketpair(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_SOCKETPAIR;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         goto cleanup;
 
@@ -212,8 +223,7 @@ cleanup:
 
 SEC("tracepoint/syscalls/sys_enter_setsockopt")
 int trace_sys_enter_setsockopt(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_SETSOCKOPT;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -238,8 +248,7 @@ int trace_sys_enter_setsockopt(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_setsockopt")
 int trace_sys_exit_setsockopt(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_SETSOCKOPT;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -251,7 +260,6 @@ int trace_sys_exit_setsockopt(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_getsockopt")
 int trace_sys_enter_getsockopt(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_GETSOCKOPT;
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
     struct getsockopt_args args = {
@@ -261,7 +269,7 @@ int trace_sys_enter_getsockopt(struct trace_event_raw_sys_enter *ctx) {
 
     bpf_map_update_elem(&getsockopt_args_map, &key, &args, BPF_ANY);
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -275,12 +283,11 @@ int trace_sys_enter_getsockopt(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_getsockopt")
 int trace_sys_exit_getsockopt(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_GETSOCKOPT;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         goto cleanup;
 
@@ -311,7 +318,6 @@ cleanup:
 
 SEC("tracepoint/syscalls/sys_enter_getsockname") 
 int trace_sys_enter_getsockname(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_GETSOCKNAME;
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
     struct sock_addr_args args = {
@@ -321,7 +327,7 @@ int trace_sys_enter_getsockname(struct trace_event_raw_sys_enter *ctx) {
 
     bpf_map_update_elem(&getsockname_args_map, &key, &args, BPF_ANY);
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -338,7 +344,7 @@ int trace_sys_exit_getsockname(struct trace_event_raw_sys_exit *ctx) {
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         goto cleanup;
 
@@ -361,7 +367,6 @@ cleanup:
 
 SEC("tracepoint/syscalls/sys_enter_getpeername")
 int trace_sys_enter_getpeername(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_GETPEERNAME;
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
     struct sock_addr_args args = {
@@ -371,7 +376,7 @@ int trace_sys_enter_getpeername(struct trace_event_raw_sys_enter *ctx) {
 
     bpf_map_update_elem(&getpeername_args_map, &key, &args, BPF_ANY);
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -384,12 +389,11 @@ int trace_sys_enter_getpeername(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_getpeername")
 int trace_sys_exit_getpeername(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_GETPEERNAME;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         goto cleanup;
 
@@ -412,8 +416,7 @@ cleanup:
 
 SEC("tracepoint/syscalls/sys_enter_bind")
 int trace_sys_enter_bind(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_BIND;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -429,8 +432,7 @@ int trace_sys_enter_bind(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_bind")
 int trace_sys_exit_bind(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_BIND;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
     
@@ -442,8 +444,7 @@ int trace_sys_exit_bind(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_listen")
 int trace_sys_enter_listen(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_LISTEN;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
     
@@ -456,8 +457,7 @@ int trace_sys_enter_listen(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_listen")
 int trace_sys_exit_listen(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_LISTEN;    
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
     
@@ -469,7 +469,6 @@ int trace_sys_exit_listen(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_accept")
 int trace_sys_enter_accept(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_ACCEPT;
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
     void *addr_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
@@ -483,7 +482,7 @@ int trace_sys_enter_accept(struct trace_event_raw_sys_enter *ctx) {
         bpf_map_update_elem(&accept_args_map, &key, &args, BPF_ANY);
     }
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -495,12 +494,11 @@ int trace_sys_enter_accept(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_accept")
 int trace_sys_exit_accept(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_ACCEPT;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         goto cleanup;
 
@@ -525,7 +523,6 @@ cleanup:
 
 SEC("tracepoint/syscalls/sys_enter_accept4")
 int trace_sys_enter_accept4(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_ACCEPT4;
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
     void *addr_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
@@ -539,7 +536,7 @@ int trace_sys_enter_accept4(struct trace_event_raw_sys_enter *ctx) {
         bpf_map_update_elem(&accept4_args_map, &key, &args, BPF_ANY);
     }
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -552,12 +549,11 @@ int trace_sys_enter_accept4(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_accept4")
 int trace_sys_exit_accept4(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_ACCEPT4;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         goto cleanup;
 
@@ -582,8 +578,7 @@ cleanup:
 
 SEC("tracepoint/syscalls/sys_enter_connect")
 int trace_sys_enter_connect(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_CONNECT;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -599,8 +594,7 @@ int trace_sys_enter_connect(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_connect")
 int trace_sys_exit_connect(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_CONNECT;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
     
@@ -612,8 +606,7 @@ int trace_sys_exit_connect(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_shutdown")
 int trace_sys_enter_shutdown(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_SHUTDOWN;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -626,8 +619,7 @@ int trace_sys_enter_shutdown(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_shutdown")
 int trace_sys_exit_shutdown(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_SHUTDOWN;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -639,7 +631,6 @@ int trace_sys_exit_shutdown(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_recvfrom")
 int trace_sys_enter_recvfrom(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_RECVFROM;
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
     struct sock_addr_args args = {
@@ -649,7 +640,7 @@ int trace_sys_enter_recvfrom(struct trace_event_raw_sys_enter *ctx) {
 
     bpf_map_update_elem(&recvfrom_args_map, &key, &args, BPF_ANY);
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
     
@@ -663,12 +654,11 @@ int trace_sys_enter_recvfrom(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_recvfrom")
 int trace_sys_exit_recvfrom(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_RECVFROM;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         goto cleanup;
 
@@ -693,7 +683,6 @@ cleanup:
 
 SEC("tracepoint/syscalls/sys_enter_recvmsg")
 int trace_sys_enter_recvmsg(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_RECVMSG;
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
     struct msg_args args = {
@@ -702,7 +691,7 @@ int trace_sys_enter_recvmsg(struct trace_event_raw_sys_enter *ctx) {
 
     bpf_map_update_elem(&recvmsg_args_map, &key, &args, BPF_ANY);
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
     
@@ -715,12 +704,11 @@ int trace_sys_enter_recvmsg(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_recvmsg")
 int trace_sys_exit_recvmsg(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_RECVMSG;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         goto cleanup;
 
@@ -746,8 +734,7 @@ cleanup:
 
 SEC("tracepoint/syscalls/sys_enter_recvmmsg")
 int trace_sys_enter_recvmmsg(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_RECVMMSG;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
     
@@ -761,8 +748,7 @@ int trace_sys_enter_recvmmsg(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_recvmmsg")
 int trace_sys_exit_recvmmsg(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_RECVMMSG;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -774,8 +760,7 @@ int trace_sys_exit_recvmmsg(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_sendto")
 int trace_sys_enter_sendto(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_SENDTO;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -793,8 +778,7 @@ int trace_sys_enter_sendto(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_sendto")
 int trace_sys_exit_sendto(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_SENDTO;    
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -806,8 +790,7 @@ int trace_sys_exit_sendto(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_sendmsg")
 int trace_sys_enter_sendmsg(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_SENDMSG;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -830,8 +813,7 @@ submit:
 
 SEC("tracepoint/syscalls/sys_exit_sendmsg")
 int trace_sys_exit_sendmsg(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_SENDMSG;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
     
@@ -844,8 +826,7 @@ int trace_sys_exit_sendmsg(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_sendmmsg")
 int trace_sys_enter_sendmmsg(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_SENDMMSG;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -859,8 +840,7 @@ int trace_sys_enter_sendmmsg(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_sendmmsg")
 int trace_sys_exit_sendmmsg(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_SENDMMSG;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -872,8 +852,7 @@ int trace_sys_exit_sendmmsg(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_sethostname")
 int trace_sys_enter_sethostname(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_SETHOSTNAME;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -893,8 +872,7 @@ int trace_sys_enter_sethostname(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_sethostname")
 int trace_sys_exit_sethostname(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_SETHOSTNAME;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -906,8 +884,7 @@ int trace_sys_exit_sethostname(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_setdomainname")
 int trace_sys_enter_setdomainname(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_SETDOMAINNAME;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -927,8 +904,7 @@ int trace_sys_enter_setdomainname(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_setdomainname")
 int trace_sys_exit_setdomainname(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_SETDOMAINNAME;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -940,8 +916,7 @@ int trace_sys_exit_setdomainname(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_ioctl")  // 설정 변경 탐지 모니터링 필요?
 int trace_sys_enter_ioctl(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_IOCTL;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
     
@@ -954,8 +929,7 @@ int trace_sys_enter_ioctl(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_ioctl")
 int trace_sys_exit_ioctl(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_IOCTL;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
     
@@ -967,7 +941,6 @@ int trace_sys_exit_ioctl(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_poll")
 int trace_sys_enter_poll(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_POLL;
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
     struct pollfd *fds_ptr = (struct pollfd *)BPF_CORE_READ(ctx, args[0]);
@@ -977,7 +950,7 @@ int trace_sys_enter_poll(struct trace_event_raw_sys_enter *ctx) {
 
     bpf_map_update_elem(&poll_args_map, &key, &args, BPF_ANY);
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
     
@@ -1000,12 +973,11 @@ int trace_sys_enter_poll(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_poll")
 int trace_sys_exit_poll(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_POLL;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         goto cleanup;
 
@@ -1032,7 +1004,6 @@ cleanup:
 
 SEC("tracepoint/syscalls/sys_enter_ppoll")
 int trace_sys_enter_ppoll(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_PPOLL;
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
     struct pollfd *fds_ptr = (struct pollfd *)BPF_CORE_READ(ctx, args[0]);
@@ -1042,7 +1013,7 @@ int trace_sys_enter_ppoll(struct trace_event_raw_sys_enter *ctx) {
 
     bpf_map_update_elem(&poll_args_map, &key, &args, BPF_ANY);
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -1075,12 +1046,11 @@ int trace_sys_enter_ppoll(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_ppoll")
 int trace_sys_exit_ppoll(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_PPOLL;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         goto cleanup;
 
@@ -1107,8 +1077,7 @@ cleanup:
 
 SEC("tracepoint/syscalls/sys_enter_epoll_create")
 int trace_sys_enter_epoll_create(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_EPOLL_CREATE;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
     
@@ -1120,8 +1089,7 @@ int trace_sys_enter_epoll_create(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_epoll_create")
 int trace_sys_exit_epoll_create(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_EPOLL_CREATE;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -1133,8 +1101,7 @@ int trace_sys_exit_epoll_create(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_epoll_create1")
 int trace_sys_enter_epoll_create1(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_EPOLL_CREATE1;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
     
@@ -1146,8 +1113,7 @@ int trace_sys_enter_epoll_create1(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_epoll_create1")
 int trace_sys_exit_epoll_create1(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_EPOLL_CREATE1;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -1159,8 +1125,7 @@ int trace_sys_exit_epoll_create1(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_epoll_ctl")
 int trace_sys_enter_epoll_ctl(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_EPOLL_CTL;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -1185,8 +1150,7 @@ int trace_sys_enter_epoll_ctl(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_epoll_ctl")
 int trace_sys_exit_epoll_ctl(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_EPOLL_CTL;
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
     
@@ -1198,7 +1162,6 @@ int trace_sys_exit_epoll_ctl(struct trace_event_raw_sys_exit *ctx) {
 
 SEC("tracepoint/syscalls/sys_enter_epoll_wait")
 int trace_sys_enter_epoll_wait(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_EPOLL_WAIT;
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
     struct epoll_event *events_ptr = (struct epoll_event *)BPF_CORE_READ(ctx, args[1]);
@@ -1208,7 +1171,7 @@ int trace_sys_enter_epoll_wait(struct trace_event_raw_sys_enter *ctx) {
 
     bpf_map_update_elem(&epoll_wait_args_map, &key, &args, BPF_ANY);
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -1222,12 +1185,11 @@ int trace_sys_enter_epoll_wait(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_epoll_wait")
 int trace_sys_exit_epoll_wait(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_EPOLL_WAIT;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         goto cleanup;
     
@@ -1255,7 +1217,6 @@ cleanup:
 
 SEC("tracepoint/syscalls/sys_enter_epoll_pwait")
 int trace_sys_enter_epoll_pwait(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_EPOLL_PWAIT;
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
     struct epoll_event *events_ptr = (struct epoll_event *)BPF_CORE_READ(ctx, args[1]);
@@ -1265,7 +1226,7 @@ int trace_sys_enter_epoll_pwait(struct trace_event_raw_sys_enter *ctx) {
 
     bpf_map_update_elem(&epoll_pwait_args_map, &key, &args, BPF_ANY);
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -1279,12 +1240,11 @@ int trace_sys_enter_epoll_pwait(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_epoll_pwait")
 int trace_sys_exit_epoll_pwait(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_EPOLL_PWAIT;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         goto cleanup;
     
@@ -1312,7 +1272,6 @@ cleanup:
 
 SEC("tracepoint/syscalls/sys_enter_epoll_pwait2")
 int trace_sys_enter_epoll_pwait2(struct trace_event_raw_sys_enter *ctx) {
-    __s32 event_id = SYS_ENTER_EPOLL_PWAIT2;
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
     struct epoll_event *events_ptr = (struct epoll_event *)BPF_CORE_READ(ctx, args[1]);
@@ -1322,7 +1281,7 @@ int trace_sys_enter_epoll_pwait2(struct trace_event_raw_sys_enter *ctx) {
 
     bpf_map_update_elem(&epoll_pwait2_args_map, &key, &args, BPF_ANY);
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         return 0;
 
@@ -1346,12 +1305,11 @@ int trace_sys_enter_epoll_pwait2(struct trace_event_raw_sys_enter *ctx) {
 
 SEC("tracepoint/syscalls/sys_exit_epoll_pwait2")
 int trace_sys_exit_epoll_pwait2(struct trace_event_raw_sys_exit *ctx) {
-    __s32 event_id = SYS_EXIT_EPOLL_PWAIT2;
     __s64 ret = BPF_CORE_READ(ctx, ret);
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
 
-    struct event_t *e = handle_event_logging(event_id);
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
     if (!e) 
         goto cleanup;
     

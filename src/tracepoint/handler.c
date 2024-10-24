@@ -30,6 +30,11 @@ static void get_task_info_str(const struct current_task *task, char *buffer, siz
 
 typedef int (*event_handler_t)(const struct event_t*, const char*);
 
+struct socket_handlers {
+    event_handler_t enter;
+    event_handler_t exit;
+};
+
 static int handle_enter_socket(const struct event_t *e, const char *task_info) {
     printf("Enter socket: %s, domain=%d, type=%d, protocol=%d\n",
             task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
@@ -47,11 +52,11 @@ static int handle_exit_socket(const struct event_t *e, const char *task_info) {
     return 0;
 }
 
-static event_handler_t event_handlers[MAX_EVENT_ID] = {0};
+static struct socket_handlers event_handler[MAX_EVENT_ID] = {0};
 
 static void init_event_handlers(void) {
-    event_handlers[SYS_ENTER_SOCKET] = handle_enter_socket;
-    event_handlers[SYS_EXIT_SOCKET] = handle_exit_socket;
+    event_handler[41].enter = handle_enter_socket;
+    event_handler[41].exit = handle_exit_socket;
 }
 
 int handle_event(void *ctx, void *data, size_t data_sz) {
@@ -65,12 +70,13 @@ int handle_event(void *ctx, void *data, size_t data_sz) {
     char task_info[256];
     get_task_info_str(&e->task, task_info, sizeof(task_info));
     
-    event_handler_t handler = event_handlers[e->event_id];
+    struct socket_handlers *handlers = &event_handler[e->event_id];
+    event_handler_t handler = e->is_enter ? handlers->enter : handlers->exit;
     if (handler) {
         return handler(e, task_info);
     }
     
-    printf("Unknown event: %s, event_id=%d\n", task_info, e->event_id);
+    printf("Unknown event: %s, event_id=%lld\n", task_info, e->event_id);
     return 0;
 }
 
