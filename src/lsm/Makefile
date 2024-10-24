@@ -20,6 +20,7 @@ VMLINUX := ../../vmlinux/$(ARCH)/vmlinux.h
 INCLUDES := -I$(OUTPUT) -I../../libbpf/include/uapi -I$(dir $(VMLINUX))
 CFLAGS := -g -Wall
 CXXFLAGS := $(CFLAGS) -std=c++17
+CXXFLAGS += -I/usr/include/yaml  # Update if yaml.h is in a different directory
 ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS)
 
 APPS = enforcement

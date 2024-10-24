@@ -27,6 +27,10 @@ struct {
     __type(value, char[MAX_PATH_LENGTH]);
 } path_buffer SEC(".maps");
 
+static __always_inline __u16 bpf_ntohs(__u16 val) {
+    return (val << 8) | (val >> 8);
+}
+
 static __always_inline __u64 get_cgroup_id() {
     struct task_struct *cur_tsk = (struct task_struct *)bpf_get_current_task();
     if (cur_tsk == NULL) {

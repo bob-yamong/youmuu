@@ -3,8 +3,10 @@
 #include <bpf/bpf_tracing.h>
 #include <bpf/bpf_core_read.h>
 
+
 #include "bpf_map_structs.h"
 
+#define ETH_P_IP 0x0800  // Define IPv4 Ethernet type
 #define AF_INET 2    // IPv4
 #define AF_INET6 10  // IPv6
 
@@ -200,44 +202,10 @@ int BPF_PROG(sb_umount, struct vfsmount *mnt, int flags)
 	return 0;
 }
 
-SEC("lsm/socket_bind")
-int BPF_PROG(socket_bind, struct socket *sock, struct sockaddr *address,
-	 int addrlen)
-{
-	//bpf_printk("lsm_hook: socket: socket_bind\n");
-	
-	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Faild ringbuf_reserve");
-        return 0;
-    }    
-    
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
-    
-    get_process_path(e->data.source, sizeof(e->data.source));
-
-    e->event_id = SECID_SOCKET_BIND;
-    e->retval = 0; 
-    
-    bpf_ringbuf_submit(e, 0);
-
-	return 0;
-}
-
 SEC("lsm/socket_connect")
 int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
 	 int addrlen)
 {
-	//bpf_printk("lsm_hook: socket: socket_connect\n");
-
-    __u32 pid_ns_id;
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    pid_ns_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
-    bpf_printk("socket_connect_bpf: pid_ns_id=%u\n", pid_ns_id);
 
 	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
@@ -248,18 +216,13 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
     int ret = init_context(e);
     if (ret < 0) {
         bpf_ringbuf_discard(e, 0);
-        bpf_printk("pid_ns_id=%u ringbuf_discard error", pid_ns_id);
         return 0;
     }
     
     get_process_path(e->data.source, sizeof(e->data.source));
     
     e->event_id = SECID_SOCKET_CONNECT;
-    e->retval = 0; 
-    
-    bpf_ringbuf_submit(e, 0);
 
-    bpf_printk("pid_ns_id=%u policy check start", pid_ns_id);
 
     struct network_policy net = {};
     // Handle IPv4
@@ -279,9 +242,6 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
     }
 
     // Determine the protocol based on the type of socket if needed
-    // For example, you might want to set it based on the socket type:
-    // - SOCK_STREAM (TCP)
-    // - SOCK_DGRAM (UDP)
     switch (sock->type) {
         case SOCK_STREAM:
             net.protocol = IPPROTO_TCP;  // For TCP
@@ -297,16 +257,61 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
 
     net.flags = POLICY_NET_CONNECT;
 
-    int eperm = match_policy(POLICY_NETWORK, &net);
+    __u32 eperm = match_policy(POLICY_NETWORK, &net);
 
-    bpf_printk("pid_ns_id=%u, ip=%u, port=%u, protocol=%u, eperm=%d", pid_ns_id, net.ip, net.port, net.protocol, eperm);
-
-    if (eperm != 0) {
-        bpf_printk("Permission denied\n");
+    if ((eperm & 0x000F) == (POLICY_NET_CONNECT | POLICY_NET_DST)) {
+        e->retval = -1;   
+        bpf_ringbuf_submit(e, 0);
         return -1;
     }
 
+    bpf_ringbuf_discard(e, 0);
 	return 0;
+}
+
+SEC("lsm/socket_recvmsg")
+int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, int flags) {
+    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        bpf_printk("Failed ringbuf_reserve");
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+    
+    get_process_path(e->data.source, sizeof(e->data.source));
+    
+    e->event_id = SECID_SOCKET_RECVMSG;
+
+    struct network_policy net = {};
+    struct sock *sk;
+
+    // Get the socket from the socket structure
+    bpf_probe_read(&sk, sizeof(sk), &sock->sk);
+
+    // Assuming we are using sk_protocol for family detection
+    u16 protocol = BPF_CORE_READ(sk, sk_protocol);
+    
+    // Get source IP and port
+    net.ip = BPF_CORE_READ(sk, __sk_common.skc_daddr);  // Source IP address
+    net.port = BPF_CORE_READ(sk, __sk_common.skc_num);       // Source port
+
+    net.flags = POLICY_NET_CONNECT;
+
+    __u32 eperm = match_policy(POLICY_NETWORK, &net);
+    
+    if ((eperm & 0x000F) == (POLICY_NET_CONNECT | POLICY_NET_SRC)) {
+        e->retval = -1;   
+        bpf_ringbuf_submit(e, 0);
+        return -1;
+    }
+
+    bpf_ringbuf_discard(e, 0);
+    return 0;
 }
 
 SEC("lsm/task_fix_setuid")
@@ -409,60 +414,6 @@ int BPF_PROG(bprm_creds_from_file, struct linux_binprm *bprm, struct file *file)
     get_process_path(e->data.source, sizeof(e->data.source));
     
     e->event_id = SECID_BPRM_CREDS_FROM_FILE;
-    e->retval = 0; 
-    
-    bpf_ringbuf_submit(e, 0);
-
-    return 0;
-
-}
-
-SEC("lsm/socket_create")
-int BPF_PROG(socket_create, struct socket *sock, int family, int type, int protocol, int kern)
-{
-    //bpf_printk("lsm_hook: socket: socket_create\n");
-    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Faild ringbuf_reserve");
-        return 0;
-    }    
-    
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
-
-    get_process_path(e->data.source, sizeof(e->data.source));
-    
-    e->event_id = SECID_SOCKET_CREATE;
-    e->retval = 0; 
-    
-    bpf_ringbuf_submit(e, 0);
-
-    return 0;
-
-}
-
-SEC("lsm/socket_accept")
-int BPF_PROG(socket_accept, struct socket *sock, struct socket *newsock)
-{
-    //bpf_printk("lsm_hook: socket: socket_accept\n");
-    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Faild ringbuf_reserve");
-        return 0;
-    }    
-    
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
-
-    get_process_path(e->data.source, sizeof(e->data.source));
-    
-    e->event_id = SECID_SOCKET_ACCEPT;
     e->retval = 0; 
     
     bpf_ringbuf_submit(e, 0);

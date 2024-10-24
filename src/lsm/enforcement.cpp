@@ -330,10 +330,8 @@ int add_policy(int map_fd) {
             flush_input_buffer();
             printf("Enter network policy\n");
             if (get_yes_no_input("Block Network connect")) np->flags |= POLICY_NET_CONNECT;
-            if (get_yes_no_input("Block Network bind")) np->flags |= POLICY_NET_BIND;
-            if (get_yes_no_input("Block Nework Accept")) np->flags |= POLICY_NET_ACCEPT;
-            if (get_yes_no_input("Block Net Send")) np->flags |= POLICY_NET_SEND;
-            if (get_yes_no_input("Block Net Recv")) np->flags |= POLICY_NET_RECV;
+            if (get_yes_no_input("Block Inbound traffic")) np->flags |= POLICY_NET_SRC;
+            if (get_yes_no_input("Block Outbound traffic")) np->flags |= POLICY_NET_DST;
 
             if (get_yes_no_input("Leave a log")) np->flags |= POLICY_AUDIT;
             if (get_yes_no_input("Explicit Deny")) np->flags |= POLICY_DENY;
