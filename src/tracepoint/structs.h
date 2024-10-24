@@ -34,7 +34,7 @@ struct event_t {
 };
 
 struct event_key {
-    __u64 ns_id;
+    __u32 ns_id;
     __s32 event_id;
     char argument[256];
 };
