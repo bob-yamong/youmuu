@@ -3,7 +3,8 @@
 #include <bpf/bpf_tracing.h>
 #include <bpf/bpf_core_read.h>
 #include <bpf/bpf_endian.h>
-#include "event.h"
+#include "syscalls.h"
+#include "structs.h"
 #include "map.h"
 
 #define ALLOW 0

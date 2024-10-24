@@ -22,6 +22,8 @@ CFLAGS := -g -Wall -pthread
 ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS) -pthread
 
 APPS = tracepoint
+SRCS = tracepoint.c event.c handler.c
+OBJS = $(patsubst %.c,$(OUTPUT)/%.o,$(SRCS))
 
 # Get Clang's default includes on this system. We'll explicitly add these dirs
 # to the includes list when compiling with `-target bpf` because otherwise some
@@ -99,7 +101,7 @@ $(OUTPUT)/%.o: %.c $(wildcard %.h) | $(OUTPUT)
 	$(Q)$(CC) $(CFLAGS) $(INCLUDES) -c $(filter %.c,$^) -o $@
 
 # Build application binary
-$(APPS): %: $(OUTPUT)/%.o $(LIBBPF_OBJ) | $(OUTPUT)
+$(APPS): %: $(OBJS) $(LIBBPF_OBJ) | $(OUTPUT)
 	$(call msg,BINARY,$@)
 	$(Q)$(CC) $(CFLAGS) $^ $(ALL_LDFLAGS) -lelf -lz -o $@
 
