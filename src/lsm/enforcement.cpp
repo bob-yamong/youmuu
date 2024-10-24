@@ -390,7 +390,7 @@ int update_policy_with_file(int map_fd, char* abs_file_name) {
         key = make_policy_key(container_pid);
         
         //file policies
-        if (!container.file_policies.empty()) {
+        if (!(container.file_policies.empty())) {
             value.num_file_policies = 0;
             for (const auto& file : container.file_policies) {
                 strcpy(value.file_policies[value.num_file_policies].path, file.path.c_str());
@@ -404,7 +404,7 @@ int update_policy_with_file(int map_fd, char* abs_file_name) {
         }
         
         // network policies
-        if (!container.network_policies.empty()) {
+        if (!(container.network_policies.empty())) {
             value.num_network_policies = 0;
             for (const auto& network : container.network_policies) {
                 char ip_str[INET_ADDRSTRLEN];
@@ -424,7 +424,7 @@ int update_policy_with_file(int map_fd, char* abs_file_name) {
         }
         
         // process policies
-        if (!container.process_policies.empty()) {
+        if (!(container.process_policies.empty())) {
             value.num_process_policies = 0;
             for (const auto& process : container.process_policies) {
                 strcpy(value.process_policies[value.num_process_policies].comm, process.comm.c_str());

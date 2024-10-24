@@ -15,8 +15,6 @@
 
 using namespace std;
 
-using namespace std;
-
 // IP 주소와 서브넷 마스크를 저장하는 구조체
 struct IpAddress {
     uint32_t ip;
@@ -191,7 +189,7 @@ Policy parseYamlPolicy(const std::string& filename) {
 
         switch (event.type) {
             case YAML_MAPPING_START_EVENT: {
-                if (!context.empty() && context.back() == "policies") {
+                if (!(context.empty()) && (context.back() == "policies")) {
                     context.push_back("policy_items");
                 }
                 break;
