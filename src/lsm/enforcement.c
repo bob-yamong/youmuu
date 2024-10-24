@@ -195,10 +195,8 @@ void print_policies(int map_fd) {
                 printf("  IP: %s, Port: %u, Protocol: %u\n", ip_str, ntohs(value.network_policies[i].port), value.network_policies[i].protocol);
                 printf("  Flags: ");
                 if (value.network_policies[i].flags & POLICY_NET_CONNECT) printf("CONNECT ");
-                if (value.network_policies[i].flags & POLICY_NET_BIND) printf("BIND ");
-                if (value.network_policies[i].flags & POLICY_NET_ACCEPT) printf("ACCEPT ");
-                if (value.network_policies[i].flags & POLICY_NET_SEND) printf("SEND ");
-                if (value.network_policies[i].flags & POLICY_NET_RECV) printf("RECV ");
+                if (value.network_policies[i].flags & POLICY_NET_SRC) printf("SRC ");
+                if (value.network_policies[i].flags & POLICY_NET_DST) printf("DST ");
                 printf("\n");
             }
 
@@ -327,10 +325,8 @@ int add_policy(int map_fd) {
             flush_input_buffer();
             printf("Enter network policy\n");
             if (get_yes_no_input("Block Network connect")) np->flags |= POLICY_NET_CONNECT;
-            if (get_yes_no_input("Block Network bind")) np->flags |= POLICY_NET_BIND;
-            if (get_yes_no_input("Block Nework Accept")) np->flags |= POLICY_NET_ACCEPT;
-            if (get_yes_no_input("Block Net Send")) np->flags |= POLICY_NET_SEND;
-            if (get_yes_no_input("Block Net Recv")) np->flags |= POLICY_NET_RECV;
+            if (get_yes_no_input("Block Inbound traffic")) np->flags |= POLICY_NET_SRC;
+            if (get_yes_no_input("Block Outbound traffic")) np->flags |= POLICY_NET_DST;
 
             if (get_yes_no_input("Leave a log")) np->flags |= POLICY_AUDIT;
             if (get_yes_no_input("Explicit Deny")) np->flags |= POLICY_DENY;
