@@ -18,12 +18,12 @@ struct {
 
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
-    __uint(max_entries, 1 << 27); // 128MB
+    __uint(max_entries, 1 << 28); // 128MB
 } events_1 SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
-    __uint(max_entries, 1 << 27); // 128MB
+    __uint(max_entries, 1 << 28); // 128MB
 } events_2 SEC(".maps");
 
 struct {
