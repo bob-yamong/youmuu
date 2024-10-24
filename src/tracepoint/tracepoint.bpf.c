@@ -39,14 +39,6 @@ static __always_inline struct current_task get_task_struct() {
     return ct;
 }
 
-static __always_inline void count_loss(void) {
-    u32 key = 0;
-    u64 *count = bpf_map_lookup_elem(&loss_counter, &key);
-    if (count) {
-        __sync_fetch_and_add(count, 1);
-    }
-}
-
 static __always_inline bool should_log_event(__u32 ns_id, __s32 event_id) {
     struct event_key event_key = {
         .ns_id = ns_id,
@@ -61,7 +53,6 @@ static __always_inline struct event_t *ring_buffer(__u64 event_id, struct curren
     struct event_t *e;
     e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
     if (!e) {
-        count_loss();
         return NULL;
     } else {
         e->event_id = event_id;

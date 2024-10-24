@@ -1,7 +1,9 @@
+#define _POSIX_C_SOURCE 200809L
 #include <unistd.h>
 #include <signal.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <string.h>
 #include <bpf/libbpf.h>
 #include "tracepoint.skel.h"
 #include "event.h"
@@ -31,8 +33,11 @@ typedef enum {
 
 ContainerRuntime get_runtime_from_user() {
     char input[20];
-    struct sigaction sa_int;
-    sa_int.sa_handler = sig_handler;
+    struct sigaction sa_int = {
+        .sa_handler = sig_handler,
+        .sa_flags = 0
+    };
+    sigemptyset(&sa_int.sa_mask);
     sigaction(SIGINT, &sa_int, NULL);
     
     printf("Enter container runtime (docker/containerd/crio): ");
