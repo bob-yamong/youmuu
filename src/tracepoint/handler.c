@@ -3,17 +3,12 @@
 #define NANOSECONDS_IN_A_SECOND 1000000000
 #define MAX_EVENT_ID 1024
 
-static void get_task_info_str(const struct current_task *task, char *buffer, size_t buffer_size) {
-    struct sysinfo si;
-    char timestamp[26];
-    time_t current_time, boot_time, timer, actual_time;
+time_t boot_time;
 
-    current_time = time(NULL);
-    if (sysinfo(&si) != 0) {
-        snprintf(buffer, buffer_size, "Error getting system info");
-        return;
-    }
-    boot_time = current_time - si.uptime;
+static void get_task_info_str(const struct current_task *task, char *buffer, size_t buffer_size, time_t boot_time) {
+    char timestamp[26];
+    time_t timer, actual_time;
+
     timer = task->timestamp / NANOSECONDS_IN_A_SECOND;
     unsigned long long nanoseconds = task->timestamp % NANOSECONDS_IN_A_SECOND;
     actual_time = boot_time + timer;
@@ -681,7 +676,7 @@ static int handle_exit_epoll_pwait2(const struct event_t *e, const char *task_in
 
 static struct socket_handlers event_handler[MAX_EVENT_ID] = {0};
 
-static void init_event_handlers(void) {
+void init_event_handlers(void) {
     event_handler[__NR_socket].enter = handle_enter_socket;
     event_handler[__NR_socket].exit = handle_exit_socket;
     event_handler[__NR_socketpair].enter = handle_enter_socketpair;
@@ -743,15 +738,10 @@ static void init_event_handlers(void) {
 }
 
 int handle_event(void *ctx, void *data, size_t data_sz) {
-    static bool initialized = false;
-    if (!initialized) {
-        init_event_handlers();
-        initialized = true;
-    }
-
     const struct event_t *e = data;
     char task_info[256];
-    get_task_info_str(&e->task, task_info, sizeof(task_info));
+
+    get_task_info_str(&e->task, task_info, sizeof(task_info), boot_time);
     
     struct socket_handlers *handlers = &event_handler[e->event_id];
     event_handler_t handler = e->is_enter ? handlers->enter : handlers->exit;

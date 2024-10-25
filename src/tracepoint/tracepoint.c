@@ -199,6 +199,17 @@ void get_user_input(struct tracepoint_bpf *skel, __u32 ns_id) {
     }
 }
 
+static time_t get_boot_time() {
+    struct sysinfo si;
+    if (sysinfo(&si) != 0) {
+        fprintf(stderr, "Error getting system info\n");
+        return -1;
+    }
+    time_t current_time = time(NULL);
+
+    return current_time - si.uptime;
+}
+
 int main(int argc, char **argv) {
     signal(SIGINT, sig_handler);
     signal(SIGTERM, sig_handler);
@@ -208,10 +219,17 @@ int main(int argc, char **argv) {
     __u32 ns_id;
     int err;
 
+    time_t boot_time = get_boot_time();
+    if (boot_time == -1) {
+        fprintf(stderr, "Failed to get boot time\n");
+        goto cleanup;
+    }
+
+    init_event_handlers();
     skel = tracepoint_bpf__open();
     if (!skel) {
         fprintf(stderr, "Failed to open and load BPF skeleton\n");
-        return 1;
+        goto cleanup;
     }
 
     err = tracepoint_bpf__load(skel);

@@ -11,6 +11,9 @@
 #include <asm/unistd_64.h>
 #include "structs.h"
 
+extern time_t boot_time;
+
 int handle_event(void *ctx, void *data, size_t data_sz);
+void init_event_handlers(void);
 
 #endif
