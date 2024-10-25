@@ -159,7 +159,7 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
 
 
     struct event *e;
-    cnt++;
+    __sync_fetch_and_add(&cnt, 1);
     // e = bpf_ringbuf_reserve(&events_1, sizeof(*e), 0);
     // if (!e)
     //     e = bpf_ringbuf_reserve(&events_2, sizeof(*e), 0);

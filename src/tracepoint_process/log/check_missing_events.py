@@ -2,6 +2,14 @@ import glob
 import re
 import sys
 
+# 겹치는 cnt 값의 수를 찾기
+def count_duplicate_cnts(cnts):
+    """
+    주어진 cnt 리스트에서 중복된 cnt 값의 수를 반환합니다.
+    """
+    cnt_set = set(cnts)
+    return len(cnts) - len(cnt_set)
+
 def extract_cnts_from_file(filename):
     """
     주어진 파일에서 cnt 값을 추출하여 리스트로 반환합니다.
@@ -73,6 +81,7 @@ def main():
     # cnt 값 정렬 및 중복 제거
     sorted_unique_cnts = sorted(set(all_cnts))
     print(f"총 추출된 cnt 값 수: {len(sorted_unique_cnts)}")
+    print(f"중복된 cnt 값 수: {count_duplicate_cnts(all_cnts)}")
 
     # 연속성 검사
     missing_cnts = find_missing_cnts(sorted_unique_cnts)
