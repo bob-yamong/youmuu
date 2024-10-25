@@ -3,12 +3,7 @@
 #include <bpf/bpf_tracing.h>
 #include <bpf/bpf_core_read.h>
 
-
 #include "bpf_map_structs.h"
-
-#define ETH_P_IP 0x0800  // Define IPv4 Ethernet type
-#define AF_INET 2    // IPv4
-#define AF_INET6 10  // IPv6
 
 char LICENSE[] SEC("license") = "GPL";
 
@@ -200,7 +195,7 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
     // pid_ns_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
     // bpf_printk("socket_connect_bpf: pid_ns_id=%u\n", pid_ns_id);
 
-	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+	   event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
         bpf_printk("Faild ringbuf_reserve");
         return 0;
@@ -259,12 +254,11 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
         // bpf_printk("Permission denied\n");
         e->retval = -1;   
         bpf_ringbuf_submit(e, 0);
-        bpf_ringbuf_discard(e, 0);
         return -1;
     }
 
     bpf_ringbuf_discard(e, 0);
-	return 0;
+	   return 0;
 }
 
 SEC("xdp")
@@ -276,25 +270,31 @@ int xdp_prog(struct xdp_md *ctx) {
         return 0;
     }    
 
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
+    // int ret = init_context(e);
+    // if (ret < 0) {
+    //     bpf_ringbuf_discard(e, 0);
+    //     return 0;
+    // }
 
     get_process_path(e->data.source, sizeof(e->data.source));
     e->event_id = SECID_XDP;
 
     void *data_end = (void *)(long)ctx->data_end;
     void *data = (void *)(long)ctx->data;
-    
+
     // Parse Ethernet header
     struct ethhdr *eth = data;
-    if ((void *)(eth + 1) > data_end) return XDP_PASS;
+    if ((void *)(eth + 1) > data_end) {
+        bpf_ringbuf_discard(e, 0);  // Add discard here
+        return XDP_PASS;
+    }
 
     // Parse IP header
     struct iphdr *iph = (struct iphdr *)(eth + 1);
-    if ((void *)(iph + 1) > data_end) return XDP_PASS;
+    if ((void *)(iph + 1) > data_end) {
+        bpf_ringbuf_discard(e, 0);  // Add discard here
+        return XDP_PASS;
+    }
 
     // Variables for IP addresses and protocol
     __u32 src_ip = iph->saddr;
@@ -306,12 +306,18 @@ int xdp_prog(struct xdp_md *ctx) {
 
     if (protocol == IPPROTO_TCP) {
         struct tcphdr *tcph = (struct tcphdr *)(iph + 1);
-        if ((void *)(tcph + 1) > data_end) return XDP_PASS;
+        if ((void *)(tcph + 1) > data_end) {
+            bpf_ringbuf_discard(e, 0);  // Add discard here
+            return XDP_PASS;
+        }
         src_port = bpf_ntohs(tcph->source);
         dst_port = bpf_ntohs(tcph->dest);
     } else if (protocol == IPPROTO_UDP) {
         struct udphdr *udph = (struct udphdr *)(iph + 1);
-        if ((void *)(udph + 1) > data_end) return XDP_PASS;
+        if ((void *)(udph + 1) > data_end) {
+            bpf_ringbuf_discard(e, 0);  // Add discard here
+            return XDP_PASS;
+        }
         src_port = bpf_ntohs(udph->source);
         dst_port = bpf_ntohs(udph->dest);
     }
@@ -337,12 +343,12 @@ int xdp_prog(struct xdp_md *ctx) {
     int eperm_dst = match_policy(POLICY_NETWORK, &net_dst);
 
     if (eperm_src == (POLICY_NET_CONNECT | POLICY_NET_SRC) || eperm_dst == (POLICY_NET_CONNECT | POLICY_NET_DST)) {
-        e->retval = XDP_DROP;   
-        bpf_ringbuf_submit(e, 0);
+        e->retval = XDP_DROP;
+        bpf_ringbuf_submit(e, 0);  // Submit the event
         return XDP_DROP;
     }
 
-    bpf_ringbuf_discard(e, 0);  // Discard the event if no block condition is met
+    bpf_ringbuf_discard(e, 0);  // Discard if no block condition is met
     return XDP_PASS;  // Allow the traffic if no block condition is met
 }
 
