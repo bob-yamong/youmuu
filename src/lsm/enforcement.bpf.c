@@ -3,7 +3,6 @@
 #include <bpf/bpf_tracing.h>
 #include <bpf/bpf_core_read.h>
 
-
 #include "bpf_map_structs.h"
 
 #define ETH_P_IP 0x0800  // Define IPv4 Ethernet type
@@ -14,8 +13,6 @@
 #define O_WRONLY 1
 #define O_RDWR 2
 #define FMODE_EXEC (1 << 18) 
-//FM 방식은 vmlinux.h로 정의를 하는 것이 맞으나, 해당 프로그램의 커널 버전이 고정되어 있으므로 우선은 파일에서 정의
-//실행 차단에 대한 제어가 file_open으로 이루어지는 것이 맞는지에 대한 재고민 필요 => 일단은 실행은 open으로 막는 것 보다 다른 차단 방식을 써야 할 것 같음
 
 char LICENSE[] SEC("license") = "GPL";
 
@@ -207,7 +204,7 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
 	 int addrlen)
 {
 
-	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+	   event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
         bpf_printk("Faild ringbuf_reserve");
         return 0;
@@ -266,7 +263,7 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
     }
 
     bpf_ringbuf_discard(e, 0);
-	return 0;
+	   return 0;
 }
 
 SEC("lsm/socket_recvmsg")
@@ -276,42 +273,75 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
         bpf_printk("Failed ringbuf_reserve");
         return 0;
     }    
-    
+
     int ret = init_context(e);
     if (ret < 0) {
         bpf_ringbuf_discard(e, 0);
         return 0;
     }
-    
+
     get_process_path(e->data.source, sizeof(e->data.source));
+    e->event_id = SECID_XDP;
+
+    void *data_end = (void *)(long)ctx->data_end;
+    void *data = (void *)(long)ctx->data;
     
-    e->event_id = SECID_SOCKET_RECVMSG;
+    // Parse Ethernet header
+    struct ethhdr *eth = data;
+    if ((void *)(eth + 1) > data_end) return XDP_PASS;
 
-    struct network_policy net = {};
-    struct sock *sk;
+    // Parse IP header
+    struct iphdr *iph = (struct iphdr *)(eth + 1);
+    if ((void *)(iph + 1) > data_end) return XDP_PASS;
 
-    // Get the socket from the socket structure
-    bpf_probe_read(&sk, sizeof(sk), &sock->sk);
+    // Variables for IP addresses and protocol
+    __u32 src_ip = iph->saddr;
+    __u32 dst_ip = iph->daddr;
+    __u8 protocol = iph->protocol;
 
-    // Assuming we are using sk_protocol for family detection
-    u16 protocol = BPF_CORE_READ(sk, sk_protocol);
-    
-    // Get source IP and port
-    net.ip = BPF_CORE_READ(sk, __sk_common.skc_daddr);  // Source IP address
-    net.port = BPF_CORE_READ(sk, __sk_common.skc_num);       // Source port
+    // Check the protocol and extract port numbers for TCP/UDP
+    __u16 src_port = 0, dst_port = 0;
 
-    net.flags = POLICY_NET_CONNECT;
-
-    __u32 eperm = match_policy(POLICY_NETWORK, &net);
-    
-    if ((eperm & 0x000F) == (POLICY_NET_CONNECT | POLICY_NET_SRC)) {
-        e->retval = -1;   
-        bpf_ringbuf_submit(e, 0);
-        return -1;
+    if (protocol == IPPROTO_TCP) {
+        struct tcphdr *tcph = (struct tcphdr *)(iph + 1);
+        if ((void *)(tcph + 1) > data_end) return XDP_PASS;
+        src_port = bpf_ntohs(tcph->source);
+        dst_port = bpf_ntohs(tcph->dest);
+    } else if (protocol == IPPROTO_UDP) {
+        struct udphdr *udph = (struct udphdr *)(iph + 1);
+        if ((void *)(udph + 1) > data_end) return XDP_PASS;
+        src_port = bpf_ntohs(udph->source);
+        dst_port = bpf_ntohs(udph->dest);
     }
 
-    bpf_ringbuf_discard(e, 0);
-    return 0;
+    // Log source and destination IP addresses, protocol, and ports
+    bpf_printk("SRC IP: %x, DST IP: %x, PROTOCOL: %d, SRC PORT: %d, DST PORT: %d\n", 
+                src_ip, dst_ip, protocol, src_port, dst_port);
+
+    struct network_policy net_src = {};
+    struct network_policy net_dst = {};
+
+    net_src.ip = src_ip;
+    net_src.port = src_port;
+    net_src.protocol = protocol;
+    net_src.flags = POLICY_NET_CONNECT;
+
+    net_dst.ip = dst_ip;
+    net_dst.port = dst_port;
+    net_dst.protocol = protocol;
+    net_dst.flags = POLICY_NET_CONNECT;
+
+    int eperm_src = match_policy(POLICY_NETWORK, &net_src);
+    int eperm_dst = match_policy(POLICY_NETWORK, &net_dst);
+
+    if (eperm_src == (POLICY_NET_CONNECT | POLICY_NET_SRC) || eperm_dst == (POLICY_NET_CONNECT | POLICY_NET_DST)) {
+        e->retval = XDP_DROP;   
+        bpf_ringbuf_submit(e, 0);
+        return XDP_DROP;
+    }
+
+    bpf_ringbuf_discard(e, 0);  // Discard the event if no block condition is met
+    return XDP_PASS;  // Allow the traffic if no block condition is met
 }
 
 SEC("lsm/task_fix_setuid")
