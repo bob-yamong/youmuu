@@ -78,7 +78,7 @@ def main():
     missing_cnts = find_missing_cnts(sorted_unique_cnts)
     if missing_cnts:
         print(f"누락된 cnt 값이 {len(missing_cnts)}개 있습니다:")
-        print(missing_cnts)
+        print(*missing_cnts,sep=', ')
     else:
         print("누락된 cnt 값이 없습니다. 모든 이벤트가 정상적으로 기록되었습니다.")
 

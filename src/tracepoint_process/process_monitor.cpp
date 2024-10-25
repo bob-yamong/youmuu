@@ -26,15 +26,20 @@ bool stop_workers = false;
 struct process_monitor_bpf *skel;
 std::atomic<bool> ringbuf_thread_running(true);
 static bool exiting = false;
+int rb_cnt_1=0;
+int rb_cnt_2=0;
 
 // 링버퍼 핸들러1
 static int handle_event1(void *ctx, void *data, size_t data_sz)
 {
     const struct event *e = static_cast<const struct event*>(data);
     // 디버그 메시지
-    std::cerr << "handle_event1 호출됨: cnt=" << e->cnt << ", syscall_nr=" << e->syscall_nr << "\n";
+    //std::cerr << "handle_event1 호출됨: cnt=" << e->cnt << ", syscall_nr=" << e->syscall_nr << "\n";
     // 큐에 이벤트 enqueue
-    event_queue.enqueue(*e);
+    rb_cnt_1++;
+    if(rb_cnt_1 % 100000 == 0)
+        std::cout << "handle_event1 호출됨: cnt=" << e->cnt << ", syscall_nr=" << e->syscall_nr << "\n";
+    // event_queue.enqueue(*e);
     return 0;
 }
 
@@ -43,16 +48,19 @@ static int handle_event2(void *ctx, void *data, size_t data_sz)
 {
     const struct event *e = static_cast<const struct event*>(data);
     // 디버그 메시지
-    std::cerr << "handle_event2 호출됨: cnt=" << e->cnt << ", syscall_nr=" << e->syscall_nr << "\n";
+    //std::cerr << "handle_event2 호출됨: cnt=" << e->cnt << ", syscall_nr=" << e->syscall_nr << "\n";
     // 큐에 이벤트 enqueue
-    event_queue.enqueue(*e);
+    rb_cnt_2++;
+    if(rb_cnt_2 % 100000 == 0)
+        std::cout << "handle_event2 호출됨: cnt=" << e->cnt << ", syscall_nr=" << e->syscall_nr << "\n";
+    // event_queue.enqueue(*e);
     return 0;
 }
 
 // 링버퍼 소비 스레드 함수
 void ringbuf_thread_func(struct ring_buffer *rb) {
     while (ringbuf_thread_running) {
-        int err = ring_buffer__poll(rb, 100); // 100ms 타임아웃
+        int err = ring_buffer__poll(rb, 1); // 100ms 타임아웃
         if (err == -EINTR) {
             break;
         }
