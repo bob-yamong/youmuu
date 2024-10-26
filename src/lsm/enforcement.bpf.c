@@ -719,30 +719,47 @@ int BPF_PROG(path_link, struct dentry *old_dentry, struct path *new_dir, struct 
 }
 
 SEC("lsm/path_rename")
-int BPF_PROG(path_rename, struct path *old_path, struct path *new_path)
-{
-    //bpf_printk("lsm_hook: fs: path_rename\n");
+int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
+             const struct path *new_dir, struct dentry *new_dentry) {
+    //인자 잘못 선언되어있던 것 수정, 차후 파일 전체 로직 통합 및 수정 필요
+
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
-        bpf_printk("Faild ringbuf_reserve");
+        bpf_printk("Failed ringbuf_reserve");
         return 0;
-    }    
-    
+    }       
+    char path[256];
+
     int ret = init_context(e);
     if (ret < 0) {
         bpf_ringbuf_discard(e, 0);
         return 0;
     }
 
-    get_process_path(e->data.source, sizeof(e->data.source));
-    
-    e->event_id = SECID_PATH_RENAME;
-    e->retval = 0; 
-    
-    bpf_ringbuf_submit(e, 0);
 
-    return 0;
+   if (bpf_d_path(old_dir, e->data.path, sizeof(e->data.path)) < 0) {   
+        bpf_printk("Failed to get file path");
+    }
+    __u32 flags = match_policy(POLICY_FILE, e->data.path);
 
+    bpf_printk("lsm_hook: fs: path_rename at %s\n", e->data.path);
+    
+    if (!flags) goto clear;
+
+    __u8 allow_mode = flags & POLICY_ALLOW;
+    ret = allow_mode ? 1 : 0;
+
+    if (flags & POLICY_FILE_RENAME) ret -= 1;       
+    
+    e->retval = ret;
+    if (flags & POLICY_AUDIT) bpf_ringbuf_submit(e, 0);
+    else goto clear;
+    
+    return ret;
+
+clear:
+    bpf_ringbuf_discard(e, 0);
+    return ret;
 }
 
 SEC("lsm/path_chmod")
