@@ -120,7 +120,7 @@ static inline int has_filename_arg(int syscall_nr) {
 
 // debug
 __u64 cnt = 0;
-__u32 rb_flag = 0;
+bool rb_flag = false;
 
 SEC("tracepoint/raw_syscalls/sys_enter")
 int sys_enter(struct trace_event_raw_sys_enter *ctx)
@@ -167,12 +167,12 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     // if (!e)
     //     return 0;
 
-    if(rb_flag == 0){
+    if(rb_flag == false){
         e = bpf_ringbuf_reserve(&events_1, sizeof(*e), 0);
-        rb_flag = 1;
+        rb_flag = true;
     } else {
         e = bpf_ringbuf_reserve(&events_2, sizeof(*e), 0);
-        rb_flag = 0;
+        rb_flag = false;
     }
 
     if(!e)

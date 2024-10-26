@@ -29,17 +29,7 @@ static std::atomic<bool> exiting(false);
 int rb_cnt_1 = 0;
 int rb_cnt_2 = 0;
 
-// 링버퍼 핸들러1
-static int handle_event1(void *ctx, void *data, size_t data_sz)
-{
-    const struct event *e = static_cast<const struct event *>(data);
-    // 디버그 메시지
-    std::cerr << "handle_event1 호출됨: cnt=" << e->cnt << ", syscall_nr=" << e->syscall_nr << "\n";
-    rb_cnt_1++;
-    if (rb_cnt_1 % 100000 == 0)
-        std::cout << "handle_event1 호출됨: cnt=" << e->cnt << ", syscall_nr=" << e->syscall_nr << "\n";
-
-    // spdlog를 사용하여 직접 로그 기록
+void logging(const struct event *e){
     try
     {
         auto logger = spdlog::get("logger");
@@ -208,6 +198,20 @@ static int handle_event1(void *ctx, void *data, size_t data_sz)
     {
         std::cerr << "spdlog 예외 발생: " << ex.what() << "\n";
     }
+}
+
+// 링버퍼 핸들러1
+static int handle_event1(void *ctx, void *data, size_t data_sz)
+{
+    const struct event *e = static_cast<const struct event *>(data);
+    // 디버그 메시지
+    // std::cerr << "handle_event1 호출됨: cnt=" << e->cnt << ", syscall_nr=" << e->syscall_nr << "\n";
+    rb_cnt_1++;
+    if (rb_cnt_1 % 100000 == 0)
+        std::cout << "handle_event1 호출됨: cnt=" << e->cnt << ", syscall_nr=" << e->syscall_nr << "\n";
+
+    // spdlog를 사용하여 직접 로그 기록
+    logging(e);
 
     return 0;
 }
@@ -217,29 +221,13 @@ static int handle_event2(void *ctx, void *data, size_t data_sz)
 {
     const struct event *e = static_cast<const struct event *>(data);
     // 디버그 메시지
-    std::cerr << "handle_event2 호출됨: cnt=" << e->cnt << ", syscall_nr=" << e->syscall_nr << "\n";
+    // std::cerr << "handle_event2 호출됨: cnt=" << e->cnt << ", syscall_nr=" << e->syscall_nr << "\n";
     rb_cnt_2++;
     if (rb_cnt_2 % 100000 == 0)
         std::cout << "handle_event2 호출됨: cnt=" << e->cnt << ", syscall_nr=" << e->syscall_nr << "\n";
 
     // spdlog를 사용하여 직접 로그 기록
-    try
-    {
-        auto logger = spdlog::get("logger");
-        if (!logger)
-        {
-            // 로거가 존재하지 않으면 생성
-            logger = spdlog::basic_logger_mt<spdlog::async_factory>("logger", "./log/general.log");
-            logger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
-        }
-
-        logger->info("[{:013}] Process syscall: {} (nr={}, pid={}, tid={}, ppid={}, uid={}, comm={}, cgroup_id={}, cgroup_name={})",
-                     e->cnt, e->syscall, e->syscall_nr, e->pid, e->tid, e->ppid, e->uid, e->comm, e->cgroup_id, e->cgroup_name);
-    }
-    catch (const spdlog::spdlog_ex &ex)
-    {
-        std::cerr << "spdlog 예외 발생: " << ex.what() << "\n";
-    }
+    logging(e);
 
     return 0;
 }
@@ -352,8 +340,6 @@ int main(int argc, char **argv)
         }
 
         init_syscall_map(skel);
-
-        // 기존 워커 스레드 풀 생성 코드 제거
 
         // 링버퍼 설정
         struct ring_buffer *rb1 = ring_buffer__new(bpf_map__fd(skel->maps.events_1), handle_event1, NULL, NULL);
