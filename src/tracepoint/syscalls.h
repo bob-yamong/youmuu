@@ -1,38 +1,5 @@
-struct event_t {
-    __u64 ns_id;
-    __u32 pid;
-    __u32 tid;
-    __s32 event_id;
-    __u64 ret;
-
-    __s32 arg_s32[6];
-    __u32 arg_u32[6];
-    __u64 arg_u64[6];
-    void *arg_ptr[6];
-    __s32 sv[2];
-
-    __u32 ip;
-    __u16 port;
-};
-
-struct event_key {
-    __u64 ns_id;
-    __s32 event_id;
-    char argument[256];
-};
-struct current_task {
-    __u32 pid;
-    __u32 tid;
-    __u64 ns_id;
-};
-
-struct EventEntry {
-    const char *name;
-    __u32 id;
-};
-
-#ifndef EVENT_H
-#define EVENT_H
+#ifndef SYSCALLS_H
+#define SYSCALLS_H
 
 // network events
 #define SYS_ENTER_SOCKET 1
