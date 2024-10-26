@@ -31,7 +31,7 @@ def merge_and_extract_cnts(log_directory='.'):
     """
     지정된 디렉토리 내의 모든 worker_*.log 파일에서 cnt 값을 추출하여 반환합니다.
     """
-    log_files = glob.glob(f"{log_directory}/worker_*.log")
+    log_files = glob.glob(f"{log_directory}/*.log")
     if not log_files:
         print("로그 파일을 찾을 수 없습니다. 현재 디렉토리 또는 지정된 디렉토리를 확인하세요.")
         sys.exit(1)
