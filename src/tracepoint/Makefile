@@ -19,11 +19,12 @@ VMLINUX := ../../vmlinux/$(ARCH)/vmlinux.h
 # outdated
 INCLUDES := -I$(OUTPUT) -I../../libbpf/include/uapi -I$(dir $(VMLINUX))
 CFLAGS := -g -Wall -pthread
+CXXFLAGS := $(CFLAGS) -std=c++17
 ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS) -pthread
 
 APPS = tracepoint
-SRCS = tracepoint.c handler.c
-OBJS = $(patsubst %.c,$(OUTPUT)/%.o,$(SRCS))
+SRCS = tracepoint.cpp handler.cpp
+OBJS = $(patsubst %.cpp,$(OUTPUT)/%.o,$(SRCS))
 
 # Get Clang's default includes on this system. We'll explicitly add these dirs
 # to the includes list when compiling with `-target bpf` because otherwise some
@@ -55,6 +56,7 @@ define allow-override
 endef
 
 $(call allow-override,CC,$(CROSS_COMPILE)cc)
+$(call allow-override,CXX,$(CROSS_COMPILE)g++)
 $(call allow-override,LD,$(CROSS_COMPILE)ld)
 
 .PHONY: all
@@ -96,14 +98,14 @@ $(OUTPUT)/%.skel.h: $(OUTPUT)/%.bpf.o | $(OUTPUT) $(BPFTOOL)
 # Build user-space code
 $(patsubst %,$(OUTPUT)/%.o,$(APPS)): %.o: %.skel.h
 
-$(OUTPUT)/%.o: %.c $(wildcard %.h) | $(OUTPUT)
-	$(call msg,CC,$@)
-	$(Q)$(CC) $(CFLAGS) $(INCLUDES) -c $(filter %.c,$^) -o $@
+$(OUTPUT)/%.o: %.cpp $(wildcard %.h) | $(OUTPUT)
+	$(call msg,CXX,$@)
+	$(Q)$(CXX) $(CXXFLAGS) $(INCLUDES) -c $(filter %.cpp,$^) -o $@
 
 # Build application binary
 $(APPS): %: $(OBJS) $(LIBBPF_OBJ) | $(OUTPUT)
 	$(call msg,BINARY,$@)
-	$(Q)$(CC) $(CFLAGS) $^ $(ALL_LDFLAGS) -lelf -lz -o $@
+	$(Q)$(CXX) $(CXXFLAGS) $^ $(ALL_LDFLAGS) -lelf -lz -o $@
 
 # delete failed targets
 .DELETE_ON_ERROR:

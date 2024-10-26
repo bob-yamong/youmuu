@@ -40,16 +40,6 @@ static __always_inline struct current_task get_task_struct() {
     return ct;
 }
 
-static __always_inline bool should_log_event(__u32 ns_id, __s32 event_id) {
-    struct event_key event_key = {
-        .ns_id = ns_id,
-        .event_id = event_id,
-    };
-
-    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
-    return (watched && *watched == LOGGING);
-}
-
 static __always_inline struct event_t *ring_buffer(__s64 event_id, struct current_task ct) {
     struct event_t *e;
     e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
@@ -71,6 +61,16 @@ static __always_inline struct map_key get_map_key(struct current_task *ct) {
         .ns_id = ct->ns_id
     };
     return key;
+}
+
+static __always_inline bool should_log_event(__u32 ns_id, __s64 event_id) {
+    struct event_key event_key = {
+        .ns_id = ns_id,
+        .event_id = event_id,
+    };
+
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    return (watched && *watched == LOGGING);
 }
 
 static __always_inline struct event_t* handle_enter_event(__s64 event_id) {

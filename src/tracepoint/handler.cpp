@@ -738,7 +738,7 @@ void init_event_handlers(void) {
 }
 
 int handle_event(void *ctx, void *data, size_t data_sz) {
-    const struct event_t *e = data;
+    const struct event_t *e = (struct event_t *)data;
     char task_info[256];
 
     get_task_info_str(&e->task, task_info, sizeof(task_info), boot_time);
