@@ -93,7 +93,7 @@ int BPF_PROG(file_open, struct file *file)
     if (mode) e->retval = -1;
 
     
-    if ((flags & POLICY_FILE_READ) && (file->f_flags & (O_RDONLY | O_RDWR))) {
+    if ((flags & POLICY_FILE_READ) && ((file->f_flags & O_WRONLY) == 0))  {
         bpf_printk("block read at %s %d \n", e->data.path, flags);
         ret -= 1;
     }
