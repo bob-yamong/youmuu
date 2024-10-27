@@ -242,13 +242,7 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
 
     __u32 eperm = match_policy(POLICY_NETWORK, &net);
 
-    __u32 pid_ns_id;
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    pid_ns_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
-    bpf_printk("test pid_ns_id:%u eperm connect: %u flag: %u\n", pid_ns_id, eperm & 0x000F, (POLICY_NET_CONNECT | POLICY_NET_DST));
-
     if ((eperm & 0x000F) == (POLICY_NET_CONNECT | POLICY_NET_DST)) {
-        bpf_printk("test pid_ns_id:%u connect Permission denied\n", pid_ns_id);
         e->retval = -1;   
         bpf_ringbuf_submit(e, 0);
         return -1;
@@ -259,8 +253,7 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
 }
 
 SEC("lsm/socket_recvmsg")
-int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, int flags)
-{
+int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, int flags) {
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
         bpf_printk("Failed ringbuf_reserve");
@@ -285,32 +278,16 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
 
     // Assuming we are using sk_protocol for family detection
     u16 protocol = BPF_CORE_READ(sk, sk_protocol);
-    net.ip = BPF_CORE_READ(sk, __sk_common.skc_rcv_saddr);
-    net.port = BPF_CORE_READ(sk, __sk_common.skc_num);
-    net.protocol = protocol;
-
-    // Determine protocol family based on the protocol type
-    if (protocol == IPPROTO_TCP || protocol == IPPROTO_UDP) {
-        net.ip = BPF_CORE_READ(sk, __sk_common.skc_rcv_saddr);  // Source IP address in network byte order
-        net.port = BPF_CORE_READ(sk, __sk_common.skc_num);       // Source port in host byte order
-        net.protocol = protocol;                                // Set protocol based on sk_protocol
-    } else if (protocol == IPPROTO_ICMP) {
-        net.ip = BPF_CORE_READ(sk, __sk_common.skc_rcv_saddr);  // Source IP address for ICMP
-        net.port = 0; // ICMP does not use ports in the same way TCP/UDP does
-        net.protocol = protocol; // Set protocol to ICMP
-    }
+    
+    // Get source IP and port
+    net.ip = BPF_CORE_READ(sk, __sk_common.skc_daddr);  // Source IP address
+    net.port = BPF_CORE_READ(sk, __sk_common.skc_num);       // Source port
 
     net.flags = POLICY_NET_CONNECT;
 
     __u32 eperm = match_policy(POLICY_NETWORK, &net);
-
-    __u32 pid_ns_id;
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    pid_ns_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
-    bpf_printk("test pid_ns_id:%u ip:%u port:%u eperm recvmsg: %u flag: %u\n", pid_ns_id, net.ip, net.port, eperm & 0x000F, (POLICY_NET_CONNECT | POLICY_NET_SRC));
-
+    
     if ((eperm & 0x000F) == (POLICY_NET_CONNECT | POLICY_NET_SRC)) {
-        bpf_printk("test pid_ns_id:%u recvmsg Permission denied\n", pid_ns_id);
         e->retval = -1;   
         bpf_ringbuf_submit(e, 0);
         return -1;
