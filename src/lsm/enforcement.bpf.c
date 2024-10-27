@@ -267,9 +267,75 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
 	return 0;
 }
 
-SEC("lsm/socket_recvmsg")
-int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, int flags)
+SEC("lsm/socket_connect")
+int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
+	 int addrlen)
 {
+
+	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        bpf_printk("Faild ringbuf_reserve");
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+    
+    get_process_path(e->data.source, sizeof(e->data.source));
+    
+    e->event_id = SECID_SOCKET_CONNECT;
+
+
+    struct network_policy net = {};
+    // Handle IPv4
+    if (address->sa_family == AF_INET) {
+        struct sockaddr_in *addr_in = (struct sockaddr_in *)address;
+        net.ip = addr_in->sin_addr.s_addr;  // Extract IPv4 address (in network byte order)
+        net.port = addr_in->sin_port;        // Port is in network byte order
+        net.protocol = IPPROTO_TCP;          // Defaulting to TCP; change as necessary for your use case
+    } 
+    // Handle IPv6
+    else if (address->sa_family == AF_INET6) {
+        struct sockaddr_in6 *addr_in6 = (struct sockaddr_in6 *)address;
+        // Set IP to 0 or handle accordingly for IPv6
+        net.ip = 0;  // This could be adjusted depending on your policy handling needs
+        net.port = addr_in6->sin6_port;  // Port is in network byte order
+        net.protocol = IPPROTO_IPV6;      // Defaulting to IPv6; change as necessary for your use case
+    }
+
+    // Determine the protocol based on the type of socket if needed
+    switch (sock->type) {
+        case SOCK_STREAM:
+            net.protocol = IPPROTO_TCP;  // For TCP
+            break;
+        case SOCK_DGRAM:
+            net.protocol = IPPROTO_UDP;   // For UDP
+            break;
+        // Add other types as necessary, like SOCK_RAW for ICMP
+        default:
+            net.protocol = IPPROTO_IP;     // Default to IP
+            break;
+    }
+
+    net.flags = POLICY_NET_CONNECT;
+
+    __u32 eperm = match_policy(POLICY_NETWORK, &net);
+
+    if ((eperm & 0x000F) == (POLICY_NET_CONNECT | POLICY_NET_DST)) {
+        e->retval = -1;   
+        bpf_ringbuf_submit(e, 0);
+        return -1;
+    }
+
+    bpf_ringbuf_discard(e, 0);
+	return 0;
+}
+
+SEC("lsm/socket_recvmsg")
+int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, int flags) {
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
         bpf_printk("Failed ringbuf_reserve");
@@ -295,18 +361,15 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
     // Assuming we are using sk_protocol for family detection
     u16 protocol = BPF_CORE_READ(sk, sk_protocol);
     
-    // Determine protocol family based on the protocol type
-    if (protocol == IPPROTO_TCP || protocol == IPPROTO_UDP) {
-        net.ip = BPF_CORE_READ(sk, __sk_common.skc_rcv_saddr);  // Source IP address in network byte order
-        net.port = BPF_CORE_READ(sk, __sk_common.skc_num);       // Source port in host byte order
-        net.protocol = protocol;                                // Set protocol based on sk_protocol
-    }
+    // Get source IP and port
+    net.ip = BPF_CORE_READ(sk, __sk_common.skc_daddr);  // Source IP address
+    net.port = BPF_CORE_READ(sk, __sk_common.skc_num);       // Source port
 
     net.flags = POLICY_NET_CONNECT;
 
-    int eperm = match_policy(POLICY_NETWORK, &net);
-
-    if (eperm == (POLICY_NET_CONNECT | POLICY_NET_SRC)) {
+    __u32 eperm = match_policy(POLICY_NETWORK, &net);
+    
+    if ((eperm & 0x000F) == (POLICY_NET_CONNECT | POLICY_NET_SRC)) {
         e->retval = -1;   
         bpf_ringbuf_submit(e, 0);
         return -1;
@@ -314,84 +377,6 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
 
     bpf_ringbuf_discard(e, 0);
     return 0;
-}
-
-SEC("lsm/socket_recvmsg")
-int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, int flags) {
-    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }    
-
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
-
-    get_process_path(e->data.source, sizeof(e->data.source));
-    e->event_id = SECID_XDP;
-
-    void *data_end = (void *)(long)ctx->data_end;
-    void *data = (void *)(long)ctx->data;
-    
-    // Parse Ethernet header
-    struct ethhdr *eth = data;
-    if ((void *)(eth + 1) > data_end) return XDP_PASS;
-
-    // Parse IP header
-    struct iphdr *iph = (struct iphdr *)(eth + 1);
-    if ((void *)(iph + 1) > data_end) return XDP_PASS;
-
-    // Variables for IP addresses and protocol
-    __u32 src_ip = iph->saddr;
-    __u32 dst_ip = iph->daddr;
-    __u8 protocol = iph->protocol;
-
-    // Check the protocol and extract port numbers for TCP/UDP
-    __u16 src_port = 0, dst_port = 0;
-
-    if (protocol == IPPROTO_TCP) {
-        struct tcphdr *tcph = (struct tcphdr *)(iph + 1);
-        if ((void *)(tcph + 1) > data_end) return XDP_PASS;
-        src_port = bpf_ntohs(tcph->source);
-        dst_port = bpf_ntohs(tcph->dest);
-    } else if (protocol == IPPROTO_UDP) {
-        struct udphdr *udph = (struct udphdr *)(iph + 1);
-        if ((void *)(udph + 1) > data_end) return XDP_PASS;
-        src_port = bpf_ntohs(udph->source);
-        dst_port = bpf_ntohs(udph->dest);
-    }
-
-    // Log source and destination IP addresses, protocol, and ports
-    bpf_printk("SRC IP: %x, DST IP: %x, PROTOCOL: %d, SRC PORT: %d, DST PORT: %d\n", 
-                src_ip, dst_ip, protocol, src_port, dst_port);
-
-    struct network_policy net_src = {};
-    struct network_policy net_dst = {};
-
-    net_src.ip = src_ip;
-    net_src.port = src_port;
-    net_src.protocol = protocol;
-    net_src.flags = POLICY_NET_CONNECT;
-
-    net_dst.ip = dst_ip;
-    net_dst.port = dst_port;
-    net_dst.protocol = protocol;
-    net_dst.flags = POLICY_NET_CONNECT;
-
-    int eperm_src = match_policy(POLICY_NETWORK, &net_src);
-    int eperm_dst = match_policy(POLICY_NETWORK, &net_dst);
-
-    if (eperm_src == (POLICY_NET_CONNECT | POLICY_NET_SRC) || eperm_dst == (POLICY_NET_CONNECT | POLICY_NET_DST)) {
-        e->retval = XDP_DROP;   
-        bpf_ringbuf_submit(e, 0);
-        return XDP_DROP;
-    }
-
-    bpf_ringbuf_discard(e, 0);  // Discard the event if no block condition is met
-    return XDP_PASS;  // Allow the traffic if no block condition is met
 }
 
 SEC("lsm/task_fix_setuid")
