@@ -13,8 +13,7 @@
 #define O_RDWR 2
 #define FMODE_EXEC (1 << 18) 
 //FM 방식은 vmlinux.h로 정의를 하는 것이 맞으나, 해당 프로그램의 커널 버전이 고정되어 있으므로 우선은 파일에서 정의
-//실행 차단에 대한 제어가 file_open으로 이루어지는 것이 맞는지에 대한 재고민 필요 => 일단은 실행은 open으로 막는 것 보다 다른 차단 방식을 써야 할 것 같음
-
+//실행 차단에 대한 제어가 file_open으로 이루어지는 것이 맞는지에 대한 재고민 필요
 char LICENSE[] SEC("license") = "GPL";
 
 SEC("lsm/bprm_check_security")
@@ -93,7 +92,7 @@ int BPF_PROG(file_open, struct file *file)
     if (mode) e->retval = -1;
 
     
-    if ((flags & POLICY_FILE_READ) && ((file->f_flags & O_WRONLY) == 0)) {
+    if ((flags & POLICY_FILE_READ) && ((file->f_flags & O_RDONLY | O_RDWR) == 0)) {
         bpf_printk("block read at %s %d \n", e->data.path, flags);
         ret -= 1;
     }
@@ -108,6 +107,7 @@ int BPF_PROG(file_open, struct file *file)
 
     e->event_id = SECID_FILE_OPEN;
     e->retval = ret;
+    
     if (flags & POLICY_AUDIT) bpf_ringbuf_submit(e, 0);
     else goto clear;
 
