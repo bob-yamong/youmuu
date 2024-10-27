@@ -48,13 +48,13 @@ static __always_inline int compare_strings(const char *a, const char *b, __u32 l
     for (__u32 i = 0; i < len; i++) {
         if (a[i] != b[i]) {
             if (is_recursive && a[i] == '\0' && b[i] == '/') {
-                return 1;  
+                return 0;  
             }
-            return 0; 
+            return 1; 
         }
-        if (a[i] == '\0' && b[i] == '\0') return 1;
+        if (a[i] == '\0' && b[i] == '\0') return 0;
     }
-    return 0; 
+    return 1; 
 }
 
 static __always_inline int get_process_path(char *path_buf, int buf_size) {
@@ -152,7 +152,7 @@ static __always_inline __u32 match_policy(enum policy_type type, void *data) {
                 if (i >= value->num_file_policies)
                     break;
                 __u32 flags = value->file_policies[i].flags;  // 정책 플래그 가져오기
-                if (compare_strings(value->file_policies[i].path, path, MAX_PATH_LENGTH,flags))
+                if (compare_strings(value->file_policies[i].path, path, MAX_PATH_LENGTH,flags) == 0)
                     return value->file_policies[i].flags;
             }
             break;
@@ -178,7 +178,7 @@ static __always_inline __u32 match_policy(enum policy_type type, void *data) {
             for (int i = 0; i < MAX_POLICIES_PER_CONTAINER; i++) {
                 if (i >= value->num_process_policies)
                     break;
-                if (compare_strings(value->process_policies[i].comm, comm, 16,0))
+                if (compare_strings(value->process_policies[i].comm, comm, 16,0) == 0)
                     return value->process_policies[i].flags;
             }
             break;
