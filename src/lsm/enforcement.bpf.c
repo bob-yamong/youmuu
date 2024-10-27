@@ -190,12 +190,7 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
 	 int addrlen)
 {
 
-    // __u32 pid_ns_id;
-    // struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    // pid_ns_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
-    // bpf_printk("socket_connect_bpf: pid_ns_id=%u\n", pid_ns_id);
-
-	   event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
         bpf_printk("Faild ringbuf_reserve");
         return 0;
@@ -230,9 +225,6 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
     }
 
     // Determine the protocol based on the type of socket if needed
-    // For example, you might want to set it based on the socket type:
-    // - SOCK_STREAM (TCP)
-    // - SOCK_DGRAM (UDP)
     switch (sock->type) {
         case SOCK_STREAM:
             net.protocol = IPPROTO_TCP;  // For TCP
@@ -250,7 +242,7 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
 
     int eperm = match_policy(POLICY_NETWORK, &net);
 
-    if (eperm != 0) {
+    if (eperm == (POLICY_NET_CONNECT | POLICY_NET_DST)) {
         // bpf_printk("Permission denied\n");
         e->retval = -1;   
         bpf_ringbuf_submit(e, 0);
@@ -258,7 +250,56 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
     }
 
     bpf_ringbuf_discard(e, 0);
-	   return 0;
+	return 0;
+}
+
+SEC("lsm/socket_recvmsg")
+int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, int flags)
+{
+    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        bpf_printk("Failed ringbuf_reserve");
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+    
+    get_process_path(e->data.source, sizeof(e->data.source));
+    
+    e->event_id = SECID_SOCKET_RECVMSG;
+
+    struct network_policy net = {};
+    struct sock *sk;
+
+    // Get the socket from the socket structure
+    bpf_probe_read(&sk, sizeof(sk), &sock->sk);
+
+    // Assuming we are using sk_protocol for family detection
+    u16 protocol = BPF_CORE_READ(sk, sk_protocol);
+    
+    // Determine protocol family based on the protocol type
+    if (protocol == IPPROTO_TCP || protocol == IPPROTO_UDP) {
+        net.ip = BPF_CORE_READ(sk, __sk_common.skc_rcv_saddr);  // Source IP address in network byte order
+        net.port = BPF_CORE_READ(sk, __sk_common.skc_num);       // Source port in host byte order
+        net.protocol = protocol;                                // Set protocol based on sk_protocol
+    }
+
+    net.flags = POLICY_NET_CONNECT;
+
+    int eperm = match_policy(POLICY_NETWORK, &net);
+
+    if (eperm == (POLICY_NET_CONNECT | POLICY_NET_SRC)) {
+        e->retval = -1;   
+        bpf_ringbuf_submit(e, 0);
+        return -1;
+    }
+
+    bpf_ringbuf_discard(e, 0);
+    return 0;
 }
 
 SEC("xdp")
