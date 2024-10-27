@@ -749,9 +749,13 @@ int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
     __u8 allow_mode = flags & POLICY_ALLOW;
     ret = allow_mode ? 1 : 0;
 
-    if (flags & POLICY_FILE_RENAME) ret -= 1;       
+    if (flags & POLICY_FILE_RENAME) ret -= 1;    
     
+    get_process_path(e->data.source, sizeof(e->data.source));
+
+    e->event_id = SECID_PATH_RENAME;   
     e->retval = ret;
+    
     if (flags & POLICY_AUDIT) bpf_ringbuf_submit(e, 0);
     else goto clear;
     
