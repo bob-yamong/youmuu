@@ -26,6 +26,16 @@ struct {
     __uint(max_entries, 1 << 28); // 128MB
 } events_2 SEC(".maps");
 
+// struct {
+//     __uint(type, BPF_MAP_TYPE_PERCPU_RINGBUF);
+//     __uint(max_entries, 1 << 24); // 16MB
+// } events_1 SEC(".maps");
+
+// struct {
+//     __uint(type, BPF_MAP_TYPE_PERCPU_RINGBUF);
+//     __uint(max_entries, 1 << 24); // 16MB
+// } events_2 SEC(".maps");
+
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 1024);
@@ -120,7 +130,7 @@ static inline int has_filename_arg(int syscall_nr) {
 
 // debug
 __u64 cnt = 0;
-bool rb_flag = false;
+//__u32 rb_flag = 0;
 
 SEC("tracepoint/raw_syscalls/sys_enter")
 int sys_enter(struct trace_event_raw_sys_enter *ctx)
@@ -167,13 +177,18 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     // if (!e)
     //     return 0;
 
-    if(rb_flag == false){
+    if(cnt % 2 == 1) {
         e = bpf_ringbuf_reserve(&events_1, sizeof(*e), 0);
-        rb_flag = true;
     } else {
         e = bpf_ringbuf_reserve(&events_2, sizeof(*e), 0);
-        rb_flag = false;
     }
+
+    // int cpu = bpf_get_smp_processor_id();
+    // if(cpu % 2 == 0) {
+    //     e = bpf_ringbuf_reserve(&events_1, sizeof(*e), 0);
+    // } else {
+    //     e = bpf_ringbuf_reserve(&events_2, sizeof(*e), 0);
+    // }
 
     if(!e)
         return 0;
