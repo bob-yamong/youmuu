@@ -8,6 +8,13 @@
 #define AF_INET 2    // IPv4
 #define AF_INET6 10  // IPv6
 
+#define O_RDONLY 0
+#define O_WRONLY 1
+#define O_RDWR 2
+#define FMODE_EXEC (1 << 18) 
+//FM 방식은 vmlinux.h로 정의를 하는 것이 맞으나, 해당 프로그램의 커널 버전이 고정되어 있으므로 우선은 파일에서 정의
+//실행 차단에 대한 제어가 file_open으로 이루어지는 것이 맞는지에 대한 재고민 필요 => 일단은 실행은 open으로 막는 것 보다 다른 차단 방식을 써야 할 것 같음
+
 char LICENSE[] SEC("license") = "GPL";
 
 SEC("lsm/bprm_check_security")
@@ -43,7 +50,7 @@ int BPF_PROG(bprm_check_security, struct linux_binprm *bprm)
     // Allow if policy is wrong or blacklist-based (deny list)
     else ret = 0;
 
-    if (flags & POLICY_PROC_EXEC) ret -= 1;
+    if ((flags & POLICY_PROC_EXEC)||(flags & POLICY_FILE_EXEC)) ret -= 1;
     
     e->retval = ret;
     if (flags & POLICY_AUDIT) bpf_ringbuf_submit(e, 0);
@@ -59,21 +66,19 @@ clear:
 SEC("lsm/file_open")
 int BPF_PROG(file_open, struct file *file)
 {
-	//bpf_printk("lsm_hook: file: file_open\n");
-
-	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
-        bpf_printk("Faild ringbuf_reserve");
+        bpf_printk("Failed ringbuf_reserve");
         return 0;
-    }    
-    
+    }
+
     int ret = init_context(e);
     if (ret < 0) {
         bpf_ringbuf_discard(e, 0);
         return 0;
     }
-    
-    if(bpf_d_path(&file->f_path, e->data.path, sizeof(e->data.path)) < 0){
+
+    if (bpf_d_path(&file->f_path, e->data.path, sizeof(e->data.path)) < 0) {
         bpf_printk("Failed to get file path");
     }
 
@@ -81,26 +86,33 @@ int BPF_PROG(file_open, struct file *file)
 
     __u32 flags = match_policy(POLICY_FILE, e->data.path);
 
-    // If there is no policy, allow
     if (!flags) goto clear;
 
     ret = 0;
-    // If you need to explicitly allow (whitelist | access list), it is denied by default.
     __u8 mode = flags & POLICY_ALLOW;
     if (mode) e->retval = -1;
+
     
-    if (
-        (flags & POLICY_FILE_READ)
-        || (flags & POLICY_FILE_WRITE)
-        || (flags & POLICY_FILE_EXEC)
-    ) ret -= 1;
+    if ((flags & POLICY_FILE_READ) && ((file->f_flags & O_WRONLY) == 0))  {
+        bpf_printk("block read at %s %d \n", e->data.path, flags);
+        ret -= 1;
+    }
+    else if ((flags & POLICY_FILE_WRITE) && (file->f_flags & (O_WRONLY | O_RDWR))) {
+        bpf_printk("block write at %s %d \n", e->data.path, flags);
+        ret -= 1;
+    }
+    if ((flags & POLICY_FILE_EXEC) && (file->f_flags & FMODE_EXEC)) {
+        bpf_printk("block execute at %s %d \n", e->data.path, flags);
+        ret -= 1;
+    }
 
     e->event_id = SECID_FILE_OPEN;
     e->retval = ret;
     if (flags & POLICY_AUDIT) bpf_ringbuf_submit(e, 0);
     else goto clear;
-    
-    return ret;   
+
+    return ret;
+
 clear:
     bpf_ringbuf_discard(e, 0);
     return ret;
@@ -482,6 +494,7 @@ int BPF_PROG(file_permission, struct file *file, int mask)
             bpf_probe_read_kernel_str(e->data.path, sizeof(e->data.path), name);
         }
     }
+
 
     get_process_path(e->data.source, sizeof(e->data.source));
     
