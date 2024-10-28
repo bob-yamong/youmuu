@@ -180,7 +180,11 @@ void get_user_input(struct tracepoint_bpf *skel, __u32 ns_id) {
         __NR_sendmsg, __NR_sendmmsg, __NR_sethostname, __NR_setdomainname, 
         __NR_ioctl, __NR_poll, __NR_ppoll, __NR_epoll_create, 
         __NR_epoll_create1, __NR_epoll_ctl, __NR_epoll_wait, __NR_epoll_pwait, 
-        __NR_epoll_pwait2
+        __NR_epoll_pwait2, 
+        __NR_close, __NR_creat, __NR_open, __NR_openat,
+        __NR_openat2, __NR_name_to_handle_at , __NR_open_by_handle_at, __NR_memfd_create,
+        __NR_mknod, __NR_mknodat, __NR_rename, __NR_renameat, 
+        __NR_renameat2, __NR_truncate, __NR_ftruncate, __NR_fallocate,
     };
 
     for (size_t i = 0; i < sizeof(syscalls) / sizeof(syscalls[0]); i++) {
@@ -205,7 +209,6 @@ static time_t get_boot_time() {
         return -1;
     }
     time_t current_time = time(NULL);
-
     return current_time - si.uptime;
 }
 
@@ -220,7 +223,7 @@ int main(int argc, char **argv) {
     __u32 ns_id, pid;
     int err;
 
-    time_t boot_time = get_boot_time();
+    boot_time = get_boot_time();
     if (boot_time == -1) {
         fprintf(stderr, "Failed to get boot time\n");
         goto cleanup;

@@ -22,6 +22,7 @@ struct event_t {
     __u32 arg_u32[6];
     __u64 arg_u64[6];
     __u8 arg_str[256];
+    __u8 arg_str2[256];
 
     bool is_enter;
     bool is_valid;
