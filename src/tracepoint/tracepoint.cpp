@@ -180,7 +180,32 @@ void get_user_input(struct tracepoint_bpf *skel, __u32 ns_id) {
         __NR_sendmsg, __NR_sendmmsg, __NR_sethostname, __NR_setdomainname, 
         __NR_ioctl, __NR_poll, __NR_ppoll, __NR_epoll_create, 
         __NR_epoll_create1, __NR_epoll_ctl, __NR_epoll_wait, __NR_epoll_pwait, 
-        __NR_epoll_pwait2
+        __NR_epoll_pwait2, 
+        __NR_close, __NR_creat, __NR_open, __NR_openat,
+        __NR_openat2, __NR_name_to_handle_at , __NR_open_by_handle_at, __NR_memfd_create,
+        __NR_mknod, __NR_mknodat, __NR_rename, __NR_renameat, 
+        __NR_renameat2, __NR_truncate, __NR_ftruncate, __NR_fallocate,
+        __NR_mkdir, __NR_mkdirat, __NR_rmdir, __NR_getcwd, 
+        __NR_chdir, __NR_fchdir, __NR_chroot, __NR_pivot_root, 
+        __NR_getdents, __NR_getdents64, __NR_link, __NR_linkat, 
+        __NR_symlink, __NR_symlinkat, __NR_unlink, __NR_unlinkat, 
+        __NR_readlink, __NR_readlinkat, __NR_umask, __NR_stat, 
+        __NR_lstat, __NR_fstat, __NR_newfstatat, __NR_statx, 
+        __NR_statfs, __NR_fstatfs, __NR_chmod, __NR_fchmod,
+        __NR_fchmodat, __NR_chown, __NR_lchown, __NR_fchown, 
+        __NR_fchownat, __NR_utime, __NR_utimes, __NR_futimesat, 
+        __NR_utimensat, __NR_access, __NR_faccessat, __NR_setxattr, 
+        __NR_lsetxattr, __NR_fsetxattr, __NR_getxattr, __NR_lgetxattr, 
+        __NR_fgetxattr, __NR_listxattr, __NR_llistxattr, __NR_flistxattr, 
+        __NR_removexattr, __NR_lremovexattr, __NR_fremovexattr, __NR_fcntl, 
+        __NR_dup, __NR_dup2, __NR_dup3, __NR_flock, 
+        __NR_read, __NR_pread64, __NR_readv, __NR_preadv, 
+        __NR_preadv2, __NR_write, __NR_pwrite64, __NR_writev, 
+        __NR_pwritev, __NR_pwritev2, __NR_lseek, __NR_sendfile, 
+        __NR_inotify_init, __NR_inotify_init1, __NR_inotify_add_watch, __NR_inotify_rm_watch, 
+        __NR_fanotify_init, __NR_fanotify_mark, __NR_mount, __NR_umount2, 
+        __NR_move_mount, 
+        
     };
 
     for (size_t i = 0; i < sizeof(syscalls) / sizeof(syscalls[0]); i++) {
@@ -205,7 +230,6 @@ static time_t get_boot_time() {
         return -1;
     }
     time_t current_time = time(NULL);
-
     return current_time - si.uptime;
 }
 
@@ -220,7 +244,7 @@ int main(int argc, char **argv) {
     __u32 ns_id, pid;
     int err;
 
-    time_t boot_time = get_boot_time();
+    boot_time = get_boot_time();
     if (boot_time == -1) {
         fprintf(stderr, "Failed to get boot time\n");
         goto cleanup;

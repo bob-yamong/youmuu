@@ -120,4 +120,18 @@ struct {
     __type(value, struct epoll_args);
 } epoll_pwait2_args_map SEC(".maps");
 
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 10000);
+    __type(key, struct map_key);
+    __type(value, struct getdents_args);
+} getdents_args_map SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 10000);
+    __type(key, struct map_key);
+    __type(value, struct getdents_args);
+} getdents64_args_map SEC(".maps");
+
 #endif

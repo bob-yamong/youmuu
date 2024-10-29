@@ -20,8 +20,11 @@ struct event_t {
 
     __s32 arg_s32[6];
     __u32 arg_u32[6];
+    __s64 arg_s64[6];
     __u64 arg_u64[6];
     __u8 arg_str[256];
+    __u8 arg_str2[256];
+    __u8 arg_str3[32];
 
     bool is_enter;
     bool is_valid;
@@ -71,9 +74,8 @@ struct epoll_args {
     struct epoll_event *events;
 };
 
-struct EventEntry {
-    const char *name;
-    __u32 id;
+struct getdents_args {
+    struct linux_dirent *dirents;
 };
 
 #endif
