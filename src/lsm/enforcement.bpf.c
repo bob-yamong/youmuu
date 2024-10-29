@@ -5,7 +5,6 @@
 
 #include "bpf_map_structs.h"
 
-#define ETH_P_IP 0x0800  // Define IPv4 Ethernet type
 #define AF_INET 2    // IPv4
 #define AF_INET6 10  // IPv6
 
