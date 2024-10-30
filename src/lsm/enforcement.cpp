@@ -8,8 +8,11 @@
 #include <bpf/bpf.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <iostream>
+
 #include "enforcement.skel.h"
 
+#include "container_info.h"
 #include "policy_map_structs.h"
 #include "parser.h"
 
@@ -565,6 +568,43 @@ int main(int argc, char **argv)
         if (err) {
             fprintf(stderr, "Failed to reuse existing map: %d\n", err);
             goto cleanup;
+        }
+    }
+
+    {
+        std::cout << "컨테이너 PID 자동 감지 중...\n";
+        int detected_containers = ContainerManager::getContainerPIDs();
+        if (detected_containers <= 0)
+        {
+            std::cerr << "실행 중인 컨테이너를 찾을 수 없습니다.\n";
+            goto cleanup;
+        }
+        std::cout << detected_containers << "개의 컨테이너를 감지했습니다.\n";
+
+        for (const auto &container : ContainerManager::containers)
+        {
+            __u32 key_pid = static_cast<__u32>(container.pid);
+            __u32 value_pid = 1;
+            __u64 key_inode = static_cast<__u64>(ContainerManager::getContainerInode(container.id));
+            __u64 value_inode = 1;
+
+            err = bpf_map__update_elem(skel->maps.container_pids, &key_pid, sizeof(key_pid), &value_pid, sizeof(value_pid), BPF_ANY);
+            if (err)
+            {
+                std::cerr << "컨테이너 PID " << container.pid << "를 맵에 추가하는데 실패했습니다: " << strerror(errno) << "\n";
+                continue;
+            }
+
+            err = bpf_map__update_elem(skel->maps.container_cgroup_id, &key_inode, sizeof(key_inode), &value_inode, sizeof(value_inode), BPF_ANY);
+            if (err)
+            {
+                std::cerr << "컨테이너 inode " << key_inode << "를 맵에 추가하는데 실패했습니다: " << strerror(errno) << "\n";
+                // PID 맵에서 제거
+                bpf_map__delete_elem(skel->maps.container_pids, &key_pid, sizeof(key_pid), BPF_ANY);
+                continue;
+            }
+
+            std::cout << "컨테이너 ID: " << container.id << ", PID: " << container.pid << ", inode: " << key_inode << "를 모니터링 중\n";
         }
     }
 

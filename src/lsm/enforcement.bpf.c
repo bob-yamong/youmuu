@@ -19,8 +19,17 @@ SEC("lsm/bprm_check_security")
 int BPF_PROG(bprm_check_security, struct linux_binprm *bprm)
 {
     ////bpf_printk("lsm_hook: exec: bprm_check_security\n");
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
     
-    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    __u64 cgroup_id = bpf_get_current_cgroup_id();
+
+    if (!should_monitor(ppid, cgroup_id)) {
+        return 0;
+    }
+
+    event *e;
+    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
         bpf_printk("Failed ringbuf_reserve");
         return 0;
@@ -38,7 +47,7 @@ int BPF_PROG(bprm_check_security, struct linux_binprm *bprm)
     e->event_id = SECID_BPRM_CHECK_SECURITY;
     e->retval = 0;
     
-    __u32 flags = match_policy(POLICY_PROCESS, e->comm);
+    __u32 flags = match_policy(task, POLICY_PROCESS, e->comm);
     // If there is no policy, allow
     if (!flags) goto clear;
 
@@ -63,8 +72,19 @@ clear:
 
 SEC("lsm/file_open")
 int BPF_PROG(file_open, struct file *file)
-{
-    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+{   
+
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+    
+    __u64 cgroup_id = bpf_get_current_cgroup_id();
+
+    if (!should_monitor(ppid, cgroup_id)) {
+        return 0;
+    }
+
+    event *e;
+    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
         bpf_printk("Failed ringbuf_reserve");
         return 0;
@@ -82,7 +102,7 @@ int BPF_PROG(file_open, struct file *file)
 
     get_process_path(e->data.source, sizeof(e->data.source));
 
-    __u32 flags = match_policy(POLICY_FILE, e->data.path);
+    __u32 flags = match_policy(task, POLICY_FILE, e->data.path);
 
     if (!flags) goto clear;
 
@@ -116,94 +136,134 @@ clear:
     return ret;
 }
 
-SEC("lsm/sb_mount")
-int BPF_PROG(sb_mount, const char *dev_name, const struct path *path,
-	const char *type, unsigned long flags, void *data)
-{
-	////bpf_printk("lsm_hook: fs: sb_mount\n");
+// SEC("lsm/sb_mount")
+// int BPF_PROG(sb_mount, const char *dev_name, const struct path *path,
+// 	const char *type, unsigned long flags, void *data)
+// {
+// 	////bpf_printk("lsm_hook: fs: sb_mount\n");
 
-	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }    
+// 	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
     
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
+//     __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    get_process_path(e->data.source, sizeof(e->data.source));
+//     if (!should_monitor(ppid, cgroup_id)) {
+//         return 0;
+//     }
+
+//     event *e;
+//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+//     if (!e) {
+//         bpf_printk("Failed ringbuf_reserve");
+//         return 0;
+//     }    
     
-    e->event_id = SECID_SB_MOUNT;
-    e->retval = 0; 
+//     int ret = init_context(e);
+//     if (ret < 0) {
+//         bpf_ringbuf_discard(e, 0);
+//         return 0;
+//     }
+
+//     get_process_path(e->data.source, sizeof(e->data.source));
     
-    bpf_ringbuf_submit(e, 0);
-
-	return 0;
-}
-
-SEC("lsm/sb_remount")
-int BPF_PROG(sb_remount, struct super_block *sb, void *mnt_opts)
-{
-	////bpf_printk("lsm_hook: fs: sb_remount\n");
-
-	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }    
+//     e->event_id = SECID_SB_MOUNT;
+//     e->retval = 0; 
     
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
+//     bpf_ringbuf_discard(e, 0);
 
-    get_process_path(e->data.source, sizeof(e->data.source));
+// 	return 0;
+// }
+
+// SEC("lsm/sb_remount")
+// int BPF_PROG(sb_remount, struct super_block *sb, void *mnt_opts)
+// {
+// 	////bpf_printk("lsm_hook: fs: sb_remount\n");
+
+// 	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
     
-    e->event_id = SECID_SB_REMOUNT;
-    e->retval = 0; 
+//     __u64 cgroup_id = bpf_get_current_cgroup_id();
+
+//     if (!should_monitor(ppid, cgroup_id)) {
+//         return 0;
+//     }
+
+//     event *e;
+//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+//     if (!e) {
+//         bpf_printk("Failed ringbuf_reserve");
+//         return 0;
+//     }    
     
-    bpf_ringbuf_submit(e, 0);
+//     int ret = init_context(e);
+//     if (ret < 0) {
+//         bpf_ringbuf_discard(e, 0);
+//         return 0;
+//     }
 
-	return 0;
-}
-
-SEC("lsm/sb_umount")
-int BPF_PROG(sb_umount, struct vfsmount *mnt, int flags)
-{
-	////bpf_printk("lsm_hook: fs: sb_umount\n");
-
-	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }    
+//     get_process_path(e->data.source, sizeof(e->data.source));
     
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
-
-    get_process_path(e->data.source, sizeof(e->data.source));
+//     e->event_id = SECID_SB_REMOUNT;
+//     e->retval = 0; 
     
-    e->event_id = SECID_SB_UMOUNT;
-    e->retval = 0; 
-    
-    bpf_ringbuf_submit(e, 0);
+//     bpf_ringbuf_discard(e, 0);
 
-	return 0;
-}
+// 	return 0;
+// }
+
+// SEC("lsm/sb_umount")
+// int BPF_PROG(sb_umount, struct vfsmount *mnt, int flags)
+// {
+// 	////bpf_printk("lsm_hook: fs: sb_umount\n");
+
+// 	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+    
+//     __u64 cgroup_id = bpf_get_current_cgroup_id();
+
+//     if (!should_monitor(ppid, cgroup_id)) {
+//         return 0;
+//     }
+
+//     event *e;
+//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+//     if (!e) {
+//         bpf_printk("Failed ringbuf_reserve");
+//         return 0;
+//     }    
+    
+//     int ret = init_context(e);
+//     if (ret < 0) {
+//         bpf_ringbuf_discard(e, 0);
+//         return 0;
+//     }
+
+//     get_process_path(e->data.source, sizeof(e->data.source));
+    
+//     e->event_id = SECID_SB_UMOUNT;
+//     e->retval = 0; 
+    
+//     bpf_ringbuf_discard(e, 0);
+
+// 	return 0;
+// }
 
 SEC("lsm/socket_connect")
 int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
 	 int addrlen)
 {
 
-	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+    
+    __u64 cgroup_id = bpf_get_current_cgroup_id();
+
+    if (!should_monitor(ppid, cgroup_id)) {
+        return 0;
+    }
+
+    event *e;
+    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
         bpf_printk("Failed ringbuf_reserve");
         return 0;
@@ -253,9 +313,9 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
 
     net.flags = POLICY_NET_CONNECT;
 
-    __u32 eperm = match_policy(POLICY_NETWORK, &net);
+    __u32 eperm = match_policy(task, POLICY_NETWORK, &net);
 
-    if ((eperm & 0x00E0) == (POLICY_NET_CONNECT | POLICY_NET_DST)) {
+    if ((eperm & 0x0140) == (POLICY_NET_CONNECT | POLICY_NET_DST)) {
         e->retval = -1;   
         bpf_ringbuf_submit(e, 0);
         return -1;
@@ -267,7 +327,17 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
 
 SEC("lsm/socket_recvmsg")
 int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, int flags) {
-    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+    
+    __u64 cgroup_id = bpf_get_current_cgroup_id();
+
+    if (!should_monitor(ppid, cgroup_id)) {
+        return 0;
+    }
+
+    event *e;
+    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
         bpf_printk("Failed ringbuf_reserve");
         return 0;
@@ -298,9 +368,9 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
 
     net.flags = POLICY_NET_CONNECT;
 
-    __u32 eperm = match_policy(POLICY_NETWORK, &net);
+    __u32 eperm = match_policy(task, POLICY_NETWORK, &net);
     
-    if ((eperm & 0x00E0) == (POLICY_NET_CONNECT | POLICY_NET_SRC)) {
+    if ((eperm & 0x00C0) == (POLICY_NET_CONNECT | POLICY_NET_SRC)) {
         e->retval = -1;   
         bpf_ringbuf_submit(e, 0);
         return -1;
@@ -310,119 +380,169 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
     return 0;
 }
 
-SEC("lsm/task_fix_setuid")
-int BPF_PROG(task_fix_setuid, struct cred *new, const struct cred *old,
-	 int flags)
-{
-	////bpf_printk("lsm_hook: task: task_fix_setuid\n");
+// SEC("lsm/task_fix_setuid")
+// int BPF_PROG(task_fix_setuid, struct cred *new, const struct cred *old,
+// 	 int flags)
+// {
+// 	////bpf_printk("lsm_hook: task: task_fix_setuid\n");
 
-	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }    
+// 	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
     
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
+//     __u64 cgroup_id = bpf_get_current_cgroup_id();
+
+//     if (!should_monitor(ppid, cgroup_id)) {
+//         return 0;
+//     }
+
+//     event *e;
+//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+//     if (!e) {
+//         bpf_printk("Failed ringbuf_reserve");
+//         return 0;
+//     }    
     
-    get_process_path(e->data.source, sizeof(e->data.source));
-
-    e->event_id = SECID_TASK_FIX_SETUID;
-    e->retval = 0; 
+//     int ret = init_context(e);
+//     if (ret < 0) {
+//         bpf_ringbuf_discard(e, 0);
+//         return 0;
+//     }
     
-    bpf_ringbuf_submit(e, 0);
+//     get_process_path(e->data.source, sizeof(e->data.source));
 
-	return 0;
-}
-
-SEC("lsm/kernel_module_request")
-int BPF_PROG(kernel_module_request, char *kmod_name)
-{
-    ////bpf_printk("lsm_hook: kernel: kernel_module_request\n");
-    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }    
+//     e->event_id = SECID_TASK_FIX_SETUID;
+//     e->retval = 0; 
     
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
+//     bpf_ringbuf_discard(e, 0);
 
-    get_process_path(e->data.source, sizeof(e->data.source));
+// 	return 0;
+// }
+
+// SEC("lsm/kernel_module_request")
+// int BPF_PROG(kernel_module_request, char *kmod_name)
+// {
+//     ////bpf_printk("lsm_hook: kernel: kernel_module_request\n");
+//     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
     
-    e->event_id = SECID_KERNEL_MODULE_REQUEST;
-    e->retval = 0; 
+//     __u64 cgroup_id = bpf_get_current_cgroup_id();
+
+//     if (!should_monitor(ppid, cgroup_id)) {
+//         return 0;
+//     }
+
+//     event *e;
+//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+//     if (!e) {
+//         bpf_printk("Failed ringbuf_reserve");
+//         return 0;
+//     }    
     
-    bpf_ringbuf_submit(e, 0);
+//     int ret = init_context(e);
+//     if (ret < 0) {
+//         bpf_ringbuf_discard(e, 0);
+//         return 0;
+//     }
 
-	return 0;
-}
-
-SEC("lsm/kernel_read_file")
-int BPF_PROG(kernel_read_file, struct file *file, enum kernel_read_file_id id)
-{
-    ////bpf_printk("lsm_hook: kernel: kernel_read_file\n");
-    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }    
+//     get_process_path(e->data.source, sizeof(e->data.source));
     
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
-
-    get_process_path(e->data.source, sizeof(e->data.source));
+//     e->event_id = SECID_KERNEL_MODULE_REQUEST;
+//     e->retval = 0; 
     
-    e->event_id = SECID_KERNEL_READ_FILE;
-    e->retval = 0; 
+//     bpf_ringbuf_discard(e, 0);
+
+// 	return 0;
+// }
+
+// SEC("lsm/kernel_read_file")
+// int BPF_PROG(kernel_read_file, struct file *file, enum kernel_read_file_id id)
+// {
+//     ////bpf_printk("lsm_hook: kernel: kernel_read_file\n");
+//     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
     
-    bpf_ringbuf_submit(e, 0);
+//     __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    return 0;
+//     if (!should_monitor(ppid, cgroup_id)) {
+//         return 0;
+//     }
 
-}
-
-SEC("lsm/bprm_creds_from_file")
-int BPF_PROG(bprm_creds_from_file, struct linux_binprm *bprm, struct file *file)
-{
-    ////bpf_printk("lsm_hook: exec: bprm_creds_from_file\n");
-    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }    
+//     event *e;
+//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+//     if (!e) {
+//         bpf_printk("Failed ringbuf_reserve");
+//         return 0;
+//     }    
     
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
+//     int ret = init_context(e);
+//     if (ret < 0) {
+//         bpf_ringbuf_discard(e, 0);
+//         return 0;
+//     }
 
-    get_process_path(e->data.source, sizeof(e->data.source));
+//     get_process_path(e->data.source, sizeof(e->data.source));
     
-    e->event_id = SECID_BPRM_CREDS_FROM_FILE;
-    e->retval = 0; 
+//     e->event_id = SECID_KERNEL_READ_FILE;
+//     e->retval = 0; 
     
-    bpf_ringbuf_submit(e, 0);
+//     bpf_ringbuf_discard(e, 0);
 
-    return 0;
+//     return 0;
 
-}
+// }
+
+// SEC("lsm/bprm_creds_from_file")
+// int BPF_PROG(bprm_creds_from_file, struct linux_binprm *bprm, struct file *file)
+// {
+//     ////bpf_printk("lsm_hook: exec: bprm_creds_from_file\n");
+//     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+    
+//     __u64 cgroup_id = bpf_get_current_cgroup_id();
+
+//     if (!should_monitor(ppid, cgroup_id)) {
+//         return 0;
+//     }
+
+//     event *e;
+//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+//     if (!e) {
+//         bpf_printk("Failed ringbuf_reserve");
+//         return 0;
+//     }    
+    
+//     int ret = init_context(e);
+//     if (ret < 0) {
+//         bpf_ringbuf_discard(e, 0);
+//         return 0;
+//     }
+
+//     get_process_path(e->data.source, sizeof(e->data.source));
+    
+//     e->event_id = SECID_BPRM_CREDS_FROM_FILE;
+//     e->retval = 0; 
+    
+//     bpf_ringbuf_discard(e, 0);
+
+//     return 0;
+
+// }
 
 SEC("lsm/file_permission")
 int BPF_PROG(file_permission, struct file *file, int mask)
 {
     ////bpf_printk("lsm_hook: file: file_permission\n");
-    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+    
+    __u64 cgroup_id = bpf_get_current_cgroup_id();
+
+    if (!should_monitor(ppid, cgroup_id)) {
+        return 0;
+    }
+
+    event *e;
+    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
         bpf_printk("Failed ringbuf_reserve");
         return 0;
@@ -448,97 +568,137 @@ int BPF_PROG(file_permission, struct file *file, int mask)
     e->event_id = SECID_FILE_PERMISSION;
     e->retval = 0; 
     
-    bpf_ringbuf_submit(e, 0);
+    bpf_ringbuf_discard(e, 0);
 
     return 0;
 
 }
 
-SEC("lsm/capable")
-int BPF_PROG(capable, struct task_struct *task, const struct cred *cred, int cap)
-{
-    ////bpf_printk("lsm_hook: task: capable\n");
-    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }    
+// SEC("lsm/capable")
+// int BPF_PROG(capable, struct task_struct *task, const struct cred *cred, int cap)
+// {
+//     ////bpf_printk("lsm_hook: task: capable\n");
+//     // struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
     
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
+//     __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    get_process_path(e->data.source, sizeof(e->data.source));
+//     if (!should_monitor(ppid, cgroup_id)) {
+//         return 0;
+//     }
 
-    e->event_id = SECID_CAPABLE;
-    e->retval = 0; 
+//     event *e;
+//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+//     if (!e) {
+//         bpf_printk("Failed ringbuf_reserve");
+//         return 0;
+//     }    
     
-    bpf_ringbuf_submit(e, 0);
+//     int ret = init_context(e);
+//     if (ret < 0) {
+//         bpf_ringbuf_discard(e, 0);
+//         return 0;
+//     }
 
-    return 0;
+//     get_process_path(e->data.source, sizeof(e->data.source));
 
-}
-
-SEC("lsm/path_mknod")
-int BPF_PROG(path_mknod, struct path *path, umode_t mode, dev_t dev)
-{
-    ////bpf_printk("lsm_hook: fs: path_mknod\n");
-    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }    
+//     e->event_id = SECID_CAPABLE;
+//     e->retval = 0; 
     
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
+//     bpf_ringbuf_discard(e, 0);
+
+//     return 0;
+
+// }
+
+// SEC("lsm/path_mknod")
+// int BPF_PROG(path_mknod, struct path *path, umode_t mode, dev_t dev)
+// {
+//     ////bpf_printk("lsm_hook: fs: path_mknod\n");
+//     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
     
-    get_process_path(e->data.source, sizeof(e->data.source));
+//     __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    e->event_id = SECID_PATH_MKNOD;
-    e->retval = 0; 
+//     if (!should_monitor(ppid, cgroup_id)) {
+//         return 0;
+//     }
+
+//     event *e;
+//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+//     if (!e) {
+//         bpf_printk("Failed ringbuf_reserve");
+//         return 0;
+//     }    
     
-    bpf_ringbuf_submit(e, 0);
-
-    return 0;
-
-}
-
-SEC("lsm/path_rmdir")
-int BPF_PROG(path_rmdir, struct path *path)
-{
-    ////bpf_printk("lsm_hook: fs: path_rmdir\n");
-    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }    
+//     int ret = init_context(e);
+//     if (ret < 0) {
+//         bpf_ringbuf_discard(e, 0);
+//         return 0;
+//     }
     
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
+//     get_process_path(e->data.source, sizeof(e->data.source));
+
+//     e->event_id = SECID_PATH_MKNOD;
+//     e->retval = 0; 
     
-    get_process_path(e->data.source, sizeof(e->data.source));
+//     bpf_ringbuf_discard(e, 0);
 
-    e->event_id = SECID_PATH_RMDIR;
-    e->retval = 0; 
+//     return 0;
+
+// }
+
+// SEC("lsm/path_rmdir")
+// int BPF_PROG(path_rmdir, struct path *path)
+// {
+//     ////bpf_printk("lsm_hook: fs: path_rmdir\n");
+//     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
     
-    bpf_ringbuf_submit(e, 0);
+//     __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    return 0;
+//     if (!should_monitor(ppid, cgroup_id)) {
+//         return 0;
+//     }
 
-}
+//     event *e;
+//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+//     if (!e) {
+//         bpf_printk("Failed ringbuf_reserve");
+//         return 0;
+//     }    
+    
+//     int ret = init_context(e);
+//     if (ret < 0) {
+//         bpf_ringbuf_discard(e, 0);
+//         return 0;
+//     }
+    
+//     get_process_path(e->data.source, sizeof(e->data.source));
+
+//     e->event_id = SECID_PATH_RMDIR;
+//     e->retval = 0; 
+    
+//     bpf_ringbuf_discard(e, 0);
+
+//     return 0;
+
+// }
 
 SEC("lsm/path_unlink")
 int BPF_PROG(path_unlink, struct path *path)
 {
-    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+    
+    __u64 cgroup_id = bpf_get_current_cgroup_id();
+
+    if (!should_monitor(ppid, cgroup_id)) {
+        return 0;
+    }
+
+    event *e;
+    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
         bpf_printk("Failed ringbuf_reserve");
         return 0;
@@ -554,7 +714,7 @@ int BPF_PROG(path_unlink, struct path *path)
         //bpf_printk("Failed to get file path");
     }
 
-    __u32 flags = match_policy(POLICY_FILE, e->data.path);
+    __u32 flags = match_policy(task, POLICY_FILE, e->data.path);
     
     if (!flags) goto clear;
 
@@ -577,37 +737,57 @@ clear:
 }
 
 
-SEC("lsm/path_symlink")
-int BPF_PROG(path_symlink, struct path *path, struct path *target)
-{
-    ////bpf_printk("lsm_hook: fs: path_symlink\n");
-    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }    
+// SEC("lsm/path_symlink")
+// int BPF_PROG(path_symlink, struct path *path, struct path *target)
+// {
+//     ////bpf_printk("lsm_hook: fs: path_symlink\n");
+//     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
     
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
+//     __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    get_process_path(e->data.source, sizeof(e->data.source));
+//     if (!should_monitor(ppid, cgroup_id)) {
+//         return 0;
+//     }
 
-    e->event_id = SECID_PATH_SYMLINK;
-    e->retval = 0; 
+//     event *e;
+//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+//     if (!e) {
+//         bpf_printk("Failed ringbuf_reserve");
+//         return 0;
+//     }    
     
-    bpf_ringbuf_submit(e, 0);
+//     int ret = init_context(e);
+//     if (ret < 0) {
+//         bpf_ringbuf_discard(e, 0);
+//         return 0;
+//     }
 
-    return 0;
+//     get_process_path(e->data.source, sizeof(e->data.source));
 
-}
+//     e->event_id = SECID_PATH_SYMLINK;
+//     e->retval = 0; 
+    
+//     bpf_ringbuf_discard(e, 0);
+
+//     return 0;
+
+// }
 
 SEC("lsm/path_mkdir")
 int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
 {    
-    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+    
+    __u64 cgroup_id = bpf_get_current_cgroup_id();
+
+    if (!should_monitor(ppid, cgroup_id)) {
+        return 0;
+    }
+
+    event *e;
+    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
 
     if (!e) {
         bpf_printk("Failed ringbuf_reserve");
@@ -627,7 +807,7 @@ int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
 
     //bpf_printk("lsm_hook: fs: path_mkdir at %s\n",e->data.path);
 
-    __u32 flags = match_policy(POLICY_FILE,e->data.path);
+    __u32 flags = match_policy(task, POLICY_FILE,e->data.path);
     
     if (!flags) goto clear;
 
@@ -651,39 +831,59 @@ clear:
 
     
 
-SEC("lsm/path_link")
-int BPF_PROG(path_link, struct dentry *old_dentry, struct path *new_dir, struct dentry *new_dentry)
-{
-    ////bpf_printk("lsm_hook: fs: path_link\n");
-    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }    
+// SEC("lsm/path_link")
+// int BPF_PROG(path_link, struct dentry *old_dentry, struct path *new_dir, struct dentry *new_dentry)
+// {
+//     ////bpf_printk("lsm_hook: fs: path_link\n");
+//     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
     
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
+//     __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    get_process_path(e->data.source, sizeof(e->data.source));
+//     if (!should_monitor(ppid, cgroup_id)) {
+//         return 0;
+//     }
 
-    e->event_id = SECID_PATH_LINK;
-    e->retval = 0; 
+//     event *e;
+//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+//     if (!e) {
+//         bpf_printk("Failed ringbuf_reserve");
+//         return 0;
+//     }    
     
-    bpf_ringbuf_submit(e, 0);
+//     int ret = init_context(e);
+//     if (ret < 0) {
+//         bpf_ringbuf_discard(e, 0);
+//         return 0;
+//     }
 
-    return 0;
+//     get_process_path(e->data.source, sizeof(e->data.source));
 
-}
+//     e->event_id = SECID_PATH_LINK;
+//     e->retval = 0; 
+    
+//     bpf_ringbuf_discard(e, 0);
+
+//     return 0;
+
+// }
 
 SEC("lsm/path_rename")
 int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
              const struct path *new_dir, struct dentry *new_dentry) {
     //인자 잘못 선언되어있던 것 수정, 차후 파일 전체 로직 통합 및 수정 필요
 
-    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+    
+    __u64 cgroup_id = bpf_get_current_cgroup_id();
+
+    if (!should_monitor(ppid, cgroup_id)) {
+        return 0;
+    }
+
+    event *e;
+    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
         bpf_printk("Failed ringbuf_reserve");
         return 0;
@@ -700,7 +900,7 @@ int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
    if (bpf_d_path(old_dir, e->data.path, sizeof(e->data.path)) < 0) {   
         //bpf_printk("Failed to get file path");
     }
-    __u32 flags = match_policy(POLICY_FILE, e->data.path);
+    __u32 flags = match_policy(task, POLICY_FILE, e->data.path);
 
     //bpf_printk("lsm_hook: fs: path_rename at %s\n", e->data.path);
     
@@ -726,83 +926,113 @@ clear:
     return ret;
 }
 
-SEC("lsm/path_chmod")
-int BPF_PROG(path_chmod, struct path *path, umode_t mode)
-{
-    ////bpf_printk("lsm_hook: fs: path_chmod\n");
-    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }    
+// SEC("lsm/path_chmod")
+// int BPF_PROG(path_chmod, struct path *path, umode_t mode)
+// {
+//     ////bpf_printk("lsm_hook: fs: path_chmod\n");
+//     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
     
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
+//     __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    get_process_path(e->data.source, sizeof(e->data.source));
+//     if (!should_monitor(ppid, cgroup_id)) {
+//         return 0;
+//     }
 
-    e->event_id = SECID_PATH_CHMOD;
-    e->retval = 0; 
+//     event *e;
+//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+//     if (!e) {
+//         bpf_printk("Failed ringbuf_reserve");
+//         return 0;
+//     }    
     
-    bpf_ringbuf_submit(e, 0);
+//     int ret = init_context(e);
+//     if (ret < 0) {
+//         bpf_ringbuf_discard(e, 0);
+//         return 0;
+//     }
 
-    return 0;
+//     get_process_path(e->data.source, sizeof(e->data.source));
 
-}
-
-SEC("lsm/path_truncate")
-int BPF_PROG(path_truncate, struct path *path, loff_t length)
-{
-    ////bpf_printk("lsm_hook: fs: path_truncate\n");
-    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }    
+//     e->event_id = SECID_PATH_CHMOD;
+//     e->retval = 0; 
     
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
+//     bpf_ringbuf_discard(e, 0);
 
-    get_process_path(e->data.source, sizeof(e->data.source));
+//     return 0;
+
+// }
+
+// SEC("lsm/path_truncate")
+// int BPF_PROG(path_truncate, struct path *path, loff_t length)
+// {
+//     ////bpf_printk("lsm_hook: fs: path_truncate\n");
+//     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
     
-    e->event_id = SECID_PATH_TRUNCATE;
-    e->retval = 0; 
+//     __u64 cgroup_id = bpf_get_current_cgroup_id();
+
+//     if (!should_monitor(ppid, cgroup_id)) {
+//         return 0;
+//     }
+
+//     event *e;
+//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+//     if (!e) {
+//         bpf_printk("Failed ringbuf_reserve");
+//         return 0;
+//     }    
     
-    bpf_ringbuf_submit(e, 0);
+//     int ret = init_context(e);
+//     if (ret < 0) {
+//         bpf_ringbuf_discard(e, 0);
+//         return 0;
+//     }
 
-    return 0;
-
-}
-
-SEC("lsm/mmap_file")
-int BPF_PROG(mmap_file, struct file *file, unsigned long reqprot, unsigned long prot, unsigned long flags)
-{
-    event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    //bpf_printk("lsm_hook: file: mmap_file\n");
-        bpf_printk("Failed ringbuf_reserve");
-    if (!e) {
-        return 0;
-    }    
+//     get_process_path(e->data.source, sizeof(e->data.source));
     
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
-
-    get_process_path(e->data.source, sizeof(e->data.source));
+//     e->event_id = SECID_PATH_TRUNCATE;
+//     e->retval = 0; 
     
-    e->event_id = SECID_MMAP_FILE;
-    e->retval = 0; 
+//     bpf_ringbuf_discard(e, 0);
+
+//     return 0;
+
+// }
+
+// SEC("lsm/mmap_file")
+// int BPF_PROG(mmap_file, struct file *file, unsigned long reqprot, unsigned long prot, unsigned long flags)
+// {
+//     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
     
-    bpf_ringbuf_submit(e, 0);
+//     __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    return 0;
+//     if (!should_monitor(ppid, cgroup_id)) {
+//         return 0;
+//     }
 
-}
+//     event *e;
+//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+//     //bpf_printk("lsm_hook: file: mmap_file\n");
+//     if (!e) {
+//         bpf_printk("Failed ringbuf_reserve");
+//         return 0;
+//     }    
+    
+//     int ret = init_context(e);
+//     if (ret < 0) {
+//         bpf_ringbuf_discard(e, 0);
+//         return 0;
+//     }
+
+//     get_process_path(e->data.source, sizeof(e->data.source));
+    
+//     e->event_id = SECID_MMAP_FILE;
+//     e->retval = 0; 
+    
+//     bpf_ringbuf_discard(e, 0);
+
+//     return 0;
+
+// }
