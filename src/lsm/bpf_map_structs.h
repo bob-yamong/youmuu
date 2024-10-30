@@ -7,6 +7,10 @@
 
 #include "policy_map_structs.h"
 
+#define ETH_P_IP 0x0800  // Define IPv4 Ethernet type
+#define AF_INET 2    // IPv4
+#define AF_INET6 10  // IPv6
+
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
     __uint(max_entries, 1 << 30);  // 1GB 크기
@@ -27,6 +31,24 @@ struct {
     __type(value, char[MAX_PATH_LENGTH]);
 } path_buffer SEC(".maps");
 
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 1024);
+    __type(key, u32);
+    __type(value, u32);
+} container_pids SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 1024);
+    __type(key, u64);
+    __type(value, u64);
+} container_cgroup_id SEC(".maps");
+
+static __always_inline __u16 bpf_ntohs(__u16 val) {
+    return (val << 8) | (val >> 8);
+}
+
 static __always_inline __u64 get_cgroup_id() {
     struct task_struct *cur_tsk = (struct task_struct *)bpf_get_current_task();
     if (cur_tsk == NULL) {
@@ -39,6 +61,20 @@ static __always_inline __u64 get_cgroup_id() {
     __u64 cgroup_id = BPF_CORE_READ(cur_tsk, cgroups, subsys[mem_cgrp_id], cgroup, kn, id);
 
     return cgroup_id;
+}
+
+static __always_inline int should_monitor(u32 ppid, u64 cgroup_id) {
+    u32 *monitored;
+
+    monitored = bpf_map_lookup_elem(&container_cgroup_id, &cgroup_id);
+    if (monitored)
+        return 1;
+    
+    monitored = bpf_map_lookup_elem(&container_pids, &ppid);
+    if (monitored)
+        return 1;
+    
+    return 0;
 }
 
 // Custom strncmp function for BPF
@@ -131,8 +167,8 @@ static __always_inline int init_context(event *event_data) {
   return 0;
 }
 
-static __always_inline __u32 match_policy(enum policy_type type, void *data) {
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+static __always_inline __u32 match_policy(struct task_struct *task, enum policy_type type, void *data) {
+    // struct task_struct *task = (struct task_struct *)bpf_get_current_task();
     struct policy_key key = {};
     
     key.pid_ns_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);

@@ -8,8 +8,11 @@
 #include <bpf/bpf.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <iostream>
+
 #include "enforcement.skel.h"
 
+#include "container_info.h"
 #include "policy_map_structs.h"
 #include "parser.h"
 
@@ -30,19 +33,20 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
     struct tm *tm_info = localtime(&event_time);
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
 
-    printf("--------- Event ---------\n");
-    printf("Timestamp: %s.%09llu\n", timestamp, e->ts % 1000000000);
-    printf("Container ID: pid_ns=%u, mnt_ns=%u\n", e->pid_id, e->mnt_id);
-    printf("Process: host_ppid=%u, host_pid=%u, ppid=%u, pid=%u, uid=%u\n", 
-           e->host_ppid, e->host_pid, e->ppid, e->pid, e->uid);
-    printf("Cgroup ID: %llu\n", e->cgroup_id);
-    printf("Event ID: %d\n", e->event_id);
-    printf("Return Value: %lld\n", e->retval);
-    printf("Command: %s\n", e->comm);
-    printf("Data:\n");
-    printf("  Path: %s\n", e->data.path);
-    printf("  Source: %s\n", e->data.source);
-    printf("--------------------------\n\n");
+    printf("--------- Event ---------\n"
+           "Timestamp: %s.%09llu\n"
+           "Container ID: pid_ns=%u, mnt_ns=%u\n"
+           "Process: host_ppid=%u, host_pid=%u, ppid=%u, pid=%u, uid=%u\n"
+           "Cgroup ID: %llu\n"
+           "Event ID: %d\n"
+           "Return Value: %lld\n"
+           "Command: %s\n"
+           "Data:\n"
+           "  Path: %s\n"
+           "  Source: %s\n"
+           "--------------------------\n\n",
+           timestamp, e->ts % 1000000000, e->pid_id, e->mnt_id, e->host_ppid, e->host_pid, e->ppid, e->pid, e->uid,
+           e->cgroup_id, e->event_id, e->retval, e->comm, e->data.path, e->data.source);
 
     return 0;
 }
@@ -330,10 +334,8 @@ int add_policy(int map_fd) {
             flush_input_buffer();
             printf("Enter network policy\n");
             if (get_yes_no_input("Block Network connect")) np->flags |= POLICY_NET_CONNECT;
-            if (get_yes_no_input("Block Network bind")) np->flags |= POLICY_NET_BIND;
-            if (get_yes_no_input("Block Nework Accept")) np->flags |= POLICY_NET_ACCEPT;
-            if (get_yes_no_input("Block Net Send")) np->flags |= POLICY_NET_SEND;
-            if (get_yes_no_input("Block Net Recv")) np->flags |= POLICY_NET_RECV;
+            if (get_yes_no_input("Block Inbound traffic")) np->flags |= POLICY_NET_SRC;
+            if (get_yes_no_input("Block Outbound traffic")) np->flags |= POLICY_NET_DST;
 
             if (get_yes_no_input("Leave a log")) np->flags |= POLICY_AUDIT;
             if (get_yes_no_input("Explicit Deny")) np->flags |= POLICY_DENY;
@@ -569,6 +571,43 @@ int main(int argc, char **argv)
         }
     }
 
+    {
+        std::cout << "컨테이너 PID 자동 감지 중...\n";
+        int detected_containers = ContainerManager::getContainerPIDs();
+        if (detected_containers <= 0)
+        {
+            std::cerr << "실행 중인 컨테이너를 찾을 수 없습니다.\n";
+            goto cleanup;
+        }
+        std::cout << detected_containers << "개의 컨테이너를 감지했습니다.\n";
+
+        for (const auto &container : ContainerManager::containers)
+        {
+            __u32 key_pid = static_cast<__u32>(container.pid);
+            __u32 value_pid = 1;
+            __u64 key_inode = static_cast<__u64>(ContainerManager::getContainerInode(container.id));
+            __u64 value_inode = 1;
+
+            err = bpf_map__update_elem(skel->maps.container_pids, &key_pid, sizeof(key_pid), &value_pid, sizeof(value_pid), BPF_ANY);
+            if (err)
+            {
+                std::cerr << "컨테이너 PID " << container.pid << "를 맵에 추가하는데 실패했습니다: " << strerror(errno) << "\n";
+                continue;
+            }
+
+            err = bpf_map__update_elem(skel->maps.container_cgroup_id, &key_inode, sizeof(key_inode), &value_inode, sizeof(value_inode), BPF_ANY);
+            if (err)
+            {
+                std::cerr << "컨테이너 inode " << key_inode << "를 맵에 추가하는데 실패했습니다: " << strerror(errno) << "\n";
+                // PID 맵에서 제거
+                bpf_map__delete_elem(skel->maps.container_pids, &key_pid, sizeof(key_pid), BPF_ANY);
+                continue;
+            }
+
+            std::cout << "컨테이너 ID: " << container.id << ", PID: " << container.pid << ", inode: " << key_inode << "를 모니터링 중\n";
+        }
+    }
+
     // 링 버퍼 설정
     rb = ring_buffer__new(bpf_map__fd(skel->maps.events), print_event, NULL, NULL);
     if (!rb) {
@@ -630,7 +669,7 @@ int main(int argc, char **argv)
             print_policies(map_fd);
             break;
         case SHOW_LOG:
-            err = ring_buffer__poll(rb, 10 /* timeout, ms */);
+            err = ring_buffer__poll(rb, 1 /* timeout, ms */);
             if (err < 0) {
                 printf("Error polling ring buffer: %d\n", err);
                 goto cleanup;

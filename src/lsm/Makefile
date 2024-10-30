@@ -20,7 +20,10 @@ VMLINUX := ../../vmlinux/$(ARCH)/vmlinux.h
 INCLUDES := -I$(OUTPUT) -I../../libbpf/include/uapi -I$(dir $(VMLINUX))
 CFLAGS := -g -Wall
 CXXFLAGS := $(CFLAGS) -std=c++17
+CXXFLAGS += -I/usr/include/yaml  # Update if yaml.h is in a different directory
 ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS)
+
+LIBS := -lelf -lz -lcurl -ljson-c
 
 APPS = enforcement
 
@@ -101,9 +104,10 @@ $(OUTPUT)/%.o: %.cpp $(wildcard %.h) | $(OUTPUT)
 	$(Q)$(CXX) $(CXXFLAGS) $(INCLUDES) -c $(filter %.cpp,$^) -o $@
 
 # Build application binary
-$(APPS): %: $(OUTPUT)/%.o $(LIBBPF_OBJ) | $(OUTPUT)
+# Build application binary
+$(APPS): %: $(OUTPUT)/%.o $(LIBBPF_OBJ) $(OUTPUT)/container_info.o | $(OUTPUT)
 	$(call msg,BINARY,$@)
-	$(Q)$(CXX) $(CXXFLAGS) $^ $(ALL_LDFLAGS) -lelf -lz -lyaml -o $@
+	$(Q)$(CXX) $(CXXFLAGS) $^ $(ALL_LDFLAGS) $(LIBS) -lyaml -o $@
 
 # delete failed targets
 .DELETE_ON_ERROR:

@@ -16,14 +16,12 @@ enum section_nr {
     SECID_SB_MOUNT,
     SECID_SB_REMOUNT,
     SECID_SB_UMOUNT,
-    SECID_SOCKET_BIND,
     SECID_SOCKET_CONNECT,
+    SECID_SOCKET_RECVMSG,
     SECID_TASK_FIX_SETUID,
     SECID_KERNEL_MODULE_REQUEST,
     SECID_KERNEL_READ_FILE,
     SECID_BPRM_CREDS_FROM_FILE,
-    SECID_SOCKET_CREATE,
-    SECID_SOCKET_ACCEPT,
     SECID_FILE_PERMISSION,
     SECID_CAPABLE,
     SECID_PATH_MKNOD,
@@ -71,10 +69,8 @@ struct file_policy {
 
 // 네트워크 관련 플래그
 #define POLICY_NET_CONNECT  (1 << 6)   // 네트워크 연결 허용
-#define POLICY_NET_BIND     (1 << 7)   // 포트 바인딩 허용
-#define POLICY_NET_ACCEPT   (1 << 8)  // 연결 수락 허용
-#define POLICY_NET_SEND     (1 << 9)  // 데이터 전송 허용
-#define POLICY_NET_RECV     (1 << 10)  // 데이터 수신 허용
+#define POLICY_NET_SRC      (1 << 7)   // 인바운드 규칙 허용
+#define POLICY_NET_DST      (1 << 8)   // 아웃바운드 규칙 허용
 struct network_policy {
     __be32 ip;
     __be32 subnet_mask;
