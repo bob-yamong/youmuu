@@ -30,19 +30,20 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
     struct tm *tm_info = localtime(&event_time);
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
 
-    printf("--------- Event ---------\n");
-    printf("Timestamp: %s.%09llu\n", timestamp, e->ts % 1000000000);
-    printf("Container ID: pid_ns=%u, mnt_ns=%u\n", e->pid_id, e->mnt_id);
-    printf("Process: host_ppid=%u, host_pid=%u, ppid=%u, pid=%u, uid=%u\n", 
-           e->host_ppid, e->host_pid, e->ppid, e->pid, e->uid);
-    printf("Cgroup ID: %llu\n", e->cgroup_id);
-    printf("Event ID: %d\n", e->event_id);
-    printf("Return Value: %lld\n", e->retval);
-    printf("Command: %s\n", e->comm);
-    printf("Data:\n");
-    printf("  Path: %s\n", e->data.path);
-    printf("  Source: %s\n", e->data.source);
-    printf("--------------------------\n\n");
+    printf("--------- Event ---------\n"
+           "Timestamp: %s.%09llu\n"
+           "Container ID: pid_ns=%u, mnt_ns=%u\n"
+           "Process: host_ppid=%u, host_pid=%u, ppid=%u, pid=%u, uid=%u\n"
+           "Cgroup ID: %llu\n"
+           "Event ID: %d\n"
+           "Return Value: %lld\n"
+           "Command: %s\n"
+           "Data:\n"
+           "  Path: %s\n"
+           "  Source: %s\n"
+           "--------------------------\n\n",
+           timestamp, e->ts % 1000000000, e->pid_id, e->mnt_id, e->host_ppid, e->host_pid, e->ppid, e->pid, e->uid,
+           e->cgroup_id, e->event_id, e->retval, e->comm, e->data.path, e->data.source);
 
     return 0;
 }
@@ -630,7 +631,7 @@ int main(int argc, char **argv)
             print_policies(map_fd);
             break;
         case SHOW_LOG:
-            err = ring_buffer__poll(rb, 10 /* timeout, ms */);
+            err = ring_buffer__poll(rb, 1 /* timeout, ms */);
             if (err < 0) {
                 printf("Error polling ring buffer: %d\n", err);
                 goto cleanup;

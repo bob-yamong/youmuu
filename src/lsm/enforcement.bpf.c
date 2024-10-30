@@ -18,11 +18,11 @@ char LICENSE[] SEC("license") = "GPL";
 SEC("lsm/bprm_check_security")
 int BPF_PROG(bprm_check_security, struct linux_binprm *bprm)
 {
-    //bpf_printk("lsm_hook: exec: bprm_check_security\n");
+    ////bpf_printk("lsm_hook: exec: bprm_check_security\n");
     
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
-        bpf_printk("Faild ringbuf_reserve");
+        bpf_printk("Failed ringbuf_reserve");
         return 0;
     }
     
@@ -30,7 +30,7 @@ int BPF_PROG(bprm_check_security, struct linux_binprm *bprm)
     if (ret < 0) goto clear;
 
     if (bpf_d_path(&bprm->file->f_path, e->data.path, sizeof(e->data.path)) < 0) {
-        bpf_printk("Failed to get file path");
+        //bpf_printk("Failed to get file path");
     }
 
     get_process_path(e->data.source, sizeof(e->data.source));
@@ -77,7 +77,7 @@ int BPF_PROG(file_open, struct file *file)
     }
 
     if (bpf_d_path(&file->f_path, e->data.path, sizeof(e->data.path)) < 0) {
-        bpf_printk("Failed to get file path");
+        //bpf_printk("Failed to get file path");
     }
 
     get_process_path(e->data.source, sizeof(e->data.source));
@@ -92,15 +92,15 @@ int BPF_PROG(file_open, struct file *file)
 
     
     if ((flags & POLICY_FILE_READ) && ((file->f_flags & O_WRONLY) == 0))  {
-        bpf_printk("block read at %s %d \n", e->data.path, flags);
+        //bpf_printk("block read at %s %d \n", e->data.path, flags);
         ret -= 1;
     }
     else if ((flags & POLICY_FILE_WRITE) && (file->f_flags & (O_WRONLY | O_RDWR))) {
-        bpf_printk("block write at %s %d \n", e->data.path, flags);
+        //bpf_printk("block write at %s %d \n", e->data.path, flags);
         ret -= 1;
     }
     if ((flags & POLICY_FILE_EXEC) && (file->f_flags & FMODE_EXEC)) {
-        bpf_printk("block execute at %s %d \n", e->data.path, flags);
+        //bpf_printk("block execute at %s %d \n", e->data.path, flags);
         ret -= 1;
     }
 
@@ -120,11 +120,11 @@ SEC("lsm/sb_mount")
 int BPF_PROG(sb_mount, const char *dev_name, const struct path *path,
 	const char *type, unsigned long flags, void *data)
 {
-	//bpf_printk("lsm_hook: fs: sb_mount\n");
+	////bpf_printk("lsm_hook: fs: sb_mount\n");
 
 	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
-        bpf_printk("Faild ringbuf_reserve");
+        bpf_printk("Failed ringbuf_reserve");
         return 0;
     }    
     
@@ -147,11 +147,11 @@ int BPF_PROG(sb_mount, const char *dev_name, const struct path *path,
 SEC("lsm/sb_remount")
 int BPF_PROG(sb_remount, struct super_block *sb, void *mnt_opts)
 {
-	//bpf_printk("lsm_hook: fs: sb_remount\n");
+	////bpf_printk("lsm_hook: fs: sb_remount\n");
 
 	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
-        bpf_printk("Faild ringbuf_reserve");
+        bpf_printk("Failed ringbuf_reserve");
         return 0;
     }    
     
@@ -174,11 +174,11 @@ int BPF_PROG(sb_remount, struct super_block *sb, void *mnt_opts)
 SEC("lsm/sb_umount")
 int BPF_PROG(sb_umount, struct vfsmount *mnt, int flags)
 {
-	//bpf_printk("lsm_hook: fs: sb_umount\n");
+	////bpf_printk("lsm_hook: fs: sb_umount\n");
 
 	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
-        bpf_printk("Faild ringbuf_reserve");
+        bpf_printk("Failed ringbuf_reserve");
         return 0;
     }    
     
@@ -205,7 +205,7 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
 
 	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
-        bpf_printk("Faild ringbuf_reserve");
+        bpf_printk("Failed ringbuf_reserve");
         return 0;
     }    
     
@@ -314,11 +314,11 @@ SEC("lsm/task_fix_setuid")
 int BPF_PROG(task_fix_setuid, struct cred *new, const struct cred *old,
 	 int flags)
 {
-	//bpf_printk("lsm_hook: task: task_fix_setuid\n");
+	////bpf_printk("lsm_hook: task: task_fix_setuid\n");
 
 	event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
-        bpf_printk("Faild ringbuf_reserve");
+        bpf_printk("Failed ringbuf_reserve");
         return 0;
     }    
     
@@ -341,10 +341,10 @@ int BPF_PROG(task_fix_setuid, struct cred *new, const struct cred *old,
 SEC("lsm/kernel_module_request")
 int BPF_PROG(kernel_module_request, char *kmod_name)
 {
-    //bpf_printk("lsm_hook: kernel: kernel_module_request\n");
+    ////bpf_printk("lsm_hook: kernel: kernel_module_request\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
-        bpf_printk("Faild ringbuf_reserve");
+        bpf_printk("Failed ringbuf_reserve");
         return 0;
     }    
     
@@ -367,10 +367,10 @@ int BPF_PROG(kernel_module_request, char *kmod_name)
 SEC("lsm/kernel_read_file")
 int BPF_PROG(kernel_read_file, struct file *file, enum kernel_read_file_id id)
 {
-    //bpf_printk("lsm_hook: kernel: kernel_read_file\n");
+    ////bpf_printk("lsm_hook: kernel: kernel_read_file\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
-        bpf_printk("Faild ringbuf_reserve");
+        bpf_printk("Failed ringbuf_reserve");
         return 0;
     }    
     
@@ -394,10 +394,10 @@ int BPF_PROG(kernel_read_file, struct file *file, enum kernel_read_file_id id)
 SEC("lsm/bprm_creds_from_file")
 int BPF_PROG(bprm_creds_from_file, struct linux_binprm *bprm, struct file *file)
 {
-    //bpf_printk("lsm_hook: exec: bprm_creds_from_file\n");
+    ////bpf_printk("lsm_hook: exec: bprm_creds_from_file\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
-        bpf_printk("Faild ringbuf_reserve");
+        bpf_printk("Failed ringbuf_reserve");
         return 0;
     }    
     
@@ -421,10 +421,10 @@ int BPF_PROG(bprm_creds_from_file, struct linux_binprm *bprm, struct file *file)
 SEC("lsm/file_permission")
 int BPF_PROG(file_permission, struct file *file, int mask)
 {
-    //bpf_printk("lsm_hook: file: file_permission\n");
+    ////bpf_printk("lsm_hook: file: file_permission\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
-        bpf_printk("Faild ringbuf_reserve");
+        bpf_printk("Failed ringbuf_reserve");
         return 0;
     }    
     
@@ -457,10 +457,10 @@ int BPF_PROG(file_permission, struct file *file, int mask)
 SEC("lsm/capable")
 int BPF_PROG(capable, struct task_struct *task, const struct cred *cred, int cap)
 {
-    //bpf_printk("lsm_hook: task: capable\n");
+    ////bpf_printk("lsm_hook: task: capable\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
-        bpf_printk("Faild ringbuf_reserve");
+        bpf_printk("Failed ringbuf_reserve");
         return 0;
     }    
     
@@ -484,10 +484,10 @@ int BPF_PROG(capable, struct task_struct *task, const struct cred *cred, int cap
 SEC("lsm/path_mknod")
 int BPF_PROG(path_mknod, struct path *path, umode_t mode, dev_t dev)
 {
-    //bpf_printk("lsm_hook: fs: path_mknod\n");
+    ////bpf_printk("lsm_hook: fs: path_mknod\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
-        bpf_printk("Faild ringbuf_reserve");
+        bpf_printk("Failed ringbuf_reserve");
         return 0;
     }    
     
@@ -511,10 +511,10 @@ int BPF_PROG(path_mknod, struct path *path, umode_t mode, dev_t dev)
 SEC("lsm/path_rmdir")
 int BPF_PROG(path_rmdir, struct path *path)
 {
-    //bpf_printk("lsm_hook: fs: path_rmdir\n");
+    ////bpf_printk("lsm_hook: fs: path_rmdir\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
-        bpf_printk("Faild ringbuf_reserve");
+        bpf_printk("Failed ringbuf_reserve");
         return 0;
     }    
     
@@ -540,7 +540,7 @@ int BPF_PROG(path_unlink, struct path *path)
 {
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
-        bpf_printk("Faild ringbuf_reserve");
+        bpf_printk("Failed ringbuf_reserve");
         return 0;
     }    
     
@@ -551,7 +551,7 @@ int BPF_PROG(path_unlink, struct path *path)
     }
 
     if (bpf_d_path(path, e->data.path, sizeof(e->data.path)) < 0) {
-        bpf_printk("Failed to get file path");
+        //bpf_printk("Failed to get file path");
     }
 
     __u32 flags = match_policy(POLICY_FILE, e->data.path);
@@ -563,7 +563,7 @@ int BPF_PROG(path_unlink, struct path *path)
 
     if (flags & POLICY_FILE_DELETE) ret -= 1;       
     
-    bpf_printk("Operation not permitted at %s by policy \n",e->data.path);
+    //bpf_printk("Operation not permitted at %s by policy \n",e->data.path);
  
     e->retval = ret;
     if (flags & POLICY_AUDIT) bpf_ringbuf_submit(e, 0);
@@ -580,10 +580,10 @@ clear:
 SEC("lsm/path_symlink")
 int BPF_PROG(path_symlink, struct path *path, struct path *target)
 {
-    //bpf_printk("lsm_hook: fs: path_symlink\n");
+    ////bpf_printk("lsm_hook: fs: path_symlink\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
-        bpf_printk("Faild ringbuf_reserve");
+        bpf_printk("Failed ringbuf_reserve");
         return 0;
     }    
     
@@ -610,7 +610,7 @@ int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
 
     if (!e) {
-        bpf_printk("Faild ringbuf_reserve");
+        bpf_printk("Failed ringbuf_reserve");
         return 0;
     }    
     
@@ -622,10 +622,10 @@ int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
     }  
 
     if (bpf_d_path(path, e->data.path, sizeof(e->data.path)) < 0) {
-        bpf_printk("Failed to get file path");
+        //bpf_printk("Failed to get file path");
     }
 
-    bpf_printk("lsm_hook: fs: path_mkdir at %s\n",e->data.path);
+    //bpf_printk("lsm_hook: fs: path_mkdir at %s\n",e->data.path);
 
     __u32 flags = match_policy(POLICY_FILE,e->data.path);
     
@@ -636,7 +636,7 @@ int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
 
     if (flags & POLICY_FILE_APPEND) ret -= 1;       
     
-    bpf_printk("Operation not permitted at %s by policy \n",e->data.path);
+    //bpf_printk("Operation not permitted at %s by policy \n",e->data.path);
  
     e->retval = ret;
     if (flags & POLICY_AUDIT) bpf_ringbuf_submit(e, 0);
@@ -654,10 +654,10 @@ clear:
 SEC("lsm/path_link")
 int BPF_PROG(path_link, struct dentry *old_dentry, struct path *new_dir, struct dentry *new_dentry)
 {
-    //bpf_printk("lsm_hook: fs: path_link\n");
+    ////bpf_printk("lsm_hook: fs: path_link\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
-        bpf_printk("Faild ringbuf_reserve");
+        bpf_printk("Failed ringbuf_reserve");
         return 0;
     }    
     
@@ -698,11 +698,11 @@ int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
 
 
    if (bpf_d_path(old_dir, e->data.path, sizeof(e->data.path)) < 0) {   
-        bpf_printk("Failed to get file path");
+        //bpf_printk("Failed to get file path");
     }
     __u32 flags = match_policy(POLICY_FILE, e->data.path);
 
-    bpf_printk("lsm_hook: fs: path_rename at %s\n", e->data.path);
+    //bpf_printk("lsm_hook: fs: path_rename at %s\n", e->data.path);
     
     if (!flags) goto clear;
 
@@ -729,10 +729,10 @@ clear:
 SEC("lsm/path_chmod")
 int BPF_PROG(path_chmod, struct path *path, umode_t mode)
 {
-    //bpf_printk("lsm_hook: fs: path_chmod\n");
+    ////bpf_printk("lsm_hook: fs: path_chmod\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
-        bpf_printk("Faild ringbuf_reserve");
+        bpf_printk("Failed ringbuf_reserve");
         return 0;
     }    
     
@@ -756,10 +756,10 @@ int BPF_PROG(path_chmod, struct path *path, umode_t mode)
 SEC("lsm/path_truncate")
 int BPF_PROG(path_truncate, struct path *path, loff_t length)
 {
-    //bpf_printk("lsm_hook: fs: path_truncate\n");
+    ////bpf_printk("lsm_hook: fs: path_truncate\n");
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
     if (!e) {
-        bpf_printk("Faild ringbuf_reserve");
+        bpf_printk("Failed ringbuf_reserve");
         return 0;
     }    
     
@@ -784,8 +784,8 @@ SEC("lsm/mmap_file")
 int BPF_PROG(mmap_file, struct file *file, unsigned long reqprot, unsigned long prot, unsigned long flags)
 {
     event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    bpf_printk("lsm_hook: file: mmap_file\n");
-        bpf_printk("Faild ringbuf_reserve");
+    //bpf_printk("lsm_hook: file: mmap_file\n");
+        bpf_printk("Failed ringbuf_reserve");
     if (!e) {
         return 0;
     }    
