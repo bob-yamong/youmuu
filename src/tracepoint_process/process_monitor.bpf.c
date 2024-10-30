@@ -18,13 +18,13 @@ struct {
 
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
-    __uint(max_entries, 1 << 28); // 128MB
+    __uint(max_entries, 1 << 27); // 128MB
 } events_1 SEC(".maps");
 
-struct {
-    __uint(type, BPF_MAP_TYPE_RINGBUF);
-    __uint(max_entries, 1 << 28); // 128MB
-} events_2 SEC(".maps");
+// struct {
+//     __uint(type, BPF_MAP_TYPE_RINGBUF);
+//     __uint(max_entries, 1 << 28); // 128MB
+// } events_2 SEC(".maps");
 
 // struct {
 //     __uint(type, BPF_MAP_TYPE_PERCPU_RINGBUF);
@@ -170,18 +170,18 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
 
     struct event *e;
     __sync_fetch_and_add(&cnt, 1);
-    // e = bpf_ringbuf_reserve(&events_1, sizeof(*e), 0);
+    e = bpf_ringbuf_reserve(&events_1, sizeof(*e), 0);
     // if (!e)
     //     e = bpf_ringbuf_reserve(&events_2, sizeof(*e), 0);
 
-    // if (!e)
-    //     return 0;
+    if (!e)
+        return 0;
 
-    if(cnt % 2 == 1) {
-        e = bpf_ringbuf_reserve(&events_1, sizeof(*e), 0);
-    } else {
-        e = bpf_ringbuf_reserve(&events_2, sizeof(*e), 0);
-    }
+    // if(cnt % 2 == 1) {
+    //     e = bpf_ringbuf_reserve(&events_1, sizeof(*e), 0);
+    // } else {
+    //     e = bpf_ringbuf_reserve(&events_2, sizeof(*e), 0);
+    // }
 
     // int cpu = bpf_get_smp_processor_id();
     // if(cpu % 2 == 0) {
@@ -190,8 +190,8 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     //     e = bpf_ringbuf_reserve(&events_2, sizeof(*e), 0);
     // }
 
-    if(!e)
-        return 0;
+    // if(!e)
+    //     return 0;
 
     e->timestamp = bpf_ktime_get_ns();
     e->cnt = cnt;

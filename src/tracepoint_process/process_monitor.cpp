@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <iostream>
-#include <fstream>
+#include <fstream> // 파일 스트림 포함
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -21,223 +21,179 @@
 #include "spdlog/async.h"
 #include "spdlog/sinks/rotating_file_sink.h"
 
-#include <unordered_map>
-#include <functional>
-
-// 글로벌 로거 포인터 정의
-std::shared_ptr<spdlog::logger> global_logger;
-
 // 작업 스레드 종료 플래그
 std::atomic<bool> stop_workers(false);
 struct process_monitor_bpf *skel;
 std::atomic<bool> ringbuf_thread_running(true);
 static std::atomic<bool> exiting(false);
 int rb_cnt_1 = 0;
-int rb_cnt_2 = 0;
+// int rb_cnt_2 = 0;
 
-// 글로벌 맵 정의: 시스템 콜 번호를 로그 처리 함수로 매핑
-std::unordered_map<int, std::function<void(const struct event*)>> syscall_logger_map;
-
-// 맵 초기화 함수
-void init_syscall_logger_map()
-{
-    // 글로벌 로거 포인터 사용
-    auto logger = global_logger;
-    if (!logger)
+void logging(const struct event *e){
+    try
     {
-        std::cerr << "Logger not initialized!\n";
-        return;
-    }
-
-    // 프로세스 관련 시스템 콜 핸들러
-    syscall_logger_map[__NR_fork] = [logger](const struct event *e) {
-        logger->info("New process creation");
-    };
-    syscall_logger_map[__NR_vfork] = [logger](const struct event *e) {
-        logger->info("New process creation (vfork)");
-    };
-    syscall_logger_map[__NR_clone] = [logger](const struct event *e) {
-        logger->info("New process creation (clone)");
-    };
-    syscall_logger_map[__NR_execve] = [logger](const struct event *e) {
-        logger->info("Executing new program: {}", e->filename);
-        for (int i = 0; i < MAX_ARGS && e->argv[i][0] != '\0'; i++)
+        auto logger = spdlog::get("logger");
+        if (!logger)
         {
-            logger->info("Arg {}: {}", i, e->argv[i]);
+            // 로거가 존재하지 않으면 생성
+            logger = spdlog::basic_logger_mt<spdlog::async_factory>("logger", "./log/general.log");
+            // logger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
+            logger->set_pattern("%v");
         }
-    };
-    syscall_logger_map[__NR_exit] = [logger](const struct event *e) {
-        logger->info("Process exit");
-    };
-    syscall_logger_map[__NR_exit_group] = [logger](const struct event *e) {
-        logger->info("Process exit (group)");
-    };
-    syscall_logger_map[__NR_wait4] = [logger](const struct event *e) {
-        logger->info("Waiting for child process");
-    };
-    syscall_logger_map[__NR_waitid] = [logger](const struct event *e) {
-        logger->info("Waiting for child process (id)");
-    };
-    syscall_logger_map[__NR_kill] = [logger](const struct event *e) {
-        logger->info("Sending signal {} to process/thread", e->args[1]);
-    };
-    syscall_logger_map[__NR_tkill] = [logger](const struct event *e) {
-        logger->info("Sending signal {} to process/thread (tkill)", e->args[1]);
-    };
-    syscall_logger_map[__NR_tgkill] = [logger](const struct event *e) {
-        logger->info("Sending signal {} to process/thread (tgkill)", e->args[1]);
-    };
-    syscall_logger_map[__NR_ptrace] = [logger](const struct event *e) {
-        logger->info("Ptrace call with request {}", e->args[0]);
-    };
 
-    // 파일 시스템 관련 시스템 콜 핸들러
-    std::vector<int> fs_syscalls = {
-        __NR_open, __NR_openat, __NR_unlink, __NR_unlinkat, __NR_mkdir, __NR_mkdirat,
-        __NR_rmdir, __NR_renameat, __NR_renameat2, __NR_symlink, __NR_symlinkat,
-        __NR_link, __NR_linkat, __NR_chmod, __NR_fchmodat, __NR_chown, __NR_lchown,
-        __NR_fchownat, __NR_access, __NR_faccessat, __NR_stat, __NR_lstat,
-        __NR_newfstatat, __NR_truncate, __NR_readlink, __NR_readlinkat
-    };
-    for(auto syscall_nr : fs_syscalls)
-    {
-        // syscalls with similar handling can share the same lambda
-        syscall_logger_map[syscall_nr] = [logger](const struct event *e) {
+        logger->info("[{:013}] Process syscall: {} (nr={}, pid={}, tid={}, ppid={}, uid={}, comm={}, cgroup_id={}, cgroup_name={})",
+                     e->cnt, e->syscall, e->syscall_nr, e->pid, e->tid, e->ppid, e->uid, e->comm, e->cgroup_id, e->cgroup_name);
+        //시스템 콜 별 처리
+        switch (e->syscall_nr)
+        {
+            // 프로세스 관련
+        case __NR_fork:
+        case __NR_vfork:
+        case __NR_clone:
+            logger->info("New process creation");
+            break;
+        case __NR_execve:
+            logger->info("Executing new program: {}", e->filename);
+            for (int i = 0; i < MAX_ARGS && e->argv[i][0] != '\0'; i++)
+            {
+                logger->info("Arg {}: {}", i, e->argv[i]);
+            }
+            break;
+        case __NR_exit:
+        case __NR_exit_group:
+            logger->info("Process exit");
+            break;
+        case __NR_wait4:
+        case __NR_waitid:
+            logger->info("Waiting for child process");
+            break;
+        case __NR_kill:
+        case __NR_tkill:
+        case __NR_tgkill:
+            logger->info("Sending signal {} to process/thread", e->args[1]);
+            break;
+        case __NR_ptrace:
+            logger->info("Ptrace call with request {}", e->args[0]);
+            break;
+
+            // 파일 시스템 관련
+        case __NR_open:
+        case __NR_openat:
+        case __NR_unlink:
+        case __NR_unlinkat:
+        case __NR_mkdir:
+        case __NR_mkdirat:
+        case __NR_rmdir:
+        case __NR_renameat:
+        case __NR_renameat2:
+        case __NR_symlink:
+        case __NR_symlinkat:
+        case __NR_link:
+        case __NR_linkat:
+        case __NR_chmod:
+        case __NR_fchmodat:
+        case __NR_chown:
+        case __NR_lchown:
+        case __NR_fchownat:
+        case __NR_access:
+        case __NR_faccessat:
+        case __NR_stat:
+        case __NR_lstat:
+        case __NR_newfstatat:
+        case __NR_truncate:
+        case __NR_readlink:
+        case __NR_readlinkat:
             if (e->filename[0] != '\0')
             {
                 logger->info("File operation: {} on file: {}", e->syscall, e->filename);
             }
-        };
-    }
+            break;
+        case __NR_close:
+            logger->info("Closing file descriptor: {}", e->args[0]);
+            break;
+        case __NR_read:
+        case __NR_write:
+            logger->info("{} operation on fd {}, {} bytes",
+                            (e->syscall_nr == __NR_read) ? "Read" : "Write",
+                            e->args[0], e->args[2]);
+            break;
+        case __NR_mount:
+            logger->info("Mounting filesystem");
+            break;
+        case __NR_umount2:
+            logger->info("Unmounting filesystem");
+            break;
 
-    // 추가 파일 시스템 관련 시스템 콜 핸들러
-    syscall_logger_map[__NR_close] = [logger](const struct event *e) {
-        logger->info("Closing file descriptor: {}", e->args[0]);
-    };
-    syscall_logger_map[__NR_read] = [logger](const struct event *e) {
-        logger->info("Read operation on fd {}, {} bytes", e->args[0], e->args[2]);
-    };
-    syscall_logger_map[__NR_write] = [logger](const struct event *e) {
-        logger->info("Write operation on fd {}, {} bytes", e->args[0], e->args[2]);
-    };
-    syscall_logger_map[__NR_mount] = [logger](const struct event *e) {
-        logger->info("Mounting filesystem");
-    };
-    syscall_logger_map[__NR_umount2] = [logger](const struct event *e) {
-        logger->info("Unmounting filesystem");
-    };
+            // 네트워크 관련
+        case __NR_socket:
+            logger->info("Creating socket: domain {}, type {}, protocol {}",
+                            e->args[0], e->args[1], e->args[2]);
+            break;
+        case __NR_connect:
+            logger->info("Connecting to socket");
+            break;
+        case __NR_accept:
+            logger->info("Accepting connection on socket");
+            break;
+        case __NR_bind:
+            logger->info("Binding socket");
+            break;
+        case __NR_listen:
+            logger->info("Listening on socket");
+            break;
+        case __NR_sendto:
+        case __NR_recvfrom:
+            logger->info("{} on socket {}, {} bytes",
+                            (e->syscall_nr == __NR_sendto) ? "Sending" : "Receiving",
+                            e->args[0], e->args[2]);
+            break;
+        case __NR_setsockopt:
+        case __NR_getsockopt:
+            logger->info("{} socket option",
+                            (e->syscall_nr == __NR_setsockopt) ? "Setting" : "Getting");
+            break;
 
-    // 네트워크 관련 시스템 콜 핸들러
-    syscall_logger_map[__NR_socket] = [logger](const struct event *e) {
-        logger->info("Creating socket: domain {}, type {}, protocol {}",
-                    e->args[0], e->args[1], e->args[2]);
-    };
-    syscall_logger_map[__NR_connect] = [logger](const struct event *e) {
-        logger->info("Connecting to socket");
-    };
-    syscall_logger_map[__NR_accept] = [logger](const struct event *e) {
-        logger->info("Accepting connection on socket");
-    };
-    syscall_logger_map[__NR_bind] = [logger](const struct event *e) {
-        logger->info("Binding socket");
-    };
-    syscall_logger_map[__NR_listen] = [logger](const struct event *e) {
-        logger->info("Listening on socket");
-    };
-    syscall_logger_map[__NR_sendto] = [logger](const struct event *e) {
-        logger->info("Sending on socket {}, {} bytes", e->args[0], e->args[2]);
-    };
-    syscall_logger_map[__NR_recvfrom] = [logger](const struct event *e) {
-        logger->info("Receiving on socket {}, {} bytes", e->args[0], e->args[2]);
-    };
-    syscall_logger_map[__NR_setsockopt] = [logger](const struct event *e) {
-        logger->info("Setting socket option");
-    };
-    syscall_logger_map[__NR_getsockopt] = [logger](const struct event *e) {
-        logger->info("Getting socket option");
-    };
-
-    // 프로세스 제어 관련 시스템 콜 핸들러
-    std::vector<int> proc_ctrl_syscalls = {
-        __NR_setpgid, __NR_setsid, __NR_setuid, __NR_setgid, __NR_setreuid,
-        __NR_setregid, __NR_setresuid, __NR_setresgid, __NR_setgroups,
-        __NR_capset, __NR_prctl, __NR_setpriority, __NR_sched_setscheduler,
-        __NR_sched_setparam, __NR_sched_setaffinity, __NR_sched_yield,
-        __NR_mprotect, __NR_mmap, __NR_munmap
-    };
-    for(auto syscall_nr : proc_ctrl_syscalls)
-    {
-        // 각 syscall_nr를 값으로 캡처하여 람다에 전달
-        syscall_logger_map[syscall_nr] = [logger, syscall_nr](const struct event *e) {
-            switch(syscall_nr)
-            {
-                case __NR_setpgid:
-                case __NR_setsid:
-                case __NR_setuid:
-                case __NR_setgid:
-                case __NR_setreuid:
-                case __NR_setregid:
-                case __NR_setresuid:
-                case __NR_setresgid:
-                case __NR_setgroups:
-                case __NR_capset:
-                    logger->info("Changing process attributes: {}", e->syscall);
-                    break;
-                case __NR_prctl:
-                    logger->info("Process control operation: {}", e->args[0]);
-                    break;
-                case __NR_setpriority:
-                case __NR_sched_setscheduler:
-                case __NR_sched_setparam:
-                case __NR_sched_setaffinity:
-                    logger->info("Changing process scheduling: {}", e->syscall);
-                    break;
-                case __NR_sched_yield:
-                    logger->info("Yielding processor");
-                    break;
-                case __NR_mprotect:
-                    logger->info("mprotect called with addr={}, len={}, prot={}",
-                                e->args[0], e->args[1], e->args[2]);
-                    break;
-                case __NR_mmap:
-                    logger->info("mmap called with addr={}, len={}, prot={}, flags={}, fd={}, offset={}",
-                                e->args[0], e->args[1], e->args[2], e->args[3], e->args[4], e->args[5]);
-                    break;
-                case __NR_munmap:
-                    logger->info("munmap called with addr={}, len={}", e->args[0], e->args[1]);
-                    break;
-                default:
-                    logger->info("Other system call: {}", e->syscall);
-                    break;
-            }
-        };
-    }
-
-    // 기본 핸들러: 맵에 없는 시스템 콜 번호에 대한 처리
-    syscall_logger_map[-1] = [logger](const struct event *e) {
-        logger->info("Other system call: {}", e->syscall);
-    };
-}
-
-// 맵 기반 접근 방식을 사용하는 로깅 함수
-void logging(const struct event *e){
-    try
-    {
-        // 일반 이벤트 정보 로그
-        global_logger->info("[{:013}] Process syscall: {} (nr={}, pid={}, tid={}, ppid={}, uid={}, comm={}, cgroup_id={}, cgroup_name={})",
-                    e->cnt, e->syscall, e->syscall_nr, e->pid, e->tid, e->ppid, e->uid, e->comm, e->cgroup_id, e->cgroup_name);
+            // 프로세스 제어 관련
+        case __NR_setpgid:
+        case __NR_setsid:
+        case __NR_setuid:
+        case __NR_setgid:
+        case __NR_setreuid:
+        case __NR_setregid:
+        case __NR_setresuid:
+        case __NR_setresgid:
+        case __NR_setgroups:
+        case __NR_capset:
+            logger->info("Changing process attributes: {}", e->syscall);
+            break;
+        case __NR_prctl:
+            logger->info("Process control operation: {}", e->args[0]);
+            break;
+        case __NR_setpriority:
+        case __NR_sched_setscheduler:
+        case __NR_sched_setparam:
+        case __NR_sched_setaffinity:
+            logger->info("Changing process scheduling: {}", e->syscall);
+            break;
+        case __NR_sched_yield:
+            logger->info("Yielding processor");
+            break;
+        case __NR_mprotect:
+            logger->info("mprotect called with addr={}, len={}, prot={}",
+                            e->args[0], e->args[1], e->args[2]);
+            break;
+        case __NR_mmap:
+            logger->info("mmap called with addr={}, len={}, prot={}, flags={}, fd={}, offset={}",
+                            e->args[0], e->args[1], e->args[2], e->args[3], e->args[4], e->args[5]);
+            break;
+        case __NR_munmap:
+            logger->info("munmap called with addr={}, len={}", e->args[0], e->args[1]);
+            break;
+        default:
+            logger->info("Other system call: {}", e->syscall);
+            break;
+        }
         
-        // 시스템 콜 번호를 기반으로 맵에서 핸들러 찾기
-        auto it = syscall_logger_map.find(e->syscall_nr);
-        if(it != syscall_logger_map.end())
-        {
-            it->second(e); // 해당 핸들러 호출
-        }
-        else
-        {
-            // 기본 핸들러 호출
-            syscall_logger_map[-1](e);
-        }
     }
     catch (const spdlog::spdlog_ex &ex)
     {
@@ -250,30 +206,32 @@ static int handle_event1(void *ctx, void *data, size_t data_sz)
 {
     const struct event *e = static_cast<const struct event *>(data);
     // 디버그 메시지
+    // std::cerr << "handle_event1 호출됨: cnt=" << e->cnt << ", syscall_nr=" << e->syscall_nr << "\n";
     rb_cnt_1++;
     if (rb_cnt_1 % 100000 == 0)
         std::cout << "handle_event1 호출됨: cnt=" << e->cnt << ", syscall_nr=" << e->syscall_nr << "\n";
 
-    // 로그 기록
+    // spdlog를 사용하여 직접 로그 기록
     logging(e);
 
     return 0;
 }
 
 // 링버퍼 핸들러2
-static int handle_event2(void *ctx, void *data, size_t data_sz)
-{
-    const struct event *e = static_cast<const struct event *>(data);
-    // 디버그 메시지
-    rb_cnt_2++;
-    if (rb_cnt_2 % 100000 == 0)
-        std::cout << "handle_event2 호출됨: cnt=" << e->cnt << ", syscall_nr=" << e->syscall_nr << "\n";
+// static int handle_event2(void *ctx, void *data, size_t data_sz)
+// {
+//     const struct event *e = static_cast<const struct event *>(data);
+//     // 디버그 메시지
+//     // std::cerr << "handle_event2 호출됨: cnt=" << e->cnt << ", syscall_nr=" << e->syscall_nr << "\n";
+//     rb_cnt_2++;
+//     if (rb_cnt_2 % 100000 == 0)
+//         std::cout << "handle_event2 호출됨: cnt=" << e->cnt << ", syscall_nr=" << e->syscall_nr << "\n";
 
-    // 로그 기록
-    logging(e);
+//     // spdlog를 사용하여 직접 로그 기록
+//     logging(e);
 
-    return 0;
-}
+//     return 0;
+// }
 
 // 링버퍼 소비 스레드 함수
 void ringbuf_thread_func(struct ring_buffer *rb)
@@ -301,6 +259,7 @@ static void sig_handler(int sig)
     ringbuf_thread_running.store(false, std::memory_order_relaxed);
 }
 
+
 int main(int argc, char **argv)
 {
     int err;
@@ -314,19 +273,12 @@ int main(int argc, char **argv)
         // 비동기 로깅 초기화
         try
         {
-            const int num_workers = std::thread::hardware_concurrency() * 2;
-            // 큐 사이즈와 스레드 수 설정 (배치 처리 용이)
-            spdlog::init_thread_pool(100000, num_workers); // 큐 사이즈 100,000, 워커 스레드 수
-
-            // 글로벌 로거 포인터 초기화
-            global_logger = spdlog::basic_logger_mt<spdlog::async_factory>("logger", "./log/general.log");
-            global_logger->set_pattern("%v"); // 로그 패턴 단순화
-
-            // 배치 플러시 설정 (예: 1000ms마다 플러시)
-            spdlog::flush_every(std::chrono::milliseconds(100));
-
-            // 글로벌 로거를 기본 로거로 설정
-            spdlog::set_default_logger(global_logger);
+            //const int num_workers = std::thread::hardware_concurrency() * 2;
+            spdlog::init_thread_pool(100000, 1); // 큐 사이즈와 스레드 수 설정
+            auto logger = spdlog::basic_logger_mt<spdlog::async_factory>("logger", "./log/general.log");
+            // logger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
+            logger->set_pattern("%v");
+            spdlog::set_default_logger(logger);
         }
         catch (const spdlog::spdlog_ex &ex)
         {
@@ -389,15 +341,13 @@ int main(int argc, char **argv)
             std::cout << "컨테이너 ID: " << container.id << ", PID: " << container.pid << ", inode: " << key_inode << "를 모니터링 중\n";
         }
 
-        init_syscall_map(skel); // 기존 함수 호출 (필요 시 수정)
-
-        // 시스템 콜 핸들러 맵 초기화
-        init_syscall_logger_map();
+        init_syscall_map(skel);
 
         // 링버퍼 설정
         struct ring_buffer *rb1 = ring_buffer__new(bpf_map__fd(skel->maps.events_1), handle_event1, NULL, NULL);
-        struct ring_buffer *rb2 = ring_buffer__new(bpf_map__fd(skel->maps.events_2), handle_event2, NULL, NULL);
-        if (!rb1 || !rb2)
+        // struct ring_buffer *rb2 = ring_buffer__new(bpf_map__fd(skel->maps.events_2), handle_event2, NULL, NULL);
+        // if (!rb1 || !rb2)
+        if (!rb1)
         {
             std::cerr << "Failed to create ring buffer\n";
             process_monitor_bpf__destroy(skel);
@@ -406,7 +356,7 @@ int main(int argc, char **argv)
 
         // 링버퍼 읽기 스레드 생성
         std::thread ringbuf_thread1(ringbuf_thread_func, rb1);
-        std::thread ringbuf_thread2(ringbuf_thread_func, rb2);
+        // std::thread ringbuf_thread2(ringbuf_thread_func, rb2);
 
         // 메인 루프
         while (!exiting.load(std::memory_order_relaxed))
@@ -417,11 +367,13 @@ int main(int argc, char **argv)
         // 링버퍼 읽기 스레드 종료 요청
         ringbuf_thread_running.store(false, std::memory_order_relaxed);
         ringbuf_thread1.join();
-        ringbuf_thread2.join();
+        // ringbuf_thread2.join();
 
         // 링버퍼 정리
         ring_buffer__free(rb1);
-        ring_buffer__free(rb2);
+        // ring_buffer__free(rb2);
+
+        // 기존 워커 스레드 종료 요청 및 정리 코드 제거
 
         // BPF 스켈레톤 정리
         process_monitor_bpf__destroy(skel);
