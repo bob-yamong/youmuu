@@ -333,8 +333,6 @@ int add_policy(int map_fd) {
             if (get_yes_no_input("Block Network connect")) np->flags |= POLICY_NET_CONNECT;
             if (get_yes_no_input("Block Inbound traffic")) np->flags |= POLICY_NET_SRC;
             if (get_yes_no_input("Block Outbound traffic")) np->flags |= POLICY_NET_DST;
-            if (get_yes_no_input("Block Inbound traffic")) np->flags |= POLICY_NET_SRC;
-            if (get_yes_no_input("Block Outbound traffic")) np->flags |= POLICY_NET_DST;
 
             if (get_yes_no_input("Leave a log")) np->flags |= POLICY_AUDIT;
             if (get_yes_no_input("Explicit Deny")) np->flags |= POLICY_DENY;

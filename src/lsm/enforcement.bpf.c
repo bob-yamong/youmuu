@@ -255,7 +255,7 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
 
     __u32 eperm = match_policy(POLICY_NETWORK, &net);
 
-    if ((eperm & 0x000F) == (POLICY_NET_CONNECT | POLICY_NET_DST)) {
+    if ((eperm & 0x00E0) == (POLICY_NET_CONNECT | POLICY_NET_DST)) {
         e->retval = -1;   
         bpf_ringbuf_submit(e, 0);
         return -1;
@@ -300,7 +300,7 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
 
     __u32 eperm = match_policy(POLICY_NETWORK, &net);
     
-    if ((eperm & 0x000F) == (POLICY_NET_CONNECT | POLICY_NET_SRC)) {
+    if ((eperm & 0x00E0) == (POLICY_NET_CONNECT | POLICY_NET_SRC)) {
         e->retval = -1;   
         bpf_ringbuf_submit(e, 0);
         return -1;

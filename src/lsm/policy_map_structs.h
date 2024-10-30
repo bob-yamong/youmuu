@@ -68,9 +68,9 @@ struct file_policy {
 };
 
 // 네트워크 관련 플래그
-#define POLICY_NET_CONNECT  (1 << 0)   // 네트워크 연결 허용
-#define POLICY_NET_SRC      (1 << 1)   // 인바운드 규칙 허용
-#define POLICY_NET_DST      (1 << 2)   // 아웃바운드 규칙 허용
+#define POLICY_NET_CONNECT  (1 << 6)   // 네트워크 연결 허용
+#define POLICY_NET_SRC      (1 << 7)   // 인바운드 규칙 허용
+#define POLICY_NET_DST      (1 << 8)   // 아웃바운드 규칙 허용
 struct network_policy {
     __be32 ip;
     __be32 subnet_mask;
