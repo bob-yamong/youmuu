@@ -177,11 +177,8 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     // if (!e)
     //     return 0;
 
-    if(cnt % 2 == 1) {
-        e = bpf_ringbuf_reserve(&events_1, sizeof(*e), 0);
-    } else {
-        e = bpf_ringbuf_reserve(&events_2, sizeof(*e), 0);
-    }
+    e = bpf_ringbuf_reserve(&events_1, sizeof(*e), 0);
+    
 
     // int cpu = bpf_get_smp_processor_id();
     // if(cpu % 2 == 0) {

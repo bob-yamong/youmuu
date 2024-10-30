@@ -23,7 +23,7 @@ CXXFLAGS := -g -Wall -std=c++11 -pthread -I../../spdlog/include/ # C++ 컴파일
 ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS)
 
 # 다음 줄 추가_추후 삭제
-LIBS := -lelf -lz -lcurl -ljson-c -lpthread -lspdlog  # pthread 라이브러리 추가
+LIBS := -lelf -lz -lcurl -ljson-c -lpthread  # pthread 라이브러리 추가
 
 APPS = process_monitor
 
@@ -59,6 +59,15 @@ endef
 $(call allow-override,CC,$(CROSS_COMPILE)cc)
 $(call allow-override,CXX,$(CROSS_COMPILE)g++)  # C++ 컴파일러 설정
 $(call allow-override,LD,$(CROSS_COMPILE)ld)
+
+# Add this conditional statement to modify CFLAGS when 'make container' is invoked
+ifneq ($(filter container,$(MAKECMDGOALS)),)
+CFLAGS += -D__IN_DOCKER__=$(1)
+endif
+
+# Define the 'container' target
+.PHONY: container
+container: all
 
 .PHONY: all
 all: $(APPS)

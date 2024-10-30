@@ -74,7 +74,11 @@ int ContainerManager::getContainerPIDs() {
 
 unsigned long ContainerManager::getContainerInode(const std::string &container_id) {
     char pattern[PATH_MAX];
-    snprintf(pattern, sizeof(pattern), "/sys/fs/cgroup/system.slice/docker-%s*", container_id.c_str());
+    #ifndef __IN_DOCKER__
+        snprintf(pattern, sizeof(pattern), "/sys/fs/cgroup/system.slice/docker-%s*", container_id.c_str());
+    #else
+        snprintf(pattern, sizeof(pattern), "/cgroup_system.slice/docker-%s*", container_id.c_str());
+    #endif
 
     glob_t globbuf;
     unsigned long inode = 0;
