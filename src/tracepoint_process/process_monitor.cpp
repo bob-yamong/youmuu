@@ -54,10 +54,10 @@ void logging(const struct event *e){
             break;
         case __NR_execve:
             logger->info("Executing new program: {}", e->filename);
-            for (int i = 0; i < MAX_ARGS && e->argv[i][0] != '\0'; i++)
-            {
-                logger->info("Arg {}: {}", i, e->argv[i]);
-            }
+            // for (int i = 0; i < MAX_ARGS && e->argv[i][0] != '\0'; i++)
+            // {
+            //     logger->info("Arg {}: {}", i, e->argv[i]);
+            // }
             break;
         case __NR_exit:
         case __NR_exit_group:
@@ -238,7 +238,7 @@ void ringbuf_thread_func(struct ring_buffer *rb)
 {
     while (ringbuf_thread_running.load(std::memory_order_relaxed))
     {
-        int err = ring_buffer__poll(rb, 1); // 100ms 타임아웃
+        int err = ring_buffer__poll(rb, -1); // 100ms 타임아웃
         if (err == -EINTR)
         {
             break;
@@ -273,7 +273,7 @@ int main(int argc, char **argv)
         // 비동기 로깅 초기화
         try
         {
-            //const int num_workers = std::thread::hardware_concurrency() * 2;
+            const int num_workers = std::thread::hardware_concurrency();
             spdlog::init_thread_pool(100000, 1); // 큐 사이즈와 스레드 수 설정
             auto logger = spdlog::basic_logger_mt<spdlog::async_factory>("logger", "./log/general.log");
             // logger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");

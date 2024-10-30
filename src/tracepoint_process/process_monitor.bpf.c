@@ -18,7 +18,7 @@ struct {
 
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
-    __uint(max_entries, 1 << 27); // 128MB
+    __uint(max_entries, 1 << 28); // 128MB
 } events_1 SEC(".maps");
 
 // struct {
@@ -174,8 +174,11 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     // if (!e)
     //     e = bpf_ringbuf_reserve(&events_2, sizeof(*e), 0);
 
-    if (!e)
+    if (!e){
+        bpf_printk("failed to reserve ring buffer\n");
         return 0;
+    }
+        
 
     // if(cnt % 2 == 1) {
     //     e = bpf_ringbuf_reserve(&events_1, sizeof(*e), 0);
