@@ -24,7 +24,7 @@ struct event_t {
     __u64 arg_u64[6];
     __u8 arg_str[256];
     __u8 arg_str2[256];
-    __u8 arg_str3[32];
+    __u8 filesystem_type[32];
 
     bool is_enter;
     bool is_valid;

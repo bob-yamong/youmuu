@@ -205,7 +205,9 @@ void get_user_input(struct tracepoint_bpf *skel, __u32 ns_id) {
         __NR_inotify_init, __NR_inotify_init1, __NR_inotify_add_watch, __NR_inotify_rm_watch, 
         __NR_fanotify_init, __NR_fanotify_mark, __NR_mount, __NR_umount2, 
         __NR_move_mount, 
-        
+        __NR_clone, __NR_clone3, __NR_fork, __NR_vfork, 
+        __NR_execve, __NR_execveat, __NR_exit, __NR_exit_group,
+        __NR_wait4, __NR_waitid, 
     };
 
     for (size_t i = 0; i < sizeof(syscalls) / sizeof(syscalls[0]); i++) {
