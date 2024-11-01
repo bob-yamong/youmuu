@@ -105,21 +105,34 @@ int BPF_PROG(file_open, struct file *file)
     __u32 flags = match_policy(task, POLICY_FILE, e->data.path);
 
     //bpf_printk("file_open at %s flag is %u and file_flags is %u \n", e->data.path, flags, file->f_flags);
-    if (!flags) goto clear;
+    //if (!flags) goto clear;
+    //맵에 해당 경로에 대한 정책이 없으면 플래그가 반환이 안됨, 하지만 이걸 화이트리스트로 하려고하면 플래그가 반환이 안되면 차단을 해야됨.
+    //결국 flag는 해당 경로에 대한 체킹포인트가 되는거임. => 화이트 리스트가 반영되는 순간 결국 모든 경로에 대한 후킹 체크는 들어가야함
 
     ret = 0;
-    __u8 mode = flags & POLICY_ALLOW;
-    if (mode) e->retval = -1;
+    // __u8 mode = flags & POLICY_ALLOW;
+    // if (mode) e->retval = -1;
 
-
+    //(파일을 생성하면 파일을 생성하는 경로가 아닌 생성되는 파일의 경로이므로 /test에 대해서 파일 작업을 막으려면 /test/filename을 막아야함)
+    //r => 블랙리스트
+    //w => 화이트리스트, 근데 해당 경로만 허락이 되는게 아닌 recursive하게 선언하면 결국 이것도 마찬가지로 다 됨
+    //e => 블랙리스트
     if ((flags & POLICY_FILE_READ) && ((file->f_flags & O_WRONLY) == 0))  {
         //bpf_printk("block read at %s %d \n", e->data.path, flags);
         ret -= 1;
     }
-    if ((flags & POLICY_FILE_WRITE) && (file->f_flags & (O_WRONLY | O_RDWR))) {
-        //bpf_printk("block write at %s %d \n", e->data.path, flags);
+    if ((!flags) && (file->f_flags & (O_WRONLY | O_RDWR))) {
+        bpf_printk("block write at %s %d \n", e->data.path, flags);
         ret -= 1;
     }
+    else if((flags & POLICY_FILE_WRITE) && (file->f_flags & (O_WRONLY | O_RDWR))) {
+        bpf_printk("allow write at %s %d \n", e->data.path, flags);
+        ret = 0;
+    }
+    // if ((flags & POLICY_FILE_WRITE) && (file->f_flags & (O_WRONLY | O_RDWR))) {
+    //     //bpf_printk("block write at %s %d \n", e->data.path, flags);
+    //     ret -= 1;
+    // }
     if ((flags & POLICY_FILE_EXEC) && (file->f_flags & FMODE_EXEC)) {
         //bpf_printk("block execute at %s %d \n", e->data.path, flags);
         ret -= 1;
