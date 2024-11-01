@@ -789,7 +789,7 @@ clear:
 // }
 
 SEC("lsm/path_mkdir")
-//파일 생성은 블랙 리스트
+//폴더 생성은 화이트 리스트
 int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
 {    
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
@@ -824,7 +824,7 @@ int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
 
     __u32 flags = match_policy(task, POLICY_FILE,e->data.path);
     
-    //if (!flags) goto clear;
+        //if (!flags) goto clear;
 
     __u8 allow_mode = flags & POLICY_ALLOW;
     ret = allow_mode ? 1:0;
@@ -890,6 +890,7 @@ clear:
 // }
 
 SEC("lsm/path_rename")
+//이름 변경은 화이트 리스트
 int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
              const struct path *new_dir, struct dentry *new_dentry) {
     //인자 잘못 선언되어있던 것 수정, 차후 파일 전체 로직 통합 및 수정 필요
@@ -925,12 +926,20 @@ int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
 
     //bpf_printk("lsm_hook: fs: path_rename at %s\n", e->data.path);
     
-    if (!flags) goto clear;
+    //if (!flags) goto clear;
 
     __u8 allow_mode = flags & POLICY_ALLOW;
     ret = allow_mode ? 1 : 0;
 
-    if (flags & POLICY_FILE_RENAME) ret -= 1;    
+
+    if (flags & POLICY_FILE_RENAME) {
+        //해당 경로가 선언이 되어있고, 그 플래그가 파일 생성에 대한 플래그가 있을 때
+        ret = 0;       
+    }else{
+        //경로가 선언만 되어있거나, 선언되어있지 않으면 블락
+        ret -= 1; 
+    }
+    //bpf_printk("Operation not permitted at %s by policy \n",e->data.path);
     
     get_process_path(e->data.source, sizeof(e->data.source));
 
