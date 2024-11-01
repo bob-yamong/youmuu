@@ -104,18 +104,19 @@ int BPF_PROG(file_open, struct file *file)
 
     __u32 flags = match_policy(task, POLICY_FILE, e->data.path);
 
+    //bpf_printk("file_open at %s flag is %u and file_flags is %u \n", e->data.path, flags, file->f_flags);
     if (!flags) goto clear;
 
     ret = 0;
     __u8 mode = flags & POLICY_ALLOW;
     if (mode) e->retval = -1;
 
-    
+
     if ((flags & POLICY_FILE_READ) && ((file->f_flags & O_WRONLY) == 0))  {
         //bpf_printk("block read at %s %d \n", e->data.path, flags);
         ret -= 1;
     }
-    else if ((flags & POLICY_FILE_WRITE) && (file->f_flags & (O_WRONLY | O_RDWR))) {
+    if ((flags & POLICY_FILE_WRITE) && (file->f_flags & (O_WRONLY | O_RDWR))) {
         //bpf_printk("block write at %s %d \n", e->data.path, flags);
         ret -= 1;
     }

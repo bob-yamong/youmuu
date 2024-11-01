@@ -170,7 +170,6 @@ static __always_inline int init_context(event *event_data) {
 static __always_inline __u32 match_policy(struct task_struct *task, enum policy_type type, void *data) {
     // struct task_struct *task = (struct task_struct *)bpf_get_current_task();
     struct policy_key key = {};
-    
     key.pid_ns_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
     key.mnt_ns_id = BPF_CORE_READ(task, nsproxy, mnt_ns, ns.inum);
     
