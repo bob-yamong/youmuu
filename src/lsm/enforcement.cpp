@@ -383,6 +383,10 @@ int update_policy_with_file(int map_fd, char* abs_file_name) {
     const rfl::Result<YamlPolicy> result = rfl::yaml::load<YamlPolicy>(abs_file_name);
     YamlPolicy policy = result.value();
 
+    const std::string yaml_string = rfl::yaml::write(policy);
+
+    cout << yaml_string << endl;
+
     if (policy.containers.empty()) {
         fprintf(stderr, "No policy found in the file\n");
         return -1;
