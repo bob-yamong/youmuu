@@ -3,6 +3,11 @@
 #include <iostream>
 #include <iomanip>
 #include <exception>
+#include <cstring>
+
+// 정적 assert로 구조체 크기 검증 (eBPF와 C++ 간 일치 확인)
+static_assert(sizeof(event) == 8 + 8 + 4 + 4 + 4 + 4 + 4 + 8 + TASK_COMM_LEN + 16 + 48 + MAX_FILENAME_LEN + (MAX_ARGS * MAX_ARG_LEN) + MAX_CGROUP_NAME_LEN,
+              "Size of event struct does not match expected size");
 
 EventLogger::EventLogger(size_t bufferSize, const std::string& logFilePath)
     : bufferSize_(bufferSize),
@@ -104,9 +109,9 @@ void EventLogger::flushToFile(const std::vector<event>& buffer)
                 << ", tid=" << e.tid
                 << ", ppid=" << e.ppid
                 << ", uid=" << e.uid
-                << ", comm=" << std::string(e.comm, TASK_COMM_LEN)
+                << ", comm=" << e.comm
                 << ", cgroup_id=" << e.cgroup_id
-                << ", cgroup_name=" << std::string(e.cgroup_name, MAX_CGROUP_NAME_LEN) << ")\n";
+                << ", cgroup_name=" << e.cgroup_name << ")\n";
             
             // 시스템 콜 별 처리
             switch (e.syscall_nr)

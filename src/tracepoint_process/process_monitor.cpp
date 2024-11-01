@@ -24,10 +24,9 @@ struct process_monitor_bpf *skel;
 std::atomic<bool> ringbuf_thread_running(true);
 static std::atomic<bool> exiting(false);
 int rb_cnt_1 = 0;
-// int rb_cnt_2 = 0;
 
 // EventLogger 객체 생성 (전역 또는 싱글톤으로 관리 가능)
-const size_t BUFFER_SIZE = 100; // 예: 10만 개
+const size_t BUFFER_SIZE = 100000; // 예: 10만 개
 const std::string LOG_FILE_PATH = "log/general.log";
 EventLogger eventLogger(BUFFER_SIZE, LOG_FILE_PATH);
 
@@ -55,7 +54,7 @@ void ringbuf_thread_func(struct ring_buffer *rb)
 {
     while (ringbuf_thread_running.load(std::memory_order_relaxed))
     {
-        int err = ring_buffer__poll(rb, -1); // 무한 대기
+        int err = ring_buffer__poll(rb, 1); // 무한 대기
         if (err == -EINTR)
         {
             break;
