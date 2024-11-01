@@ -700,6 +700,7 @@ int BPF_PROG(file_permission, struct file *file, int mask)
 // }
 
 SEC("lsm/path_unlink")
+//삭제는 블랙리스트
 int BPF_PROG(path_unlink, struct path *path)
 {
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
@@ -730,12 +731,19 @@ int BPF_PROG(path_unlink, struct path *path)
 
     __u32 flags = match_policy(task, POLICY_FILE, e->data.path);
     
-    if (!flags) goto clear;
+    //if (!flags) goto clear;
 
     __u8 allow_mode = flags & POLICY_ALLOW;
     ret = allow_mode ? 1:0;
 
-    if (flags & POLICY_FILE_DELETE) ret -= 1;       
+    if (flags & POLICY_FILE_DELETE) {
+        //해당 경로가 선언이 되어있고, 그 플래그가 파일 생성에 대한 플래그가 있을 때
+        ret = 0;       
+    }else{
+        //경로가 선언만 되어있거나, 선언되어있지 않으면 블락
+        ret -= 1; 
+    }
+  
     
     //bpf_printk("Operation not permitted at %s by policy \n",e->data.path);
  
@@ -824,7 +832,7 @@ int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
 
     __u32 flags = match_policy(task, POLICY_FILE,e->data.path);
     
-        //if (!flags) goto clear;
+    //if (!flags) goto clear;
 
     __u8 allow_mode = flags & POLICY_ALLOW;
     ret = allow_mode ? 1:0;
