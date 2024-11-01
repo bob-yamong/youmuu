@@ -19,11 +19,11 @@ VMLINUX := ../../vmlinux/$(ARCH)/vmlinux.h
 # outdated
 INCLUDES := -I$(OUTPUT) -I../../libbpf/include/uapi -I$(dir $(VMLINUX))
 CFLAGS := -g -Wall
-CXXFLAGS := -g -Wall -std=c++11 -pthread -I../../spdlog/include/ # C++ 컴파일러 플래그 추가
+CXXFLAGS := -g -Wall -std=c++11 -pthread # C++ 컴파일러 플래그 추가
 ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS)
 
 # 다음 줄 추가_추후 삭제
-LIBS := -lelf -lz -lcurl -ljson-c -lpthread -lspdlog  # pthread 라이브러리 추가
+LIBS := -lelf -lz -lcurl -ljson-c -lpthread  # pthread 라이브러리 추가
 
 APPS = process_monitor
 
@@ -104,7 +104,7 @@ $(OUTPUT)/%.o: %.cpp $(wildcard %.h) | $(OUTPUT)  # C++ 파일 컴파일 규칙 
 	$(Q)$(CXX) $(CXXFLAGS) $(INCLUDES) -c $(filter %.cpp,$^) -o $@
 
 # Build application binary
-$(APPS): %: $(OUTPUT)/%.o $(LIBBPF_OBJ) $(OUTPUT)/container_info.o | $(OUTPUT)  # container_info.o 추가
+$(APPS): %: $(OUTPUT)/%.o $(LIBBPF_OBJ) $(OUTPUT)/container_info.o $(OUTPUT)/EventLogger.o | $(OUTPUT)  # container_info.o 추가
 	$(call msg,BINARY,$@)
 	$(Q)$(CXX) $(CXXFLAGS) $^ $(ALL_LDFLAGS) $(LIBS) -o $@
 

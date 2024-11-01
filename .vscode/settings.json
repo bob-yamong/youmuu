@@ -56,5 +56,6 @@
         "typeinfo": "cpp",
         "iomanip": "cpp",
         "sstream": "cpp"
-    }
+    },
+    "cmake.sourceDirectory": "/home/nukunga/Desktop/youmuu/spdlog"
 }

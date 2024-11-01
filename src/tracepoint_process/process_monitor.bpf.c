@@ -21,21 +21,6 @@ struct {
     __uint(max_entries, 1 << 28); // 128MB
 } events_1 SEC(".maps");
 
-// struct {
-//     __uint(type, BPF_MAP_TYPE_RINGBUF);
-//     __uint(max_entries, 1 << 28); // 128MB
-// } events_2 SEC(".maps");
-
-// struct {
-//     __uint(type, BPF_MAP_TYPE_PERCPU_RINGBUF);
-//     __uint(max_entries, 1 << 24); // 16MB
-// } events_1 SEC(".maps");
-
-// struct {
-//     __uint(type, BPF_MAP_TYPE_PERCPU_RINGBUF);
-//     __uint(max_entries, 1 << 24); // 16MB
-// } events_2 SEC(".maps");
-
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 1024);
@@ -171,31 +156,12 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     struct event *e;
     __sync_fetch_and_add(&cnt, 1);
     e = bpf_ringbuf_reserve(&events_1, sizeof(*e), 0);
-    // if (!e)
-    //     e = bpf_ringbuf_reserve(&events_2, sizeof(*e), 0);
 
     if (!e){
         bpf_printk("failed to reserve ring buffer\n");
         return 0;
     }
         
-
-    // if(cnt % 2 == 1) {
-    //     e = bpf_ringbuf_reserve(&events_1, sizeof(*e), 0);
-    // } else {
-    //     e = bpf_ringbuf_reserve(&events_2, sizeof(*e), 0);
-    // }
-
-    // int cpu = bpf_get_smp_processor_id();
-    // if(cpu % 2 == 0) {
-    //     e = bpf_ringbuf_reserve(&events_1, sizeof(*e), 0);
-    // } else {
-    //     e = bpf_ringbuf_reserve(&events_2, sizeof(*e), 0);
-    // }
-
-    // if(!e)
-    //     return 0;
-
     e->timestamp = bpf_ktime_get_ns();
     e->cnt = cnt;
     e->pid = pid;
@@ -219,10 +185,14 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     int filename_arg = has_filename_arg(syscall_nr);
     if (filename_arg == 1) {
         const char *filename_ptr = (const char *)ctx->args[0];
-        bpf_probe_read_user_str(e->filename, sizeof(e->filename), filename_ptr);
+        if (bpf_probe_read_user_str(e->filename, sizeof(e->filename), filename_ptr) < 0) {
+            e->filename[0] = '\0'; // 읽기 실패 시 빈 문자열로 설정
+        }
     } else if (filename_arg == 2) {
         const char *filename_ptr = (const char *)ctx->args[1];
-        bpf_probe_read_user_str(e->filename, sizeof(e->filename), filename_ptr);
+        if (bpf_probe_read_user_str(e->filename, sizeof(e->filename), filename_ptr) < 0) {
+            e->filename[0] = '\0'; // 읽기 실패 시 빈 문자열로 설정
+        }
     } else {
         e->filename[0] = '\0';
     }
@@ -254,5 +224,5 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
 
     return 0;
 }
-
+ 
 char LICENSE[] SEC("license") = "GPL";
