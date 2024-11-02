@@ -5899,3 +5899,100 @@ int trace_sys_exit_process_vm_writev(struct trace_event_raw_sys_exit *ctx) {
     bpf_ringbuf_submit(e, 0);
     return 0;
 }
+
+SEC("tracepoint/syscalls/sys_enter_init_module")
+int trace_sys_enter_init_module(struct trace_event_raw_sys_enter *ctx) {
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+    if (!e)
+        return 0;
+    
+    e->arg_u64[0] = BPF_CORE_READ(ctx, args[1]);
+    e->is_valid = false;
+    
+    void *param_values_ptr = (void *)BPF_CORE_READ(ctx, args[2]);
+    if (param_values_ptr) {
+        if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), param_values_ptr) == 0) {
+            e->is_valid = true;
+        }
+    }
+
+    bpf_ringbuf_submit(e, 0);
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_init_module")
+int trace_sys_exit_init_module(struct trace_event_raw_sys_exit *ctx) {
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+    if (!e)
+        return 0;
+
+    e->ret = BPF_CORE_READ(ctx, ret);
+    
+    bpf_ringbuf_submit(e, 0);
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_finit_module")
+int trace_sys_enter_finit_module(struct trace_event_raw_sys_enter *ctx) {
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+    if (!e)
+        return 0;
+    
+    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+    e->arg_s32[1] = BPF_CORE_READ(ctx, args[2]);
+    e->is_valid = false;
+
+    void *param_values_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
+    if (param_values_ptr) {
+        if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), param_values_ptr) >= 0) {
+            e->is_valid = true;
+        }
+    }
+
+    bpf_ringbuf_submit(e, 0);
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_finit_module")
+int trace_sys_exit_finit_module(struct trace_event_raw_sys_exit *ctx) {
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+    if (!e)
+        return 0;
+
+    e->ret = BPF_CORE_READ(ctx, ret);
+    
+    bpf_ringbuf_submit(e, 0);
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_delete_module")
+int trace_sys_enter_delete_module(struct trace_event_raw_sys_enter *ctx) {
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+    if (!e)
+        return 0;
+    
+    e->arg_u32[0] = BPF_CORE_READ(ctx, args[1]);
+    e->is_valid = false;
+
+    void *name_ptr = (void *)BPF_CORE_READ(ctx, args[0]);
+    if (name_ptr) {
+        if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), name_ptr) >= 0) {
+            e->is_valid = true;
+        }
+    }
+
+    bpf_ringbuf_submit(e, 0);
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_delete_module")
+int trace_sys_exit_delete_module(struct trace_event_raw_sys_exit *ctx) {
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+    if (!e)
+        return 0;
+
+    e->ret = BPF_CORE_READ(ctx, ret);
+    
+    bpf_ringbuf_submit(e, 0);
+    return 0;
+}

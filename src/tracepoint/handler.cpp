@@ -3638,6 +3638,67 @@ static int handle_exit_process_vm_writev(const struct event_t *e, const char *ta
     return 0;
 }
 
+static int handle_enter_init_module(const struct event_t *e, const char *task_info) {
+    if (e->is_valid == true) {
+        printf("Enter init_module: %s, len=%llu, param=%s\n",
+                task_info, e->arg_u64[0], e->arg_str);
+    } else {
+        printf("Enter init_module: %s, len=%llu, failed to read param\n",
+                task_info, e->arg_u64[0]);
+    }
+    return 0;
+}
+
+static int handle_exit_init_module(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit init_module: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit init_module: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_finit_module(const struct event_t *e, const char *task_info) {
+    if (e->is_valid == true) {
+        printf("Enter finit_module: %s, fd=%d, param=%s, flags=%#x\n",
+                task_info, e->arg_s32[0], e->arg_str, e->arg_s32[1]);
+    } else {
+        printf("Enter finit_module: %s, fd=%d, failed to read param\n",
+                task_info, e->arg_s32[0]);
+    }
+    return 0;
+}
+
+static int handle_exit_finit_module(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit finit_module: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit finit_module: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_delete_module(const struct event_t *e, const char *task_info) {
+    printf("Enter delete_module: %s, name=%s, flags=%#x\n",
+            task_info, e->arg_str, e->arg_s32[0]);
+    return 0;
+}
+
+static int handle_exit_delete_module(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit delete_module: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit delete_module: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
 static struct socket_handlers event_handler[MAX_EVENT_ID] = {0};
 
 void init_event_handlers(void) {
@@ -4003,6 +4064,12 @@ void init_event_handlers(void) {
     event_handler[__NR_process_vm_readv].exit = handle_exit_process_vm_readv;
     event_handler[__NR_process_vm_writev].enter = handle_enter_process_vm_writev;
     event_handler[__NR_process_vm_writev].exit = handle_exit_process_vm_writev;
+    event_handler[__NR_init_module].enter = handle_enter_init_module;
+    event_handler[__NR_init_module].exit = handle_exit_init_module;
+    event_handler[__NR_finit_module].enter = handle_enter_finit_module;
+    event_handler[__NR_finit_module].exit = handle_exit_finit_module;
+    event_handler[__NR_delete_module].enter = handle_enter_delete_module;
+    event_handler[__NR_delete_module].exit = handle_exit_delete_module;
 }
 
 int handle_event(void *ctx, void *data, size_t data_sz) {
