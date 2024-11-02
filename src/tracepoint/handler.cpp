@@ -3536,6 +3536,108 @@ static int handle_exit_ioprio_get(const struct event_t *e, const char *task_info
     return 0;
 }
 
+static int handle_enter_mmap(const struct event_t *e, const char *task_info) {
+    printf("Enter mmap: %s, length=%llu, prot=%#x, flags=%#x, fd=%d, offset=%llu\n",
+            task_info, e->arg_u64[0], e->arg_s32[0], e->arg_s32[1], e->arg_s32[2], e->arg_u64[1]);
+    return 0;
+}
+
+static int handle_exit_mmap(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit mmap: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit mmap: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_mprotect(const struct event_t *e, const char *task_info) {
+    printf("Enter mprotect: %s, len=%llu, prot=%#x\n",
+            task_info, e->arg_u64[0], e->arg_s32[0]);
+    return 0;
+}
+
+static int handle_exit_mprotect(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit mprotect: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit mprotect: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_capset(const struct event_t *e, const char *task_info) {
+    printf("Enter capset: %s, header_version=%u, header_pid=%u, data_effective=%#x, data_permitted=%#x, data_inheritable=%#x\n",
+            task_info, e->arg_u32[0], e->arg_u32[1], e->arg_u32[2], e->arg_u32[3], e->arg_u32[4]);
+    return 0;
+}
+
+static int handle_exit_capset(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit capset: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit capset: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_ptrace(const struct event_t *e, const char *task_info) {
+    printf("Enter ptrace: %s, request=%d, pid=%u\n",
+            task_info, e->arg_s32[0], e->arg_u32[0]);
+    return 0;
+}
+
+static int handle_exit_ptrace(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit ptrace: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit ptrace: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_process_vm_readv(const struct event_t *e, const char *task_info) {
+    printf("Enter process_vm_readv: %s, pid=%u, local_iov_len=%llu, remote_iov_len=%llu, flags=%#llx\n",
+            task_info, e->arg_u32[0], e->arg_u64[0], e->arg_u64[1], e->arg_u64[2]);
+    return 0;
+}
+
+static int handle_exit_process_vm_readv(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit process_vm_readv: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit process_vm_readv: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_process_vm_writev(const struct event_t *e, const char *task_info) {
+    printf("Enter process_vm_writev: %s, pid=%u, local_iov_len=%llu, remote_iov_len=%llu, flags=%#llx\n",
+            task_info, e->arg_u32[0], e->arg_u64[0], e->arg_u64[1], e->arg_u64[2]);
+    return 0;
+}
+
+static int handle_exit_process_vm_writev(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit process_vm_writev: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit process_vm_writev: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
 static struct socket_handlers event_handler[MAX_EVENT_ID] = {0};
 
 void init_event_handlers(void) {
@@ -3889,6 +3991,18 @@ void init_event_handlers(void) {
     event_handler[__NR_ioprio_set].exit = handle_exit_ioprio_set;
     event_handler[__NR_ioprio_get].enter = handle_enter_ioprio_get;
     event_handler[__NR_ioprio_get].exit = handle_exit_ioprio_get;
+    event_handler[__NR_mmap].enter = handle_enter_mmap;
+    event_handler[__NR_mmap].exit = handle_exit_mmap;
+    event_handler[__NR_mprotect].enter = handle_enter_mprotect;
+    event_handler[__NR_mprotect].exit = handle_exit_mprotect;
+    event_handler[__NR_capset].enter = handle_enter_capset;
+    event_handler[__NR_capset].exit = handle_exit_capset;
+    event_handler[__NR_ptrace].enter = handle_enter_ptrace;
+    event_handler[__NR_ptrace].exit = handle_exit_ptrace;
+    event_handler[__NR_process_vm_readv].enter = handle_enter_process_vm_readv;
+    event_handler[__NR_process_vm_readv].exit = handle_exit_process_vm_readv;
+    event_handler[__NR_process_vm_writev].enter = handle_enter_process_vm_writev;
+    event_handler[__NR_process_vm_writev].exit = handle_exit_process_vm_writev;
 }
 
 int handle_event(void *ctx, void *data, size_t data_sz) {

@@ -221,9 +221,9 @@ void get_user_input(struct tracepoint_bpf *skel, __u32 ns_id) {
         __NR_ioprio_get, __NR_brk, __NR_mmap, __NR_munmap, 
         __NR_mremap, __NR_mprotect, __NR_madvise, __NR_mlock,
         __NR_mlock2, __NR_mlockall, __NR_munlock, __NR_munlockall,
-        __NR_membarrier, __NR_modify_ldt, __NR_capset, __NR_capget,
-        __NR_set_thread_area, __NR_get_thread_area, __NR_set_tid_address, __NR_arch_prctl,
-        __NR_ptrace, __NR_process_vm_readv, __NR_process_vm_writev
+        __NR_membarrier, __NR_capset, __NR_capget, __NR_set_thread_area,
+        __NR_get_thread_area, __NR_set_tid_address, __NR_arch_prctl, __NR_ptrace,
+        __NR_process_vm_readv, __NR_process_vm_writev
     };
 
     for (size_t i = 0; i < sizeof(syscalls) / sizeof(syscalls[0]); i++) {
