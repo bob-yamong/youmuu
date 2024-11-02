@@ -2792,6 +2792,375 @@ static int handle_exit_waitid(const struct event_t *e, const char *task_info) {
     return 0;
 }
 
+static int handle_enter_getpid(const struct event_t *e, const char *task_info) {
+    printf("Enter getpid: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_getpid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getpid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit getpid: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getppid(const struct event_t *e, const char *task_info) {
+    printf("Enter getppid: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_getppid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getppid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit getppid: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_gettid(const struct event_t *e, const char *task_info) {
+    printf("Enter gettid: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_gettid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit gettid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit gettid: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_setsid(const struct event_t *e, const char *task_info) {
+    printf("Enter setsid: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_setsid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit setsid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit setsid: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getsid(const struct event_t *e, const char *task_info) {
+    printf("Enter getsid: %s, pid=%u\n",
+            task_info, e->arg_u32[0]);
+    return 0;
+}
+
+static int handle_exit_getsid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getsid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit getsid: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_setpgid(const struct event_t *e, const char *task_info) {
+    printf("Enter setpgid: %s, pid=%u, pgid=%u\n",
+            task_info, e->arg_u32[0], e->arg_u32[1]);
+    return 0;
+}
+
+static int handle_exit_setpgid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit setpgid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit setpgid: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getpgid(const struct event_t *e, const char *task_info) {
+    printf("Enter getpgid: %s, pid=%u\n",
+            task_info, e->arg_u32[0]);
+    return 0;
+}
+
+static int handle_exit_getpgid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getpgid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit getpgid: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getpgrp(const struct event_t *e, const char *task_info) {
+    printf("Enter getpgrp: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_getpgrp(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getpgrp: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit getpgrp: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_setuid(const struct event_t *e, const char *task_info) {
+    printf("Enter setreuid: %s, uid=%u\n",
+            task_info, e->arg_u32[0]);
+    return 0;
+}
+
+static int handle_exit_setuid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit setreuid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit setreuid: success, %s, ret=%lld\n", 
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getuid(const struct event_t *e, const char *task_info) {
+    printf("Enter getuid: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_getuid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getuid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit getuid: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_setgid(const struct event_t *e, const char *task_info) {
+    printf("Enter setregid: %s, gid=%u\n",
+            task_info, e->arg_u32[0]);
+    return 0;
+}
+
+static int handle_exit_setgid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit setregid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit setregid: success, %s, ret=%lld\n", 
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getgid(const struct event_t *e, const char *task_info) {
+    printf("Enter getgid: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_getgid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getgid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit getgid: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_setresuid(const struct event_t *e, const char *task_info) {
+    printf("Enter setresuid: %s, ruid=%u, euid=%u, suid=%u\n",
+            task_info, e->arg_u32[0], e->arg_u32[1], e->arg_u32[2]);
+    return 0;
+}
+
+static int handle_exit_setresuid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit setresuid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit setresuid: success, %s, ret=%lld\n", 
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getresuid(const struct event_t *e, const char *task_info) {
+    printf("Enter getresuid: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_getresuid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getresuid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else if (e->is_valid == true) {
+        printf("Exit getresuid: success, %s, ruid=%u, euid=%u, suid=%u, ret=%lld\n",
+                task_info, e->arg_u32[0], e->arg_u32[1], e->arg_u32[2], e->ret);
+    } else {
+        printf("Exit getresuid: success, %s, failed to read uid values, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_setresgid(const struct event_t *e, const char *task_info) {
+    printf("Enter setresgid: %s, rgid=%u, egid=%u, sgid=%u\n",
+            task_info, e->arg_u32[0], e->arg_u32[1], e->arg_u32[2]);
+    return 0;
+}
+
+static int handle_exit_setresgid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit setresgid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit setresgid: success, %s, ret=%lld\n", 
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getresgid(const struct event_t *e, const char *task_info) {
+    printf("Enter getresgid: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_getresgid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getresgid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else if (e->is_valid == true) {
+        printf("Exit getresgid: success, %s, rgid=%u, egid=%u, sgid=%u, ret=%lld\n",
+                task_info, e->arg_u32[0], e->arg_u32[1], e->arg_u32[2], e->ret);
+    } else {
+        printf("Exit getresgid: success, %s, failed to read gid values, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_setreuid(const struct event_t *e, const char *task_info) {
+    printf("Enter setreuid: %s, ruid=%u, euid=%u\n",
+            task_info, e->arg_u32[0], e->arg_u32[1]);
+    return 0;
+}
+
+static int handle_exit_setreuid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit setreuid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit setreuid: success, %s, ret=%lld\n", 
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_setregid(const struct event_t *e, const char *task_info) {
+    printf("Enter setregid: %s, rgid=%u, egid=%u\n",
+            task_info, e->arg_u32[0], e->arg_u32[1]);
+    return 0;
+}
+
+static int handle_exit_setregid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit setregid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit setregid: success, %s, ret=%lld\n", 
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_geteuid(const struct event_t *e, const char *task_info) {
+    printf("Enter geteuid: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_geteuid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit geteuid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit geteuid: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getegid(const struct event_t *e, const char *task_info) {
+    printf("Enter getegid: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_getegid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getegid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit getegid: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_setgroups(const struct event_t *e, const char *task_info) {
+    printf("Enter setgroups: %s, size=%llu\n",
+            task_info, e->arg_u64[0]);
+    return 0;
+}
+
+static int handle_exit_setgroups(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit setgroups: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit setgroups: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getgroups(const struct event_t *e, const char *task_info) {
+    printf("Enter getgroups: %s, size=%d\n",
+            task_info, e->arg_s32[0]);
+    return 0;
+}
+
+static int handle_exit_getgroups(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getgroups: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit getgroups: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
 static struct socket_handlers event_handler[MAX_EVENT_ID] = {0};
 
 void init_event_handlers(void) {
@@ -3059,6 +3428,50 @@ void init_event_handlers(void) {
     event_handler[__NR_wait4].exit = handle_exit_wait4;
     event_handler[__NR_waitid].enter = handle_enter_waitid;
     event_handler[__NR_waitid].exit = handle_exit_waitid;
+    event_handler[__NR_getpid].enter = handle_enter_getpid;
+    event_handler[__NR_getpid].exit = handle_exit_getpid;
+    event_handler[__NR_getppid].enter = handle_enter_getppid;
+    event_handler[__NR_getppid].exit = handle_exit_getppid;
+    event_handler[__NR_gettid].enter = handle_enter_gettid;
+    event_handler[__NR_gettid].exit = handle_exit_gettid;
+    event_handler[__NR_setsid].enter = handle_enter_setsid;
+    event_handler[__NR_setsid].exit = handle_exit_setsid;
+    event_handler[__NR_getsid].enter = handle_enter_getsid;
+    event_handler[__NR_getsid].exit = handle_exit_getsid;
+    event_handler[__NR_setpgid].enter = handle_enter_setpgid;
+    event_handler[__NR_setpgid].exit = handle_exit_setpgid;
+    event_handler[__NR_getpgid].enter = handle_enter_getpgid;
+    event_handler[__NR_getpgid].exit = handle_exit_getpgid;
+    event_handler[__NR_getpgrp].enter = handle_enter_getpgrp;
+    event_handler[__NR_getpgrp].exit = handle_exit_getpgrp;
+    event_handler[__NR_setuid].enter = handle_enter_setuid;
+    event_handler[__NR_setuid].exit = handle_exit_setuid;
+    event_handler[__NR_getuid].enter = handle_enter_getuid;
+    event_handler[__NR_getuid].exit = handle_exit_getuid;
+    event_handler[__NR_setgid].enter = handle_enter_setgid;
+    event_handler[__NR_setgid].exit = handle_exit_setgid;
+    event_handler[__NR_getgid].enter = handle_enter_getgid;
+    event_handler[__NR_getgid].exit = handle_exit_getgid;
+    event_handler[__NR_setresuid].enter = handle_enter_setresuid;
+    event_handler[__NR_setresuid].exit = handle_exit_setresuid;
+    event_handler[__NR_getresuid].enter = handle_enter_getresuid;
+    event_handler[__NR_getresuid].exit = handle_exit_getresuid;
+    event_handler[__NR_setresgid].enter = handle_enter_setresgid;
+    event_handler[__NR_setresgid].exit = handle_exit_setresgid;
+    event_handler[__NR_getresgid].enter = handle_enter_getresgid;
+    event_handler[__NR_getresgid].exit = handle_exit_getresgid;
+    event_handler[__NR_setreuid].enter = handle_enter_setreuid;
+    event_handler[__NR_setreuid].exit = handle_exit_setreuid;
+    event_handler[__NR_setregid].enter = handle_enter_setregid;
+    event_handler[__NR_setregid].exit = handle_exit_setregid;
+    event_handler[__NR_geteuid].enter = handle_enter_geteuid;
+    event_handler[__NR_geteuid].exit = handle_exit_geteuid;
+    event_handler[__NR_getegid].enter = handle_enter_getegid;
+    event_handler[__NR_getegid].exit = handle_exit_getegid;
+    event_handler[__NR_setgroups].enter = handle_enter_setgroups;
+    event_handler[__NR_setgroups].exit = handle_exit_setgroups;
+    event_handler[__NR_getgroups].enter = handle_enter_getgroups;
+    event_handler[__NR_getgroups].exit = handle_exit_getgroups;
 }
 
 int handle_event(void *ctx, void *data, size_t data_sz) {

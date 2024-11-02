@@ -78,4 +78,16 @@ struct getdents_args {
     struct linux_dirent *dirents;
 };
 
+struct resuid_args {
+    __u64 ruid;
+    __u64 euid;
+    __u64 suid;
+};
+
+struct resgid_args {
+    __u64 rgid;
+    __u64 egid;
+    __u64 sgid;
+};
+
 #endif

@@ -31,107 +31,121 @@ struct {
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 10000);
+    __uint(max_entries, 1024);
     __type(key, struct map_key);
     __type(value, __u64);
 } socketpair_args_map SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 10000);
+    __uint(max_entries, 1024);
     __type(key, struct map_key);
     __type(value, struct getsockopt_args);
 } getsockopt_args_map SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 10000);
+    __uint(max_entries, 1024);
     __type(key, struct map_key);
     __type(value, struct sock_addr_args);
 } getsockname_args_map SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 10000);
+    __uint(max_entries, 1024);
     __type(key, struct map_key);
     __type(value, struct sock_addr_args);
 } getpeername_args_map SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 10000);
+    __uint(max_entries, 1024);
     __type(key, struct map_key);
     __type(value, struct sock_addr_args);
 } accept_args_map SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 10000);
+    __uint(max_entries, 1024);
     __type(key, struct map_key);
     __type(value, struct sock_addr_args);
 } accept4_args_map SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 10000);
+    __uint(max_entries, 1024);
     __type(key, struct map_key);
     __type(value, struct sock_addr_args);
 } recvfrom_args_map SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 10000);
+    __uint(max_entries, 1024);
     __type(key, struct map_key);
     __type(value, struct msg_args);
 } recvmsg_args_map SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 10000);
+    __uint(max_entries, 1024);
     __type(key, struct map_key);
     __type(value, struct poll_args);
 } poll_args_map SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 10000);
+    __uint(max_entries, 1024);
     __type(key, struct map_key);
     __type(value, struct poll_args);
 } ppoll_args_map SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 10000);
+    __uint(max_entries, 1024);
     __type(key, struct map_key);
     __type(value, struct epoll_args);
 } epoll_wait_args_map SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 10000);
+    __uint(max_entries, 1024);
     __type(key, struct map_key);
     __type(value, struct epoll_args);
 } epoll_pwait_args_map SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 10000);
+    __uint(max_entries, 1024);
     __type(key, struct map_key);
     __type(value, struct epoll_args);
 } epoll_pwait2_args_map SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 10000);
+    __uint(max_entries, 1024);
     __type(key, struct map_key);
     __type(value, struct getdents_args);
 } getdents_args_map SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 10000);
+    __uint(max_entries, 1024);
     __type(key, struct map_key);
     __type(value, struct getdents_args);
 } getdents64_args_map SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 1024);
+    __type(key, struct map_key);
+    __type(value, struct resuid_args);
+} resuid_args_map SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 1024);
+    __type(key, struct map_key);
+    __type(value, struct resgid_args);
+} resgid_args_map SEC(".maps");
 
 #endif
