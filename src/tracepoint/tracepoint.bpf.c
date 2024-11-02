@@ -5158,6 +5158,164 @@ int trace_sys_exit_getgroups(struct trace_event_raw_sys_exit *ctx) {
     return 0;
 }
 
+SEC("tracepoint/syscalls/sys_enter_setns")
+int trace_sys_enter_setns(struct trace_event_raw_sys_enter *ctx) {
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+    if (!e)
+        return 0;
+
+    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+    e->arg_s32[1] = BPF_CORE_READ(ctx, args[1]);
+
+    bpf_ringbuf_submit(e, 0);
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_setns")
+int trace_sys_exit_setns(struct trace_event_raw_sys_exit *ctx) {
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+    if (!e)
+        return 0;
+    
+    e->ret = BPF_CORE_READ(ctx, ret);
+    
+    bpf_ringbuf_submit(e, 0);
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_setrlimit")
+int trace_sys_enter_setrlimit(struct trace_event_raw_sys_enter *ctx) {
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+    if (!e)
+        return 0;
+        
+    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+    e->is_valid = false;
+
+    void *rlim_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
+    if (rlim_ptr) {
+        struct rlimit rlim;
+        if (bpf_probe_read_user(&rlim, sizeof(rlim), rlim_ptr) == 0) {
+            e->arg_u64[0] = rlim.rlim_cur;
+            e->arg_u64[1] = rlim.rlim_max;
+            e->is_valid = true;
+        }
+    }
+
+    bpf_ringbuf_submit(e, 0);
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_setrlimit")
+int trace_sys_exit_setrlimit(struct trace_event_raw_sys_exit *ctx) {
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+    if (!e)
+        return 0;
+    
+    e->ret = BPF_CORE_READ(ctx, ret);
+    
+    bpf_ringbuf_submit(e, 0);
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_getrlimit")
+int trace_sys_enter_getrlimit(struct trace_event_raw_sys_enter *ctx) {
+    struct current_task ct = get_task_struct();
+    struct map_key key = get_map_key(&ct);
+    void *rlim_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
+
+    bpf_map_update_elem(&getrlimit_args_map, &key, &rlim_ptr, BPF_ANY);
+
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+    if (!e)
+        return 0;
+        
+    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+
+    bpf_ringbuf_submit(e, 0);
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_getrlimit")
+int trace_sys_exit_getrlimit(struct trace_event_raw_sys_exit *ctx) {
+    __s64 ret = BPF_CORE_READ(ctx, ret);
+    struct current_task ct = get_task_struct();
+    struct map_key key = get_map_key(&ct);
+
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+    if (!e)
+        goto cleanup;
+
+    e->ret = ret;
+    e->is_valid = false;
+    
+    if (ret >= 0) {
+        __u64 *rlim_ptr = bpf_map_lookup_elem(&getrlimit_args_map, &key);
+        if (rlim_ptr) {
+            struct rlimit rlim;
+            if (bpf_probe_read_user(&rlim, sizeof(rlim), rlim_ptr) == 0) {
+                e->arg_u64[0] = rlim.rlim_cur;
+                e->arg_u64[1] = rlim.rlim_max;
+                e->is_valid = true;
+            }
+        }
+    }
+
+    bpf_ringbuf_submit(e, 0);
+
+cleanup:
+    bpf_map_delete_elem(&getrlimit_args_map, &key);
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_prlimit64")
+int trace_sys_enter_prlimit(struct trace_event_raw_sys_enter *ctx) {
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+    if (!e)
+        return 0;
+        
+    e->arg_u32[0] = BPF_CORE_READ(ctx, args[0]);
+    e->arg_s32[0] = BPF_CORE_READ(ctx, args[1]);
+
+    bpf_ringbuf_submit(e, 0);
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_prlimit64")
+int trace_sys_exit_prlimit(struct trace_event_raw_sys_exit *ctx) {
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+    if (!e)
+        return 0;
+    
+    e->ret = BPF_CORE_READ(ctx, ret);
+
+    bpf_ringbuf_submit(e, 0);
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_getrusage")
+int trace_sys_enter_getrusage(struct trace_event_raw_sys_enter *ctx) {
+    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+    if (!e)
+        return 0;
+        
+    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+
+    bpf_ringbuf_submit(e, 0);
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_exit_getrusage")
+int trace_sys_exit_getrusage(struct trace_event_raw_sys_exit *ctx) {
+    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+    if (!e)
+        return 0;
+    
+    e->ret = BPF_CORE_READ(ctx, ret);
+
+    bpf_ringbuf_submit(e, 0);
+    return 0;
+}
 
 
 

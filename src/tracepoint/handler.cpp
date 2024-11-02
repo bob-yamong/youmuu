@@ -42,7 +42,7 @@ struct socket_handlers {
 };
 
 static int handle_enter_socket(const struct event_t *e, const char *task_info) {
-    printf("Enter socket: %s, domain=%d, type=%d, protocol=%d\n",
+    printf("Enter socket: %s, domain=%#x, type=%#x, protocol=%#x\n",
             task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
     return 0;
 }
@@ -59,7 +59,7 @@ static int handle_exit_socket(const struct event_t *e, const char *task_info) {
 }
 
 static int handle_enter_socketpair(const struct event_t *e, const char *task_info) {
-    printf("Enter socketpair: %s, domain=%d, type=%d, protocol=%d\n",
+    printf("Enter socketpair: %s, domain=%#x, type=%#x, protocol=%#x\n",
             task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
     return 0;
 }
@@ -80,10 +80,10 @@ static int handle_exit_socketpair(const struct event_t *e, const char *task_info
 
 static int handle_enter_setsockopt(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter setsockopt: %s, socktfd=%d, level=%d, optname=%d, optval=%u, optlen=%d\n",
+        printf("Enter setsockopt: %s, socktfd=%d, level=%#x, optname=%#x, optval=%u, optlen=%d\n",
                 task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2], e->arg_u32[0], e->arg_s32[3]);
     } else {
-        printf("Enter setsockopt: %s, socktfd=%d, level=%d, optname=%d, failed to read optval, optlen=%d\n",
+        printf("Enter setsockopt: %s, socktfd=%d, level=%#x, optname=%#x, failed to read optval, optlen=%d\n",
                 task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2], e->arg_s32[3]);
     }
     return 0;
@@ -101,7 +101,7 @@ static int handle_exit_setsockopt(const struct event_t *e, const char *task_info
 }
 
 static int handle_enter_getsockopt(const struct event_t *e, const char *task_info) {
-    printf("Enter getsockopt: %s, socketfd=%d, level=%d, optname=%d\n",
+    printf("Enter getsockopt: %s, socketfd=%d, level=%#x, optname=%#x\n",
             task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
     return 0;
 }
@@ -498,7 +498,7 @@ static int handle_exit_ioctl(const struct event_t *e, const char *task_info) {
 
 static int handle_enter_poll(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter poll: %s, nfds=%llu, timeout=%d, pollfd=%d, event=%d\n",
+        printf("Enter poll: %s, nfds=%llu, timeout=%d, pollfd=%d, event=%#x\n",
                 task_info, e->arg_u64[0], e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
     } else {
         printf("Enter poll: %s, nfds=%llu, timeout=%d, failed to read pollfd array\n",
@@ -512,7 +512,7 @@ static int handle_exit_poll(const struct event_t *e, const char *task_info) {
         printf("Exit poll: failed, %s, error_code=%lld\n",
                 task_info, e->ret);
     } else if (e->is_valid == true) {
-        printf("Exit poll: success, %s, revents=%d, ret=%llu\n",
+        printf("Exit poll: success, %s, revents=%#x, ret=%llu\n",
                 task_info, e->arg_s32[0], e->ret);
     } else {
         printf("Exit poll: success, %s, failed to read revents, ret=%llu\n",
@@ -524,10 +524,10 @@ static int handle_exit_poll(const struct event_t *e, const char *task_info) {
 static int handle_enter_ppoll(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
         if (e->arg_u64[1] == 999999999) {
-            printf("Enter ppoll: %s, nfds=%llu, timeout=infinite, pollfd=%d, event=%d\n",
+            printf("Enter ppoll: %s, nfds=%llu, timeout=infinite, pollfd=%d, event=%#x\n",
                     task_info, e->arg_u64[0], e->arg_s32[1], e->arg_s32[2]);
         } else {
-            printf("Enter ppoll: %s, nfds=%llu, timeout=%llu.%09llu, pollfd=%d, event=%d\n",
+            printf("Enter ppoll: %s, nfds=%llu, timeout=%llu.%09llu, pollfd=%d, event=%#x\n",
                     task_info, e->arg_u64[0], e->arg_u64[1], e->arg_u64[2],
                     e->arg_s32[1], e->arg_s32[2]);
         }
@@ -543,7 +543,7 @@ static int handle_exit_ppoll(const struct event_t *e, const char *task_info) {
         printf("Exit ppoll: failed, %s, error_code=%lld\n",
                 task_info, e->ret);
     } else if (e->is_valid == true) {
-        printf("Exit ppoll: success, %s, revents=%d, ret=%lld\n",
+        printf("Exit ppoll: success, %s, revents=%#x, ret=%lld\n",
                 task_info, e->arg_s32[0], e->ret);
     } else {
         printf("Exit ppoll: success, %s, failed to read revents, ret=%lld\n",
@@ -619,7 +619,7 @@ static int handle_exit_epoll_wait(const struct event_t *e, const char *task_info
         printf("Exit epoll_wait: failed, %s, error_code=%lld\n",
                 task_info, e->ret);
     } else if (e->is_valid == true) {
-        printf("Exit epoll_wait: success, %s, events=%d, data=%llu, ret=%lld\n",
+        printf("Exit epoll_wait: success, %s, events=%#x, data=%llu, ret=%lld\n",
                 task_info, e->arg_s32[0], e->arg_u64[0], e->ret);
     } else {
         printf("Exit epoll_wait: success, %s, failed to read revents, ret=%lld\n",
@@ -639,7 +639,7 @@ static int handle_exit_epoll_pwait(const struct event_t *e, const char *task_inf
         printf("Exit epoll_pwait: failed, %s, error_code=%lld\n",
                 task_info, e->ret);
     } else if (e->is_valid == true) {
-        printf("Exit epoll_pwait: success, %s, events=%d, data=%llu, ret=%lld\n",
+        printf("Exit epoll_pwait: success, %s, events=%#x, data=%llu, ret=%lld\n",
                 task_info, e->arg_s32[0], e->arg_u64[0], e->ret);
     } else {
         printf("Exit epoll_pwait: success, %s, failed to read revents, ret=%lld\n",
@@ -664,7 +664,7 @@ static int handle_exit_epoll_pwait2(const struct event_t *e, const char *task_in
         printf("Exit epoll_pwait2: failed, %s, error_code=%lld\n",
                 task_info, e->ret);
     } else if (e->is_valid == true) {
-        printf("Exit epoll_pwait2: success, %s, events=%d, data=%llu, ret=%lld\n",
+        printf("Exit epoll_pwait2: success, %s, events=%#x, data=%llu, ret=%lld\n",
                 task_info, e->arg_s32[0], e->arg_u64[0], e->ret);
     } else {
         printf("Exit epoll_pwait2: success, %s, failed to read revents, ret=%lld\n",
@@ -994,7 +994,7 @@ static int handle_exit_ftruncate(const struct event_t *e, const char *task_info)
 }
 
 static int handle_enter_fallocate(const struct event_t *e, const char *task_info) {
-    printf("Enter fallocate: %s, fd=%d, mode=%d, offset=%llu, len=%llu\n",
+    printf("Enter fallocate: %s, fd=%d, mode=%#x, offset=%llu, len=%llu\n",
             task_info, e->arg_s32[0], e->arg_s32[1], e->arg_u64[0], e->arg_u64[1]);
     return 0;
 }
@@ -2129,7 +2129,7 @@ static int handle_exit_fremovexattr(const struct event_t *e, const char *task_in
 }
 
 static int handle_enter_fcntl(const struct event_t *e, const char *task_info) {
-    printf("Enter fcntl: %s, fd=%d, cmd=%llu, arg=%llu\n",
+    printf("Enter fcntl: %s, fd=%d, cmd=%#llx, arg=%llu\n",
             task_info, e->arg_s32[0], e->arg_u64[0], e->arg_u64[1]);
     return 0;
 }
@@ -3161,6 +3161,99 @@ static int handle_exit_getgroups(const struct event_t *e, const char *task_info)
     return 0;
 }
 
+static int handle_enter_setns(const struct event_t *e, const char *task_info) {
+    printf("Enter setns: %s, fd=%d, nstype=%d\n",
+            task_info, e->arg_s32[0], e->arg_s32[1]);
+    return 0;
+}
+
+static int handle_exit_setns(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit setns: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit setns: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_setrlimit(const struct event_t *e, const char *task_info) {
+    if (e->is_valid == true) {
+        printf("Enter setrlimit: %s, resource=%d, rlim_cur=%llu, rlim_max=%llu\n",
+                task_info, e->arg_s32[0], e->arg_u64[0], e->arg_u64[1]);
+    } else {
+        printf("Enter setrlimit: %s, resource=%d, failed to read rlim_cur, rlim_max\n",
+                task_info, e->arg_s32[0]);
+    }
+    return 0;
+}
+
+static int handle_exit_setrlimit(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit setrlimit: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit setrlimit: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getrlimit(const struct event_t *e, const char *task_info) {
+    printf("Enter getrlimit: %s, resource=%d\n",
+            task_info, e->arg_s32[0]);
+    return 0;
+}
+
+static int handle_exit_getrlimit(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getrlimit: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else if (e->is_valid == true) {
+        printf("Exit getrlimit: success, %s, rlim_cur=%llu, rlim_max=%llu, ret=%lld\n",
+                task_info, e->arg_u64[0], e->arg_u64[1], e->ret);
+    } else {
+        printf("Exit getrlimit: success, %s, failed to read rlimit info, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_prlimit64(const struct event_t *e, const char *task_info) {
+    printf("Enter prlimit64: %s, pid=%u, resource=%d\n",
+            task_info, e->arg_u32[0], e->arg_s32[0]);
+    return 0;
+}
+
+static int handle_exit_prlimit64(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit prlimit64: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit prlimit64: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getrusage(const struct event_t *e, const char *task_info) {
+    printf("Enter getrusage: %s, who=%d\n",
+            task_info, e->arg_s32[0]);
+    return 0;
+}
+
+static int handle_exit_getrusage(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getrusage: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    }else {
+        printf("Exit getrusage: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
 static struct socket_handlers event_handler[MAX_EVENT_ID] = {0};
 
 void init_event_handlers(void) {
@@ -3472,6 +3565,16 @@ void init_event_handlers(void) {
     event_handler[__NR_setgroups].exit = handle_exit_setgroups;
     event_handler[__NR_getgroups].enter = handle_enter_getgroups;
     event_handler[__NR_getgroups].exit = handle_exit_getgroups;
+    event_handler[__NR_setns].enter = handle_enter_setns;
+    event_handler[__NR_setns].exit = handle_exit_setns;
+    event_handler[__NR_setrlimit].enter = handle_enter_setrlimit;
+    event_handler[__NR_setrlimit].exit = handle_exit_setrlimit;
+    event_handler[__NR_getrlimit].enter = handle_enter_getrlimit;
+    event_handler[__NR_getrlimit].exit = handle_exit_getrlimit;
+    event_handler[__NR_prlimit64].enter = handle_enter_prlimit64;
+    event_handler[__NR_prlimit64].exit = handle_exit_prlimit64;
+    event_handler[__NR_getrusage].enter = handle_enter_getrusage;
+    event_handler[__NR_getrusage].exit = handle_exit_getrusage;
 }
 
 int handle_event(void *ctx, void *data, size_t data_sz) {
