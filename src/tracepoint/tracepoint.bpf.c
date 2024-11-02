@@ -902,7 +902,7 @@ int trace_sys_exit_setdomainname(struct trace_event_raw_sys_exit *ctx) {
     return 0;
 }
 
-SEC("tracepoint/syscalls/sys_enter_ioctl")  // 설정 변경 탐지 모니터링 필요?
+SEC("tracepoint/syscalls/sys_enter_ioctl")
 int trace_sys_enter_ioctl(struct trace_event_raw_sys_enter *ctx) {
     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
@@ -927,386 +927,386 @@ int trace_sys_exit_ioctl(struct trace_event_raw_sys_exit *ctx) {
     return 0;
 }
 
-SEC("tracepoint/syscalls/sys_enter_poll")
-int trace_sys_enter_poll(struct trace_event_raw_sys_enter *ctx) {
-    struct current_task ct = get_task_struct();
-    struct map_key key = get_map_key(&ct);
-    void *fds_ptr = (void *)BPF_CORE_READ(ctx, args[0]);
+// SEC("tracepoint/syscalls/sys_enter_poll")
+// int trace_sys_enter_poll(struct trace_event_raw_sys_enter *ctx) {
+//     struct current_task ct = get_task_struct();
+//     struct map_key key = get_map_key(&ct);
+//     void *fds_ptr = (void *)BPF_CORE_READ(ctx, args[0]);
 
-    bpf_map_update_elem(&poll_args_map, &key, &fds_ptr, BPF_ANY);
+//     bpf_map_update_elem(&poll_args_map, &key, &fds_ptr, BPF_ANY);
 
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+//     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
     
-    e->arg_u64[0] = BPF_CORE_READ(ctx, args[1]);
-    e->arg_s32[0] = BPF_CORE_READ(ctx, args[2]);
-    e->is_valid = false;
+//     e->arg_u64[0] = BPF_CORE_READ(ctx, args[1]);
+//     e->arg_s32[0] = BPF_CORE_READ(ctx, args[2]);
+//     e->is_valid = false;
 
-    if (fds_ptr) {
-        struct pollfd pfd;
-        if (bpf_probe_read_user(&pfd, sizeof(pfd), fds_ptr) == 0) {
-            e->arg_s32[1] = pfd.fd;
-            e->arg_s32[2] = pfd.events;
-            e->is_valid = true;
-        }
-    }
+//     if (fds_ptr) {
+//         struct pollfd pfd;
+//         if (bpf_probe_read_user(&pfd, sizeof(pfd), fds_ptr) == 0) {
+//             e->arg_s32[1] = pfd.fd;
+//             e->arg_s32[2] = pfd.events;
+//             e->is_valid = true;
+//         }
+//     }
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_poll")
-int trace_sys_exit_poll(struct trace_event_raw_sys_exit *ctx) {
-    __s64 ret = BPF_CORE_READ(ctx, ret);
-    struct current_task ct = get_task_struct();
-    struct map_key key = get_map_key(&ct);
+// SEC("tracepoint/syscalls/sys_exit_poll")
+// int trace_sys_exit_poll(struct trace_event_raw_sys_exit *ctx) {
+//     __s64 ret = BPF_CORE_READ(ctx, ret);
+//     struct current_task ct = get_task_struct();
+//     struct map_key key = get_map_key(&ct);
 
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        goto cleanup;
+//     struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         goto cleanup;
 
-    e->ret = ret;
-    e->is_valid = false;
+//     e->ret = ret;
+//     e->is_valid = false;
 
-    if (ret >= 0) {
-        __u64 *fds_ptr = bpf_map_lookup_elem(&poll_args_map, &key);
-        if (fds_ptr) {
-            struct pollfd pfd;
-            if (bpf_probe_read_user(&pfd, sizeof(pfd),fds_ptr) == 0) {
-                e->arg_s32[0] = pfd.revents;
-                e->is_valid = true;
-            }
-        }
-    }
+//     if (ret >= 0) {
+//         __u64 *fds_ptr = bpf_map_lookup_elem(&poll_args_map, &key);
+//         if (fds_ptr) {
+//             struct pollfd pfd;
+//             if (bpf_probe_read_user(&pfd, sizeof(pfd),fds_ptr) == 0) {
+//                 e->arg_s32[0] = pfd.revents;
+//                 e->is_valid = true;
+//             }
+//         }
+//     }
 
-    bpf_ringbuf_submit(e, 0);
+//     bpf_ringbuf_submit(e, 0);
 
-cleanup:
-    bpf_map_delete_elem(&poll_args_map, &key);    
-    return 0;
-}
+// cleanup:
+//     bpf_map_delete_elem(&poll_args_map, &key);    
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_enter_ppoll")
-int trace_sys_enter_ppoll(struct trace_event_raw_sys_enter *ctx) {
-    struct current_task ct = get_task_struct();
-    struct map_key key = get_map_key(&ct);
-    void *fds_ptr = (void *)BPF_CORE_READ(ctx, args[0]);
+// SEC("tracepoint/syscalls/sys_enter_ppoll")
+// int trace_sys_enter_ppoll(struct trace_event_raw_sys_enter *ctx) {
+//     struct current_task ct = get_task_struct();
+//     struct map_key key = get_map_key(&ct);
+//     void *fds_ptr = (void *)BPF_CORE_READ(ctx, args[0]);
 
-    bpf_map_update_elem(&poll_args_map, &key, &fds_ptr, BPF_ANY);
+//     bpf_map_update_elem(&poll_args_map, &key, &fds_ptr, BPF_ANY);
 
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+//     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
 
-    e->arg_u64[0] = BPF_CORE_READ(ctx, args[1]);
-    void *tsp = (void *)BPF_CORE_READ(ctx, args[2]);
-    e->is_valid = false;
+//     e->arg_u64[0] = BPF_CORE_READ(ctx, args[1]);
+//     void *tsp = (void *)BPF_CORE_READ(ctx, args[2]);
+//     e->is_valid = false;
 
-    if (fds_ptr) {
-        struct pollfd pfd;
-        if (bpf_probe_read_user(&pfd, sizeof(pfd), fds_ptr) == 0) {
-            e->arg_s32[1] = pfd.fd;
-            e->arg_s32[2] = pfd.events;
-            e->is_valid = true;
-        }
-    }
+//     if (fds_ptr) {
+//         struct pollfd pfd;
+//         if (bpf_probe_read_user(&pfd, sizeof(pfd), fds_ptr) == 0) {
+//             e->arg_s32[1] = pfd.fd;
+//             e->arg_s32[2] = pfd.events;
+//             e->is_valid = true;
+//         }
+//     }
 
-    if (tsp) {
-        struct timespec_args ts;
-        if (bpf_probe_read_user(&ts, sizeof(ts), tsp) == 0) {
-            e->arg_u64[1] = ts.tv_sec;
-            e->arg_u64[2] = ts.tv_nsec;
-        }
-    } else {
-        e->arg_u64[1] = 999999999;
-    }
+//     if (tsp) {
+//         struct timespec_args ts;
+//         if (bpf_probe_read_user(&ts, sizeof(ts), tsp) == 0) {
+//             e->arg_u64[1] = ts.tv_sec;
+//             e->arg_u64[2] = ts.tv_nsec;
+//         }
+//     } else {
+//         e->arg_u64[1] = 999999999;
+//     }
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_ppoll")
-int trace_sys_exit_ppoll(struct trace_event_raw_sys_exit *ctx) {
-    __s64 ret = BPF_CORE_READ(ctx, ret);
-    struct current_task ct = get_task_struct();
-    struct map_key key = get_map_key(&ct);
+// SEC("tracepoint/syscalls/sys_exit_ppoll")
+// int trace_sys_exit_ppoll(struct trace_event_raw_sys_exit *ctx) {
+//     __s64 ret = BPF_CORE_READ(ctx, ret);
+//     struct current_task ct = get_task_struct();
+//     struct map_key key = get_map_key(&ct);
 
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        goto cleanup;
+//     struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         goto cleanup;
 
-    e->ret = ret;
-    e->is_valid = false;
+//     e->ret = ret;
+//     e->is_valid = false;
 
-    if (ret >= 0) {
-        __u64 *fds_ptr = bpf_map_lookup_elem(&poll_args_map, &key);
-        if (fds_ptr) {
-            struct pollfd pfd;
-            if (bpf_probe_read_user(&pfd, sizeof(pfd), fds_ptr) == 0) {
-                e->arg_s32[0] = pfd.revents;
-                e->is_valid = true;
-            }
-        }
-    }
+//     if (ret >= 0) {
+//         __u64 *fds_ptr = bpf_map_lookup_elem(&poll_args_map, &key);
+//         if (fds_ptr) {
+//             struct pollfd pfd;
+//             if (bpf_probe_read_user(&pfd, sizeof(pfd), fds_ptr) == 0) {
+//                 e->arg_s32[0] = pfd.revents;
+//                 e->is_valid = true;
+//             }
+//         }
+//     }
 
-    bpf_ringbuf_submit(e, 0);
+//     bpf_ringbuf_submit(e, 0);
 
-cleanup:
-    bpf_map_delete_elem(&poll_args_map, &key);    
-    return 0;
-}
+// cleanup:
+//     bpf_map_delete_elem(&poll_args_map, &key);    
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_enter_epoll_create")
-int trace_sys_enter_epoll_create(struct trace_event_raw_sys_enter *ctx) {
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+// SEC("tracepoint/syscalls/sys_enter_epoll_create")
+// int trace_sys_enter_epoll_create(struct trace_event_raw_sys_enter *ctx) {
+//     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
     
-    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+//     e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
     
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_epoll_create")
-int trace_sys_exit_epoll_create(struct trace_event_raw_sys_exit *ctx) {
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+// SEC("tracepoint/syscalls/sys_exit_epoll_create")
+// int trace_sys_exit_epoll_create(struct trace_event_raw_sys_exit *ctx) {
+//     struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
 
-    e->ret = BPF_CORE_READ(ctx, ret);
+//     e->ret = BPF_CORE_READ(ctx, ret);
     
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_enter_epoll_create1")
-int trace_sys_enter_epoll_create1(struct trace_event_raw_sys_enter *ctx) {
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+// SEC("tracepoint/syscalls/sys_enter_epoll_create1")
+// int trace_sys_enter_epoll_create1(struct trace_event_raw_sys_enter *ctx) {
+//     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
     
-    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+//     e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
     
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_epoll_create1")
-int trace_sys_exit_epoll_create1(struct trace_event_raw_sys_exit *ctx) {
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+// SEC("tracepoint/syscalls/sys_exit_epoll_create1")
+// int trace_sys_exit_epoll_create1(struct trace_event_raw_sys_exit *ctx) {
+//     struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
 
-    e->ret = BPF_CORE_READ(ctx, ret);
+//     e->ret = BPF_CORE_READ(ctx, ret);
     
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_enter_epoll_ctl")
-int trace_sys_enter_epoll_ctl(struct trace_event_raw_sys_enter *ctx) {
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+// SEC("tracepoint/syscalls/sys_enter_epoll_ctl")
+// int trace_sys_enter_epoll_ctl(struct trace_event_raw_sys_enter *ctx) {
+//     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
 
-    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
-    e->arg_s32[1] = BPF_CORE_READ(ctx, args[1]);
-    e->arg_s32[2] = BPF_CORE_READ(ctx, args[2]);
-    e->is_valid = false;
+//     e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+//     e->arg_s32[1] = BPF_CORE_READ(ctx, args[1]);
+//     e->arg_s32[2] = BPF_CORE_READ(ctx, args[2]);
+//     e->is_valid = false;
     
-    struct epoll_event *event_ptr = (struct epoll_event *)BPF_CORE_READ(ctx, args[3]);
-    if (event_ptr) {
-        struct epoll_event event;
-        if (bpf_probe_read_user(&event, sizeof(event), event_ptr) == 0) {
-            e->arg_u32[0] = event.events;
-            e->arg_u64[0] = event.data;
-            e->is_valid = true;
-        }
-    }
+//     struct epoll_event *event_ptr = (struct epoll_event *)BPF_CORE_READ(ctx, args[3]);
+//     if (event_ptr) {
+//         struct epoll_event event;
+//         if (bpf_probe_read_user(&event, sizeof(event), event_ptr) == 0) {
+//             e->arg_u32[0] = event.events;
+//             e->arg_u64[0] = event.data;
+//             e->is_valid = true;
+//         }
+//     }
     
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_epoll_ctl")
-int trace_sys_exit_epoll_ctl(struct trace_event_raw_sys_exit *ctx) {
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+// SEC("tracepoint/syscalls/sys_exit_epoll_ctl")
+// int trace_sys_exit_epoll_ctl(struct trace_event_raw_sys_exit *ctx) {
+//     struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
     
-    e->ret = BPF_CORE_READ(ctx, ret);
+//     e->ret = BPF_CORE_READ(ctx, ret);
     
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_enter_epoll_wait")
-int trace_sys_enter_epoll_wait(struct trace_event_raw_sys_enter *ctx) {
-    struct current_task ct = get_task_struct();
-    struct map_key key = get_map_key(&ct);
-    void *events_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
+// SEC("tracepoint/syscalls/sys_enter_epoll_wait")
+// int trace_sys_enter_epoll_wait(struct trace_event_raw_sys_enter *ctx) {
+//     struct current_task ct = get_task_struct();
+//     struct map_key key = get_map_key(&ct);
+//     void *events_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
 
-    bpf_map_update_elem(&epoll_wait_args_map, &key, &events_ptr, BPF_ANY);
+//     bpf_map_update_elem(&epoll_wait_args_map, &key, &events_ptr, BPF_ANY);
 
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+//     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
 
-    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
-    e->arg_s32[1] = BPF_CORE_READ(ctx, args[2]);
-    e->arg_s32[2] = BPF_CORE_READ(ctx, args[3]);
+//     e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+//     e->arg_s32[1] = BPF_CORE_READ(ctx, args[2]);
+//     e->arg_s32[2] = BPF_CORE_READ(ctx, args[3]);
     
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_epoll_wait")
-int trace_sys_exit_epoll_wait(struct trace_event_raw_sys_exit *ctx) {
-    __s64 ret = BPF_CORE_READ(ctx, ret);
-    struct current_task ct = get_task_struct();
-    struct map_key key = get_map_key(&ct);
+// SEC("tracepoint/syscalls/sys_exit_epoll_wait")
+// int trace_sys_exit_epoll_wait(struct trace_event_raw_sys_exit *ctx) {
+//     __s64 ret = BPF_CORE_READ(ctx, ret);
+//     struct current_task ct = get_task_struct();
+//     struct map_key key = get_map_key(&ct);
 
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        goto cleanup;
+//     struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         goto cleanup;
     
-    e->ret = ret;
-    e->is_valid = false;
+//     e->ret = ret;
+//     e->is_valid = false;
 
-    if (ret >= 0) {
-        __u64 *events_ptr = bpf_map_lookup_elem(&epoll_wait_args_map, &key);
-        if (events_ptr) {
-            struct epoll_event events;
-            if (bpf_probe_read_user(&events, sizeof(events), events_ptr) == 0) {
-                e->arg_u32[0] = events.events;
-                e->arg_u64[0] = events.data;
-                e->is_valid = true;
-            }
-        }
-    }
+//     if (ret >= 0) {
+//         __u64 *events_ptr = bpf_map_lookup_elem(&epoll_wait_args_map, &key);
+//         if (events_ptr) {
+//             struct epoll_event events;
+//             if (bpf_probe_read_user(&events, sizeof(events), events_ptr) == 0) {
+//                 e->arg_u32[0] = events.events;
+//                 e->arg_u64[0] = events.data;
+//                 e->is_valid = true;
+//             }
+//         }
+//     }
     
-    bpf_ringbuf_submit(e, 0);
+//     bpf_ringbuf_submit(e, 0);
 
-cleanup:
-    bpf_map_delete_elem(&epoll_wait_args_map, &key);
-    return 0;
-}
+// cleanup:
+//     bpf_map_delete_elem(&epoll_wait_args_map, &key);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_enter_epoll_pwait")
-int trace_sys_enter_epoll_pwait(struct trace_event_raw_sys_enter *ctx) {
-    struct current_task ct = get_task_struct();
-    struct map_key key = get_map_key(&ct);
-    void *events_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
+// SEC("tracepoint/syscalls/sys_enter_epoll_pwait")
+// int trace_sys_enter_epoll_pwait(struct trace_event_raw_sys_enter *ctx) {
+//     struct current_task ct = get_task_struct();
+//     struct map_key key = get_map_key(&ct);
+//     void *events_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
 
-    bpf_map_update_elem(&epoll_pwait_args_map, &key, &events_ptr, BPF_ANY);
+//     bpf_map_update_elem(&epoll_pwait_args_map, &key, &events_ptr, BPF_ANY);
 
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+//     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
 
-    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
-    e->arg_s32[1] = BPF_CORE_READ(ctx, args[2]);
-    e->arg_s32[2] = BPF_CORE_READ(ctx, args[3]);
+//     e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+//     e->arg_s32[1] = BPF_CORE_READ(ctx, args[2]);
+//     e->arg_s32[2] = BPF_CORE_READ(ctx, args[3]);
     
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_epoll_pwait")
-int trace_sys_exit_epoll_pwait(struct trace_event_raw_sys_exit *ctx) {
-    __s64 ret = BPF_CORE_READ(ctx, ret);
-    struct current_task ct = get_task_struct();
-    struct map_key key = get_map_key(&ct);
+// SEC("tracepoint/syscalls/sys_exit_epoll_pwait")
+// int trace_sys_exit_epoll_pwait(struct trace_event_raw_sys_exit *ctx) {
+//     __s64 ret = BPF_CORE_READ(ctx, ret);
+//     struct current_task ct = get_task_struct();
+//     struct map_key key = get_map_key(&ct);
 
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        goto cleanup;
+//     struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         goto cleanup;
     
-    e->ret = ret;
-    e->is_valid = false;
+//     e->ret = ret;
+//     e->is_valid = false;
 
-    if (ret >= 0) {
-        __u64 *events_ptr = bpf_map_lookup_elem(&epoll_pwait_args_map, &key);
-        if (events_ptr) {
-            struct epoll_event events;
-            if (bpf_probe_read_user(&events, sizeof(events), events_ptr) == 0) {
-                e->arg_u32[0] = events.events;
-                e->arg_u64[0] = events.data;
-                e->is_valid = true;
-            }
-        }
-    }
+//     if (ret >= 0) {
+//         __u64 *events_ptr = bpf_map_lookup_elem(&epoll_pwait_args_map, &key);
+//         if (events_ptr) {
+//             struct epoll_event events;
+//             if (bpf_probe_read_user(&events, sizeof(events), events_ptr) == 0) {
+//                 e->arg_u32[0] = events.events;
+//                 e->arg_u64[0] = events.data;
+//                 e->is_valid = true;
+//             }
+//         }
+//     }
     
-    bpf_ringbuf_submit(e, 0);
+//     bpf_ringbuf_submit(e, 0);
 
-cleanup:
-    bpf_map_delete_elem(&epoll_pwait_args_map, &key);
-    return 0;
-}
+// cleanup:
+//     bpf_map_delete_elem(&epoll_pwait_args_map, &key);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_enter_epoll_pwait2")
-int trace_sys_enter_epoll_pwait2(struct trace_event_raw_sys_enter *ctx) {
-    struct current_task ct = get_task_struct();
-    struct map_key key = get_map_key(&ct);
-    void *events_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
+// SEC("tracepoint/syscalls/sys_enter_epoll_pwait2")
+// int trace_sys_enter_epoll_pwait2(struct trace_event_raw_sys_enter *ctx) {
+//     struct current_task ct = get_task_struct();
+//     struct map_key key = get_map_key(&ct);
+//     void *events_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
 
-    bpf_map_update_elem(&epoll_pwait2_args_map, &key, &events_ptr, BPF_ANY);
+//     bpf_map_update_elem(&epoll_pwait2_args_map, &key, &events_ptr, BPF_ANY);
 
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+//     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
 
-    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
-    e->arg_s32[1] = BPF_CORE_READ(ctx, args[2]);
-    void *timeout = (void *)BPF_CORE_READ(ctx, args[3]);
+//     e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+//     e->arg_s32[1] = BPF_CORE_READ(ctx, args[2]);
+//     void *timeout = (void *)BPF_CORE_READ(ctx, args[3]);
     
-    if (timeout) {
-        struct timespec_args ts;
-        if (bpf_probe_read_user(&ts, sizeof(ts), timeout) == 0) {
-            e->arg_u64[0] = ts.tv_sec;
-            e->arg_u64[1] = ts.tv_nsec;
-        }
-    } else {
-        e->arg_u64[0] = 999999999;
-    }
+//     if (timeout) {
+//         struct timespec_args ts;
+//         if (bpf_probe_read_user(&ts, sizeof(ts), timeout) == 0) {
+//             e->arg_u64[0] = ts.tv_sec;
+//             e->arg_u64[1] = ts.tv_nsec;
+//         }
+//     } else {
+//         e->arg_u64[0] = 999999999;
+//     }
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_epoll_pwait2")
-int trace_sys_exit_epoll_pwait2(struct trace_event_raw_sys_exit *ctx) {
-    __s64 ret = BPF_CORE_READ(ctx, ret);
-    struct current_task ct = get_task_struct();
-    struct map_key key = get_map_key(&ct);
+// SEC("tracepoint/syscalls/sys_exit_epoll_pwait2")
+// int trace_sys_exit_epoll_pwait2(struct trace_event_raw_sys_exit *ctx) {
+//     __s64 ret = BPF_CORE_READ(ctx, ret);
+//     struct current_task ct = get_task_struct();
+//     struct map_key key = get_map_key(&ct);
 
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        goto cleanup;
+//     struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         goto cleanup;
     
-    e->ret = ret;
-    e->is_valid = false;
+//     e->ret = ret;
+//     e->is_valid = false;
 
-    if (ret >= 0) {
-        __u64 *events_ptr = bpf_map_lookup_elem(&epoll_pwait2_args_map, &key);
-        if (events_ptr) {
-            struct epoll_event events;
-            if (bpf_probe_read_user(&events, sizeof(events), events_ptr) == 0) {
-                e->arg_u32[0] = events.events;
-                e->arg_u64[0] = events.data;
-                e->is_valid = true;
-            }
-        }
-    }
+//     if (ret >= 0) {
+//         __u64 *events_ptr = bpf_map_lookup_elem(&epoll_pwait2_args_map, &key);
+//         if (events_ptr) {
+//             struct epoll_event events;
+//             if (bpf_probe_read_user(&events, sizeof(events), events_ptr) == 0) {
+//                 e->arg_u32[0] = events.events;
+//                 e->arg_u64[0] = events.data;
+//                 e->is_valid = true;
+//             }
+//         }
+//     }
     
-    bpf_ringbuf_submit(e, 0);
+//     bpf_ringbuf_submit(e, 0);
 
-cleanup:
-    bpf_map_delete_elem(&epoll_pwait2_args_map, &key);
-    return 0;
-}
+// cleanup:
+//     bpf_map_delete_elem(&epoll_pwait2_args_map, &key);
+//     return 0;
+// }
 
 // file system related tracepoints
 SEC("tracepoint/syscalls/sys_enter_close")
@@ -2894,190 +2894,190 @@ int trace_sys_exit_fchownat(struct trace_event_raw_sys_exit *ctx) {
     return 0;
 }
 
-SEC("tracepoint/syscalls/sys_enter_utime")
-int trace_sys_enter_utime(struct trace_event_raw_sys_enter *ctx) {
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+// SEC("tracepoint/syscalls/sys_enter_utime")
+// int trace_sys_enter_utime(struct trace_event_raw_sys_enter *ctx) {
+//     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
     
-    e->is_valid = false;
-    e->is_null = true;
+//     e->is_valid = false;
+//     e->is_null = true;
 
-    char *filename_ptr = (char *)BPF_CORE_READ(ctx, args[0]);
-    struct utimbuf *times_ptr = (struct utimbuf *)BPF_CORE_READ(ctx, args[1]);
-    if (filename_ptr) {
-        if (times_ptr) {
-            struct utimbuf time_values;
-            if (bpf_probe_read_user(&time_values, sizeof(time_values), times_ptr) == 0 &&
-                bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), filename_ptr) >= 0) {
-                e->arg_u64[0] = time_values.actime;
-                e->arg_u64[1] = time_values.modtime;
-                e->is_valid = true;
-                e->is_null = false;
-            }
-        } else {
-            if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), filename_ptr) >= 0) {
-                e->is_valid = true;
-            }
-        }
-    }
+//     char *filename_ptr = (char *)BPF_CORE_READ(ctx, args[0]);
+//     struct utimbuf *times_ptr = (struct utimbuf *)BPF_CORE_READ(ctx, args[1]);
+//     if (filename_ptr) {
+//         if (times_ptr) {
+//             struct utimbuf time_values;
+//             if (bpf_probe_read_user(&time_values, sizeof(time_values), times_ptr) == 0 &&
+//                 bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), filename_ptr) >= 0) {
+//                 e->arg_u64[0] = time_values.actime;
+//                 e->arg_u64[1] = time_values.modtime;
+//                 e->is_valid = true;
+//                 e->is_null = false;
+//             }
+//         } else {
+//             if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), filename_ptr) >= 0) {
+//                 e->is_valid = true;
+//             }
+//         }
+//     }
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_utime")
-int trace_sys_exit_utime(struct trace_event_raw_sys_exit *ctx) {
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e)
-        return 0;
+// SEC("tracepoint/syscalls/sys_exit_utime")
+// int trace_sys_exit_utime(struct trace_event_raw_sys_exit *ctx) {
+//     struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+//     if (!e)
+//         return 0;
     
-    e->ret = BPF_CORE_READ(ctx, ret);
+//     e->ret = BPF_CORE_READ(ctx, ret);
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_enter_utimes")
-int trace_sys_enter_utimes(struct trace_event_raw_sys_enter *ctx) {
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+// SEC("tracepoint/syscalls/sys_enter_utimes")
+// int trace_sys_enter_utimes(struct trace_event_raw_sys_enter *ctx) {
+//     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
     
-    e->is_valid = false;
-    e->is_null = true;
+//     e->is_valid = false;
+//     e->is_null = true;
 
-    char *filename_ptr = (char *)BPF_CORE_READ(ctx, args[0]);
-    struct __kernel_old_timeval *utimes_ptr = (struct __kernel_old_timeval *)BPF_CORE_READ(ctx, args[1]);
-    if (filename_ptr) {
-        if (utimes_ptr) {
-            struct __kernel_old_timeval time_values[2];
-            if (bpf_probe_read_user(&time_values, sizeof(time_values), utimes_ptr) == 0 &&
-                bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), filename_ptr) >= 0) {
-                e->arg_u32[0] = time_values[0].tv_sec;
-                e->arg_s32[0] = time_values[0].tv_usec;
-                e->arg_u32[1] = time_values[1].tv_sec;
-                e->arg_s32[1] = time_values[1].tv_usec;
-                e->is_valid = true;
-                e->is_null = false;
-            }
-        } else {
-            if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), filename_ptr) >= 0) {
-                e->is_valid = true;
-            }
-        }
-    }
+//     char *filename_ptr = (char *)BPF_CORE_READ(ctx, args[0]);
+//     struct __kernel_old_timeval *utimes_ptr = (struct __kernel_old_timeval *)BPF_CORE_READ(ctx, args[1]);
+//     if (filename_ptr) {
+//         if (utimes_ptr) {
+//             struct __kernel_old_timeval time_values[2];
+//             if (bpf_probe_read_user(&time_values, sizeof(time_values), utimes_ptr) == 0 &&
+//                 bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), filename_ptr) >= 0) {
+//                 e->arg_u32[0] = time_values[0].tv_sec;
+//                 e->arg_s32[0] = time_values[0].tv_usec;
+//                 e->arg_u32[1] = time_values[1].tv_sec;
+//                 e->arg_s32[1] = time_values[1].tv_usec;
+//                 e->is_valid = true;
+//                 e->is_null = false;
+//             }
+//         } else {
+//             if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), filename_ptr) >= 0) {
+//                 e->is_valid = true;
+//             }
+//         }
+//     }
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_utimes")
-int trace_sys_exit_utimes(struct trace_event_raw_sys_exit *ctx) {
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e)
-        return 0;
+// SEC("tracepoint/syscalls/sys_exit_utimes")
+// int trace_sys_exit_utimes(struct trace_event_raw_sys_exit *ctx) {
+//     struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+//     if (!e)
+//         return 0;
     
-    e->ret = BPF_CORE_READ(ctx, ret);
+//     e->ret = BPF_CORE_READ(ctx, ret);
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_enter_futimesat")
-int trace_sys_enter_futimesat(struct trace_event_raw_sys_enter *ctx) {
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+// SEC("tracepoint/syscalls/sys_enter_futimesat")
+// int trace_sys_enter_futimesat(struct trace_event_raw_sys_enter *ctx) {
+//     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
     
-    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
-    e->is_valid = false;
-    e->is_null = true;
+//     e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+//     e->is_valid = false;
+//     e->is_null = true;
 
-    char *pathname_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
-    struct __kernel_old_timeval *utimes_ptr = (struct __kernel_old_timeval *)BPF_CORE_READ(ctx, args[2]);
-    if (pathname_ptr) {
-        if (utimes_ptr) {
-            struct __kernel_old_timeval time_values[2];
-            if (bpf_probe_read_user(&time_values, sizeof(time_values), utimes_ptr) == 0 &&
-                bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0) {
-                e->arg_u32[0] = time_values[0].tv_sec;
-                e->arg_s32[0] = time_values[0].tv_usec;
-                e->arg_u32[1] = time_values[1].tv_sec;
-                e->arg_s32[1] = time_values[1].tv_usec;
-                e->is_valid = true;
-                e->is_null = false;
-            }
-        } else {
-            if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0) {
-                e->is_valid = true;
-            }
-        }
-    }
+//     char *pathname_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
+//     struct __kernel_old_timeval *utimes_ptr = (struct __kernel_old_timeval *)BPF_CORE_READ(ctx, args[2]);
+//     if (pathname_ptr) {
+//         if (utimes_ptr) {
+//             struct __kernel_old_timeval time_values[2];
+//             if (bpf_probe_read_user(&time_values, sizeof(time_values), utimes_ptr) == 0 &&
+//                 bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0) {
+//                 e->arg_u32[0] = time_values[0].tv_sec;
+//                 e->arg_s32[0] = time_values[0].tv_usec;
+//                 e->arg_u32[1] = time_values[1].tv_sec;
+//                 e->arg_s32[1] = time_values[1].tv_usec;
+//                 e->is_valid = true;
+//                 e->is_null = false;
+//             }
+//         } else {
+//             if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0) {
+//                 e->is_valid = true;
+//             }
+//         }
+//     }
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_futimesat")
-int trace_sys_exit_futimesat(struct trace_event_raw_sys_exit *ctx) {
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e)
-        return 0;
+// SEC("tracepoint/syscalls/sys_exit_futimesat")
+// int trace_sys_exit_futimesat(struct trace_event_raw_sys_exit *ctx) {
+//     struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+//     if (!e)
+//         return 0;
     
-    e->ret = BPF_CORE_READ(ctx, ret);
+//     e->ret = BPF_CORE_READ(ctx, ret);
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_enter_utimensat")
-int trace_sys_enter_utimensat(struct trace_event_raw_sys_enter *ctx) {
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+// SEC("tracepoint/syscalls/sys_enter_utimensat")
+// int trace_sys_enter_utimensat(struct trace_event_raw_sys_enter *ctx) {
+//     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
 
-    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
-    e->arg_s32[1] = BPF_CORE_READ(ctx, args[3]);
-    e->is_valid = false;
-    e->is_null = true;
+//     e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+//     e->arg_s32[1] = BPF_CORE_READ(ctx, args[3]);
+//     e->is_valid = false;
+//     e->is_null = true;
 
-    char *pathname_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
-    struct timespec64 *utimes_ptr = (struct timespec64 *)BPF_CORE_READ(ctx, args[2]);
-    if (pathname_ptr) {
-        if (utimes_ptr) {
-            struct timespec64 time_values[2];
-            if (bpf_probe_read_user(&time_values, sizeof(time_values), utimes_ptr) == 0 &&
-                bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0) {
-                e->arg_u64[0] = time_values[0].tv_sec;
-                e->arg_u64[1] = time_values[0].tv_nsec;
-                e->arg_u64[2] = time_values[1].tv_sec;
-                e->arg_u64[3] = time_values[1].tv_nsec;
-                e->is_valid = true;
-                e->is_null = false;
-            }
-        } else {
-            if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0) {
-                e->is_valid = true;
-            }
-        }
-    }
+//     char *pathname_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
+//     struct timespec64 *utimes_ptr = (struct timespec64 *)BPF_CORE_READ(ctx, args[2]);
+//     if (pathname_ptr) {
+//         if (utimes_ptr) {
+//             struct timespec64 time_values[2];
+//             if (bpf_probe_read_user(&time_values, sizeof(time_values), utimes_ptr) == 0 &&
+//                 bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0) {
+//                 e->arg_u64[0] = time_values[0].tv_sec;
+//                 e->arg_u64[1] = time_values[0].tv_nsec;
+//                 e->arg_u64[2] = time_values[1].tv_sec;
+//                 e->arg_u64[3] = time_values[1].tv_nsec;
+//                 e->is_valid = true;
+//                 e->is_null = false;
+//             }
+//         } else {
+//             if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0) {
+//                 e->is_valid = true;
+//             }
+//         }
+//     }
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_utimensat")
-int trace_sys_exit_utimensat(struct trace_event_raw_sys_exit *ctx) {
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e)
-        return 0;
+// SEC("tracepoint/syscalls/sys_exit_utimensat")
+// int trace_sys_exit_utimensat(struct trace_event_raw_sys_exit *ctx) {
+//     struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+//     if (!e)
+//         return 0;
     
-    e->ret = BPF_CORE_READ(ctx, ret);
+//     e->ret = BPF_CORE_READ(ctx, ret);
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
 SEC("tracepoint/syscalls/sys_enter_access")
 int trace_sys_enter_access(struct trace_event_raw_sys_enter *ctx) {
@@ -3145,427 +3145,427 @@ int trace_sys_exit_faccessat(struct trace_event_raw_sys_exit *ctx) {
     return 0;
 }
 
-SEC("tracepoint/syscalls/sys_enter_setxattr")
-int trace_sys_enter_setxattr(struct trace_event_raw_sys_enter *ctx) {
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+// SEC("tracepoint/syscalls/sys_enter_setxattr")
+// int trace_sys_enter_setxattr(struct trace_event_raw_sys_enter *ctx) {
+//     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
     
-    e->arg_u64[0] = BPF_CORE_READ(ctx, args[3]);
-    e->arg_s32[0] = BPF_CORE_READ(ctx, args[4]);
-    e->is_valid = false;
+//     e->arg_u64[0] = BPF_CORE_READ(ctx, args[3]);
+//     e->arg_s32[0] = BPF_CORE_READ(ctx, args[4]);
+//     e->is_valid = false;
 
-    char *pathname_ptr = (char *)BPF_CORE_READ(ctx, args[0]);
-    char *name_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
-    if (pathname_ptr && name_ptr) {
-        if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0 &&
-            bpf_probe_read_user_str(e->arg_str2, sizeof(e->arg_str2), name_ptr) >= 0) {
-            e->is_valid = true;
-        }
-    }
+//     char *pathname_ptr = (char *)BPF_CORE_READ(ctx, args[0]);
+//     char *name_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
+//     if (pathname_ptr && name_ptr) {
+//         if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0 &&
+//             bpf_probe_read_user_str(e->arg_str2, sizeof(e->arg_str2), name_ptr) >= 0) {
+//             e->is_valid = true;
+//         }
+//     }
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_setxattr")
-int trace_sys_exit_setxattr(struct trace_event_raw_sys_exit *ctx) {
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e)
-        return 0;
+// SEC("tracepoint/syscalls/sys_exit_setxattr")
+// int trace_sys_exit_setxattr(struct trace_event_raw_sys_exit *ctx) {
+//     struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+//     if (!e)
+//         return 0;
     
-    e->ret = BPF_CORE_READ(ctx, ret);
+//     e->ret = BPF_CORE_READ(ctx, ret);
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_enter_lsetxattr")
-int trace_sys_enter_lsetxattr(struct trace_event_raw_sys_enter *ctx) {
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+// SEC("tracepoint/syscalls/sys_enter_lsetxattr")
+// int trace_sys_enter_lsetxattr(struct trace_event_raw_sys_enter *ctx) {
+//     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
     
-    e->arg_u64[0] = BPF_CORE_READ(ctx, args[3]);
-    e->arg_s32[0] = BPF_CORE_READ(ctx, args[4]);
-    e->is_valid = false;
+//     e->arg_u64[0] = BPF_CORE_READ(ctx, args[3]);
+//     e->arg_s32[0] = BPF_CORE_READ(ctx, args[4]);
+//     e->is_valid = false;
 
-    char *pathname_ptr = (char *)BPF_CORE_READ(ctx, args[0]);
-    char *name_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
-    if (pathname_ptr && name_ptr) {
-        if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0 &&
-            bpf_probe_read_user_str(e->arg_str2, sizeof(e->arg_str2), name_ptr) >= 0) {
-            e->is_valid = true;
-        }
-    }
+//     char *pathname_ptr = (char *)BPF_CORE_READ(ctx, args[0]);
+//     char *name_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
+//     if (pathname_ptr && name_ptr) {
+//         if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0 &&
+//             bpf_probe_read_user_str(e->arg_str2, sizeof(e->arg_str2), name_ptr) >= 0) {
+//             e->is_valid = true;
+//         }
+//     }
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_lsetxattr")
-int trace_sys_exit_lsetxattr(struct trace_event_raw_sys_exit *ctx) {
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e)
-        return 0;
+// SEC("tracepoint/syscalls/sys_exit_lsetxattr")
+// int trace_sys_exit_lsetxattr(struct trace_event_raw_sys_exit *ctx) {
+//     struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+//     if (!e)
+//         return 0;
     
-    e->ret = BPF_CORE_READ(ctx, ret);
+//     e->ret = BPF_CORE_READ(ctx, ret);
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_enter_fsetxattr")
-int trace_sys_enter_fsetxattr(struct trace_event_raw_sys_enter *ctx) {
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+// SEC("tracepoint/syscalls/sys_enter_fsetxattr")
+// int trace_sys_enter_fsetxattr(struct trace_event_raw_sys_enter *ctx) {
+//     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
 
-    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
-    e->arg_u64[0] = BPF_CORE_READ(ctx, args[3]);
-    e->arg_s32[1] = BPF_CORE_READ(ctx, args[4]);
-    e->is_valid = false;
+//     e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+//     e->arg_u64[0] = BPF_CORE_READ(ctx, args[3]);
+//     e->arg_s32[1] = BPF_CORE_READ(ctx, args[4]);
+//     e->is_valid = false;
 
-    char *name_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
-    if (name_ptr) {
-        if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), name_ptr) >= 0) {
-            e->is_valid = true;
-        }
-    }
+//     char *name_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
+//     if (name_ptr) {
+//         if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), name_ptr) >= 0) {
+//             e->is_valid = true;
+//         }
+//     }
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_fsetxattr")
-int trace_sys_exit_fsetxattr(struct trace_event_raw_sys_exit *ctx) {
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e)
-        return 0;
+// SEC("tracepoint/syscalls/sys_exit_fsetxattr")
+// int trace_sys_exit_fsetxattr(struct trace_event_raw_sys_exit *ctx) {
+//     struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+//     if (!e)
+//         return 0;
     
-    e->ret = BPF_CORE_READ(ctx, ret);
+//     e->ret = BPF_CORE_READ(ctx, ret);
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_enter_getxattr")
-int trace_sys_enter_getxattr(struct trace_event_raw_sys_enter *ctx) {
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+// SEC("tracepoint/syscalls/sys_enter_getxattr")
+// int trace_sys_enter_getxattr(struct trace_event_raw_sys_enter *ctx) {
+//     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
     
-    e->arg_u64[0] = BPF_CORE_READ(ctx, args[3]);
-    e->is_valid = false;
+//     e->arg_u64[0] = BPF_CORE_READ(ctx, args[3]);
+//     e->is_valid = false;
 
-    char *pathname_ptr = (char *)BPF_CORE_READ(ctx, args[0]);
-    char *name_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
-    if (pathname_ptr && name_ptr) {
-        if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0 &&
-            bpf_probe_read_user_str(e->arg_str2, sizeof(e->arg_str2), name_ptr) >= 0) {
-            e->is_valid = true;
-        }
-    }
+//     char *pathname_ptr = (char *)BPF_CORE_READ(ctx, args[0]);
+//     char *name_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
+//     if (pathname_ptr && name_ptr) {
+//         if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0 &&
+//             bpf_probe_read_user_str(e->arg_str2, sizeof(e->arg_str2), name_ptr) >= 0) {
+//             e->is_valid = true;
+//         }
+//     }
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_getxattr")
-int trace_sys_exit_getxattr(struct trace_event_raw_sys_exit *ctx) {
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e)
-        return 0;
+// SEC("tracepoint/syscalls/sys_exit_getxattr")
+// int trace_sys_exit_getxattr(struct trace_event_raw_sys_exit *ctx) {
+//     struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+//     if (!e)
+//         return 0;
     
-    e->ret = BPF_CORE_READ(ctx, ret);
+//     e->ret = BPF_CORE_READ(ctx, ret);
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_enter_lgetxattr")
-int trace_sys_enter_lgetxattr(struct trace_event_raw_sys_enter *ctx) {
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+// SEC("tracepoint/syscalls/sys_enter_lgetxattr")
+// int trace_sys_enter_lgetxattr(struct trace_event_raw_sys_enter *ctx) {
+//     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
     
-    e->arg_u64[0] = BPF_CORE_READ(ctx, args[3]);
-    e->is_valid = false;
+//     e->arg_u64[0] = BPF_CORE_READ(ctx, args[3]);
+//     e->is_valid = false;
 
-    char *pathname_ptr = (char *)BPF_CORE_READ(ctx, args[0]);
-    char *name_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
-    if (pathname_ptr && name_ptr) {
-        if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0 &&
-            bpf_probe_read_user_str(e->arg_str2, sizeof(e->arg_str2), name_ptr) >= 0) {
-            e->is_valid = true;
-        }
-    }
+//     char *pathname_ptr = (char *)BPF_CORE_READ(ctx, args[0]);
+//     char *name_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
+//     if (pathname_ptr && name_ptr) {
+//         if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0 &&
+//             bpf_probe_read_user_str(e->arg_str2, sizeof(e->arg_str2), name_ptr) >= 0) {
+//             e->is_valid = true;
+//         }
+//     }
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_lgetxattr")
-int trace_sys_exit_lgetxattr(struct trace_event_raw_sys_exit *ctx) {
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e)
-        return 0;
+// SEC("tracepoint/syscalls/sys_exit_lgetxattr")
+// int trace_sys_exit_lgetxattr(struct trace_event_raw_sys_exit *ctx) {
+//     struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+//     if (!e)
+//         return 0;
     
-    e->ret = BPF_CORE_READ(ctx, ret);
+//     e->ret = BPF_CORE_READ(ctx, ret);
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_enter_fgetxattr")
-int trace_sys_enter_fgetxattr(struct trace_event_raw_sys_enter *ctx) {
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+// SEC("tracepoint/syscalls/sys_enter_fgetxattr")
+// int trace_sys_enter_fgetxattr(struct trace_event_raw_sys_enter *ctx) {
+//     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
     
-    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
-    e->arg_u64[0] = BPF_CORE_READ(ctx, args[3]);
-    e->is_valid = false;
+//     e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+//     e->arg_u64[0] = BPF_CORE_READ(ctx, args[3]);
+//     e->is_valid = false;
 
-    char *name_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
-    if (name_ptr) {
-        if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), name_ptr) >= 0) {
-            e->is_valid = true;
-        }
-    }
+//     char *name_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
+//     if (name_ptr) {
+//         if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), name_ptr) >= 0) {
+//             e->is_valid = true;
+//         }
+//     }
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_fgetxattr")
-int trace_sys_exit_fgetxattr(struct trace_event_raw_sys_exit *ctx) {
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e)
-        return 0;
+// SEC("tracepoint/syscalls/sys_exit_fgetxattr")
+// int trace_sys_exit_fgetxattr(struct trace_event_raw_sys_exit *ctx) {
+//     struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+//     if (!e)
+//         return 0;
     
-    e->ret = BPF_CORE_READ(ctx, ret);
+//     e->ret = BPF_CORE_READ(ctx, ret);
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_enter_listxattr")
-int trace_sys_enter_listxattr(struct trace_event_raw_sys_enter *ctx) {
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+// SEC("tracepoint/syscalls/sys_enter_listxattr")
+// int trace_sys_enter_listxattr(struct trace_event_raw_sys_enter *ctx) {
+//     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
     
-    e->arg_u64[0] = BPF_CORE_READ(ctx, args[2]);
-    e->is_valid = false;
-    e->is_null = true;
+//     e->arg_u64[0] = BPF_CORE_READ(ctx, args[2]);
+//     e->is_valid = false;
+//     e->is_null = true;
 
-    char *pathname_ptr = (char *)BPF_CORE_READ(ctx, args[0]);
-    char *list_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
-    if (pathname_ptr) {
-        if (list_ptr) {
-            if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0 &&
-                bpf_probe_read_user_str(e->arg_str2, sizeof(e->arg_str2), list_ptr) >= 0) {
-                e->is_valid = true;
-                e->is_null = false;
-            }
-        } else {
-            if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0) {
-                e->is_valid = true;
-            }
-        }
-    }
+//     char *pathname_ptr = (char *)BPF_CORE_READ(ctx, args[0]);
+//     char *list_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
+//     if (pathname_ptr) {
+//         if (list_ptr) {
+//             if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0 &&
+//                 bpf_probe_read_user_str(e->arg_str2, sizeof(e->arg_str2), list_ptr) >= 0) {
+//                 e->is_valid = true;
+//                 e->is_null = false;
+//             }
+//         } else {
+//             if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0) {
+//                 e->is_valid = true;
+//             }
+//         }
+//     }
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_listxattr")
-int trace_sys_exit_listxattr(struct trace_event_raw_sys_exit *ctx) {
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e)
-        return 0;
+// SEC("tracepoint/syscalls/sys_exit_listxattr")
+// int trace_sys_exit_listxattr(struct trace_event_raw_sys_exit *ctx) {
+//     struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+//     if (!e)
+//         return 0;
     
-    e->ret = BPF_CORE_READ(ctx, ret);
+//     e->ret = BPF_CORE_READ(ctx, ret);
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_enter_llistxattr")
-int trace_sys_enter_llistxattr(struct trace_event_raw_sys_enter *ctx) {
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+// SEC("tracepoint/syscalls/sys_enter_llistxattr")
+// int trace_sys_enter_llistxattr(struct trace_event_raw_sys_enter *ctx) {
+//     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
     
-    e->arg_u64[0] = BPF_CORE_READ(ctx, args[2]);
-    e->is_valid = false;
-    e->is_null = true;
+//     e->arg_u64[0] = BPF_CORE_READ(ctx, args[2]);
+//     e->is_valid = false;
+//     e->is_null = true;
 
-    char *pathname_ptr = (char *)BPF_CORE_READ(ctx, args[0]);
-    char *list_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
-    if (pathname_ptr) {
-        if (list_ptr) {
-            if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0 &&
-                bpf_probe_read_user_str(e->arg_str2, sizeof(e->arg_str2), list_ptr) >= 0) {
-                e->is_valid = true;
-                e->is_null = false;
-            }
-        } else {
-            if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0) {
-                e->is_valid = true;
-            }
-        }
-    }
+//     char *pathname_ptr = (char *)BPF_CORE_READ(ctx, args[0]);
+//     char *list_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
+//     if (pathname_ptr) {
+//         if (list_ptr) {
+//             if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0 &&
+//                 bpf_probe_read_user_str(e->arg_str2, sizeof(e->arg_str2), list_ptr) >= 0) {
+//                 e->is_valid = true;
+//                 e->is_null = false;
+//             }
+//         } else {
+//             if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0) {
+//                 e->is_valid = true;
+//             }
+//         }
+//     }
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_llistxattr")
-int trace_sys_exit_llistxattr(struct trace_event_raw_sys_exit *ctx) {
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e)
-        return 0;
+// SEC("tracepoint/syscalls/sys_exit_llistxattr")
+// int trace_sys_exit_llistxattr(struct trace_event_raw_sys_exit *ctx) {
+//     struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+//     if (!e)
+//         return 0;
     
-    e->ret = BPF_CORE_READ(ctx, ret);
+//     e->ret = BPF_CORE_READ(ctx, ret);
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_enter_flistxattr")
-int trace_sys_enter_flistxattr(struct trace_event_raw_sys_enter *ctx) {
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+// SEC("tracepoint/syscalls/sys_enter_flistxattr")
+// int trace_sys_enter_flistxattr(struct trace_event_raw_sys_enter *ctx) {
+//     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
     
-    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
-    e->arg_u64[0] = BPF_CORE_READ(ctx, args[2]);
-    e->is_valid = false;
-    e->is_null = true;
+//     e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+//     e->arg_u64[0] = BPF_CORE_READ(ctx, args[2]);
+//     e->is_valid = false;
+//     e->is_null = true;
 
-    char *list_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
-    if (list_ptr) {
-        e->is_null = false;
-        if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), list_ptr) >= 0) {
-            e->is_valid = true;
-        }
-    }
+//     char *list_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
+//     if (list_ptr) {
+//         e->is_null = false;
+//         if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), list_ptr) >= 0) {
+//             e->is_valid = true;
+//         }
+//     }
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_flistxattr")
-int trace_sys_exit_flistxattr(struct trace_event_raw_sys_exit *ctx) {
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e)
-        return 0;
+// SEC("tracepoint/syscalls/sys_exit_flistxattr")
+// int trace_sys_exit_flistxattr(struct trace_event_raw_sys_exit *ctx) {
+//     struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+//     if (!e)
+//         return 0;
     
-    e->ret = BPF_CORE_READ(ctx, ret);
+//     e->ret = BPF_CORE_READ(ctx, ret);
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_enter_removexattr")
-int trace_sys_enter_removexattr(struct trace_event_raw_sys_enter *ctx) {
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+// SEC("tracepoint/syscalls/sys_enter_removexattr")
+// int trace_sys_enter_removexattr(struct trace_event_raw_sys_enter *ctx) {
+//     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
     
-    e->is_valid = false;
+//     e->is_valid = false;
 
-    char *pathname_ptr = (char *)BPF_CORE_READ(ctx, args[0]);
-    char *name_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
-    if (pathname_ptr && name_ptr) {
-        if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0 &&
-            bpf_probe_read_user_str(e->arg_str2, sizeof(e->arg_str2), name_ptr) >= 0) {
-            e->is_valid = true;
-        }
-    }
+//     char *pathname_ptr = (char *)BPF_CORE_READ(ctx, args[0]);
+//     char *name_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
+//     if (pathname_ptr && name_ptr) {
+//         if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0 &&
+//             bpf_probe_read_user_str(e->arg_str2, sizeof(e->arg_str2), name_ptr) >= 0) {
+//             e->is_valid = true;
+//         }
+//     }
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_removexattr")
-int trace_sys_exit_removexattr(struct trace_event_raw_sys_exit *ctx) {
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e)
-        return 0;
+// SEC("tracepoint/syscalls/sys_exit_removexattr")
+// int trace_sys_exit_removexattr(struct trace_event_raw_sys_exit *ctx) {
+//     struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+//     if (!e)
+//         return 0;
     
-    e->ret = BPF_CORE_READ(ctx, ret);
+//     e->ret = BPF_CORE_READ(ctx, ret);
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_enter_lremovexattr")
-int trace_sys_enter_lremovexattr(struct trace_event_raw_sys_enter *ctx) {
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+// SEC("tracepoint/syscalls/sys_enter_lremovexattr")
+// int trace_sys_enter_lremovexattr(struct trace_event_raw_sys_enter *ctx) {
+//     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
     
-    e->is_valid = false;
+//     e->is_valid = false;
 
-    char *pathname_ptr = (char *)BPF_CORE_READ(ctx, args[0]);
-    char *name_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
-    if (pathname_ptr && name_ptr) {
-        if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0 &&
-            bpf_probe_read_user_str(e->arg_str2, sizeof(e->arg_str2), name_ptr) >= 0) {
-            e->is_valid = true;
-        }
-    }
+//     char *pathname_ptr = (char *)BPF_CORE_READ(ctx, args[0]);
+//     char *name_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
+//     if (pathname_ptr && name_ptr) {
+//         if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), pathname_ptr) >= 0 &&
+//             bpf_probe_read_user_str(e->arg_str2, sizeof(e->arg_str2), name_ptr) >= 0) {
+//             e->is_valid = true;
+//         }
+//     }
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_lremovexattr")
-int trace_sys_exit_lremovexattr(struct trace_event_raw_sys_exit *ctx) {
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e)
-        return 0;
+// SEC("tracepoint/syscalls/sys_exit_lremovexattr")
+// int trace_sys_exit_lremovexattr(struct trace_event_raw_sys_exit *ctx) {
+//     struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+//     if (!e)
+//         return 0;
     
-    e->ret = BPF_CORE_READ(ctx, ret);
+//     e->ret = BPF_CORE_READ(ctx, ret);
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_enter_fremovexattr")
-int trace_sys_enter_fremovexattr(struct trace_event_raw_sys_enter *ctx) {
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
+// SEC("tracepoint/syscalls/sys_enter_fremovexattr")
+// int trace_sys_enter_fremovexattr(struct trace_event_raw_sys_enter *ctx) {
+//     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
+//     if (!e) 
+//         return 0;
     
-    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
-    e->is_valid = false;
+//     e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
+//     e->is_valid = false;
     
-    char *name_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
-    if (name_ptr) {
-        if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), name_ptr) >= 0) {
-            e->is_valid = true;
-        }
-    }
+//     char *name_ptr = (char *)BPF_CORE_READ(ctx, args[1]);
+//     if (name_ptr) {
+//         if (bpf_probe_read_user_str(e->arg_str, sizeof(e->arg_str), name_ptr) >= 0) {
+//             e->is_valid = true;
+//         }
+//     }
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
-SEC("tracepoint/syscalls/sys_exit_fremovexattr")
-int trace_sys_exit_fremovexattr(struct trace_event_raw_sys_exit *ctx) {
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e)
-        return 0;
+// SEC("tracepoint/syscalls/sys_exit_fremovexattr")
+// int trace_sys_exit_fremovexattr(struct trace_event_raw_sys_exit *ctx) {
+//     struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
+//     if (!e)
+//         return 0;
     
-    e->ret = BPF_CORE_READ(ctx, ret);
+//     e->ret = BPF_CORE_READ(ctx, ret);
 
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_submit(e, 0);
+//     return 0;
+// }
 
 SEC("tracepoint/syscalls/sys_enter_fcntl")
 int trace_sys_enter_fcntl(struct trace_event_raw_sys_enter *ctx) {
