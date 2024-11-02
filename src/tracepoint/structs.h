@@ -57,25 +57,9 @@ struct sock_addr_args {
     __u64 *addrlen_ptr;
 };
 
-struct msg_args {
-    struct msghdr *msg_ptr;
-};
-
-struct poll_args {
-    struct pollfd *fds;
-};
-
 struct timespec_args {
     __kernel_time64_t tv_sec;
     long tv_nsec;
-};
-
-struct epoll_args {
-    struct epoll_event *events;
-};
-
-struct getdents_args {
-    struct linux_dirent *dirents;
 };
 
 struct resuid_args {

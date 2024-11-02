@@ -675,11 +675,9 @@ SEC("tracepoint/syscalls/sys_enter_recvmsg")
 int trace_sys_enter_recvmsg(struct trace_event_raw_sys_enter *ctx) {
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
-    struct msg_args args = {
-        .msg_ptr = (struct msghdr *)BPF_CORE_READ(ctx, args[1])
-    };
+    void *msg_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
 
-    bpf_map_update_elem(&recvmsg_args_map, &key, &args, BPF_ANY);
+    bpf_map_update_elem(&recvmsg_args_map, &key, &msg_ptr, BPF_ANY);
 
     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
@@ -706,10 +704,10 @@ int trace_sys_exit_recvmsg(struct trace_event_raw_sys_exit *ctx) {
     init_socket_fields(e);
 
     if (ret >= 0) {
-        struct msg_args *args = bpf_map_lookup_elem(&recvmsg_args_map, &key);
-        if (args) {
+        __u64 *msg_ptr = bpf_map_lookup_elem(&recvmsg_args_map, &key);
+        if (msg_ptr) {
             struct msghdr msg;
-            if (bpf_probe_read_user(&msg, sizeof(msg), args->msg_ptr) == 0) {
+            if (bpf_probe_read_user(&msg, sizeof(msg), msg_ptr) == 0) {
                 read_sockaddr(e, msg.msg_name);
             }
         }
@@ -933,12 +931,9 @@ SEC("tracepoint/syscalls/sys_enter_poll")
 int trace_sys_enter_poll(struct trace_event_raw_sys_enter *ctx) {
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
-    struct pollfd *fds_ptr = (struct pollfd *)BPF_CORE_READ(ctx, args[0]);
-    struct poll_args args = {
-        .fds = fds_ptr
-    };
+    void *fds_ptr = (void *)BPF_CORE_READ(ctx, args[0]);
 
-    bpf_map_update_elem(&poll_args_map, &key, &args, BPF_ANY);
+    bpf_map_update_elem(&poll_args_map, &key, &fds_ptr, BPF_ANY);
 
     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
@@ -975,10 +970,10 @@ int trace_sys_exit_poll(struct trace_event_raw_sys_exit *ctx) {
     e->is_valid = false;
 
     if (ret >= 0) {
-        struct poll_args *args = bpf_map_lookup_elem(&poll_args_map, &key);
-        if (args && args->fds) {
+        __u64 *fds_ptr = bpf_map_lookup_elem(&poll_args_map, &key);
+        if (fds_ptr) {
             struct pollfd pfd;
-            if (bpf_probe_read_user(&pfd, sizeof(pfd), args->fds) == 0) {
+            if (bpf_probe_read_user(&pfd, sizeof(pfd),fds_ptr) == 0) {
                 e->arg_s32[0] = pfd.revents;
                 e->is_valid = true;
             }
@@ -996,12 +991,9 @@ SEC("tracepoint/syscalls/sys_enter_ppoll")
 int trace_sys_enter_ppoll(struct trace_event_raw_sys_enter *ctx) {
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
-    struct pollfd *fds_ptr = (struct pollfd *)BPF_CORE_READ(ctx, args[0]);
-    struct poll_args args = {
-        .fds = fds_ptr
-    };
+    void *fds_ptr = (void *)BPF_CORE_READ(ctx, args[0]);
 
-    bpf_map_update_elem(&poll_args_map, &key, &args, BPF_ANY);
+    bpf_map_update_elem(&poll_args_map, &key, &fds_ptr, BPF_ANY);
 
     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
@@ -1048,10 +1040,10 @@ int trace_sys_exit_ppoll(struct trace_event_raw_sys_exit *ctx) {
     e->is_valid = false;
 
     if (ret >= 0) {
-        struct poll_args *args = bpf_map_lookup_elem(&poll_args_map, &key);
-        if (args && args->fds) {
+        __u64 *fds_ptr = bpf_map_lookup_elem(&poll_args_map, &key);
+        if (fds_ptr) {
             struct pollfd pfd;
-            if (bpf_probe_read_user(&pfd, sizeof(pfd), args->fds) == 0) {
+            if (bpf_probe_read_user(&pfd, sizeof(pfd), fds_ptr) == 0) {
                 e->arg_s32[0] = pfd.revents;
                 e->is_valid = true;
             }
@@ -1154,11 +1146,9 @@ SEC("tracepoint/syscalls/sys_enter_epoll_wait")
 int trace_sys_enter_epoll_wait(struct trace_event_raw_sys_enter *ctx) {
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
-    struct epoll_args args = {
-        .events = (struct epoll_event *)BPF_CORE_READ(ctx, args[1])
-    };
+    void *events_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
 
-    bpf_map_update_elem(&epoll_wait_args_map, &key, &args, BPF_ANY);
+    bpf_map_update_elem(&epoll_wait_args_map, &key, &events_ptr, BPF_ANY);
 
     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
@@ -1186,10 +1176,10 @@ int trace_sys_exit_epoll_wait(struct trace_event_raw_sys_exit *ctx) {
     e->is_valid = false;
 
     if (ret >= 0) {
-        struct epoll_args *args = bpf_map_lookup_elem(&epoll_wait_args_map, &key);
-        if (args && args->events) {
+        __u64 *events_ptr = bpf_map_lookup_elem(&epoll_wait_args_map, &key);
+        if (events_ptr) {
             struct epoll_event events;
-            if (bpf_probe_read_user(&events, sizeof(events), args->events) == 0) {
+            if (bpf_probe_read_user(&events, sizeof(events), events_ptr) == 0) {
                 e->arg_u32[0] = events.events;
                 e->arg_u64[0] = events.data;
                 e->is_valid = true;
@@ -1208,11 +1198,9 @@ SEC("tracepoint/syscalls/sys_enter_epoll_pwait")
 int trace_sys_enter_epoll_pwait(struct trace_event_raw_sys_enter *ctx) {
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
-    struct epoll_args args = {
-        .events = (struct epoll_event *)BPF_CORE_READ(ctx, args[1])
-    };
+    void *events_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
 
-    bpf_map_update_elem(&epoll_pwait_args_map, &key, &args, BPF_ANY);
+    bpf_map_update_elem(&epoll_pwait_args_map, &key, &events_ptr, BPF_ANY);
 
     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
@@ -1240,10 +1228,10 @@ int trace_sys_exit_epoll_pwait(struct trace_event_raw_sys_exit *ctx) {
     e->is_valid = false;
 
     if (ret >= 0) {
-        struct epoll_args *args = bpf_map_lookup_elem(&epoll_pwait_args_map, &key);
-        if (args && args->events) {
+        __u64 *events_ptr = bpf_map_lookup_elem(&epoll_pwait_args_map, &key);
+        if (events_ptr) {
             struct epoll_event events;
-            if (bpf_probe_read_user(&events, sizeof(events), args->events) == 0) {
+            if (bpf_probe_read_user(&events, sizeof(events), events_ptr) == 0) {
                 e->arg_u32[0] = events.events;
                 e->arg_u64[0] = events.data;
                 e->is_valid = true;
@@ -1262,11 +1250,9 @@ SEC("tracepoint/syscalls/sys_enter_epoll_pwait2")
 int trace_sys_enter_epoll_pwait2(struct trace_event_raw_sys_enter *ctx) {
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
-    struct epoll_args args = {
-        .events = (struct epoll_event *)BPF_CORE_READ(ctx, args[1])
-    };
+    void *events_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
 
-    bpf_map_update_elem(&epoll_pwait2_args_map, &key, &args, BPF_ANY);
+    bpf_map_update_elem(&epoll_pwait2_args_map, &key, &events_ptr, BPF_ANY);
 
     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
@@ -1304,10 +1290,10 @@ int trace_sys_exit_epoll_pwait2(struct trace_event_raw_sys_exit *ctx) {
     e->is_valid = false;
 
     if (ret >= 0) {
-        struct epoll_args *args = bpf_map_lookup_elem(&epoll_pwait2_args_map, &key);
-        if (args && args->events) {
+        __u64 *events_ptr = bpf_map_lookup_elem(&epoll_pwait2_args_map, &key);
+        if (events_ptr) {
             struct epoll_event events;
-            if (bpf_probe_read_user(&events, sizeof(events), args->events) == 0) {
+            if (bpf_probe_read_user(&events, sizeof(events), events_ptr) == 0) {
                 e->arg_u32[0] = events.events;
                 e->arg_u64[0] = events.data;
                 e->is_valid = true;
@@ -2097,11 +2083,9 @@ SEC("tracepoint/syscalls/sys_enter_getdents")
 int trace_sys_enter_getdents(struct trace_event_raw_sys_enter *ctx) {
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
-    struct getdents_args args = {
-        .dirents = (void *)BPF_CORE_READ(ctx, args[1]),
-    };
+    void *dirents_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
 
-    bpf_map_update_elem(&getdents_args_map, &key, &args, BPF_ANY);
+    bpf_map_update_elem(&getdents_args_map, &key, &dirents_ptr, BPF_ANY);
 
     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
@@ -2128,10 +2112,10 @@ int trace_sys_exit_getdents(struct trace_event_raw_sys_exit *ctx) {
     e->is_valid = false;
 
     if (ret >= 0) {
-        struct getdents_args *args = bpf_map_lookup_elem(&getdents_args_map, &key);
-        if (args && args->dirents) {
+        __u64 *dirents_ptr = bpf_map_lookup_elem(&getdents_args_map, &key);
+        if (dirents_ptr) {
             struct linux_dirent dirents;
-            if (bpf_probe_read_user(&dirents, sizeof(dirents), args->dirents) == 0) {
+            if (bpf_probe_read_user(&dirents, sizeof(dirents), dirents_ptr) == 0) {
                 e->arg_u64[0] = dirents.d_ino;
                 e->is_valid = true;
             }
@@ -2149,11 +2133,9 @@ SEC("tracepoint/syscalls/sys_enter_getdents64")
 int trace_sys_enter_getdents64(struct trace_event_raw_sys_enter *ctx) {
     struct current_task ct = get_task_struct();
     struct map_key key = get_map_key(&ct);
-    struct getdents_args args = {
-        .dirents = (void *)BPF_CORE_READ(ctx, args[1]),
-    };
+    void *dirents_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
 
-    bpf_map_update_elem(&getdents64_args_map, &key, &args, BPF_ANY);
+    bpf_map_update_elem(&getdents64_args_map, &key, &dirents_ptr, BPF_ANY);
 
     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
     if (!e) 
@@ -2180,10 +2162,10 @@ int trace_sys_exit_getdents64(struct trace_event_raw_sys_exit *ctx) {
     e->is_valid = false;
 
     if (ret >= 0) {
-        struct getdents_args *args = bpf_map_lookup_elem(&getdents64_args_map, &key);
-        if (args && args->dirents) {
+        __u64 *dirents_ptr = bpf_map_lookup_elem(&getdents64_args_map, &key);
+        if (dirents_ptr) {
             struct linux_dirent64 dirents;
-            if (bpf_probe_read_user(&dirents, sizeof(dirents), args->dirents) == 0) {
+            if (bpf_probe_read_user(&dirents, sizeof(dirents), dirents_ptr) == 0) {
                 e->arg_u64[0] = dirents.d_ino;
                 e->is_valid = true;
             }
