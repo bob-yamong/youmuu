@@ -214,7 +214,16 @@ void get_user_input(struct tracepoint_bpf *skel, __u32 ns_id) {
         __NR_setresgid, __NR_getresgid, __NR_setreuid, __NR_setregid,
         __NR_geteuid, __NR_getegid, __NR_setgroups, __NR_getgroups, 
         __NR_setns, __NR_setrlimit, __NR_getrlimit, __NR_prlimit64,
-        __NR_getrusage
+        __NR_getrusage, __NR_sched_setattr, __NR_sched_getattr, __NR_sched_setscheduler,
+        __NR_sched_getscheduler, __NR_sched_setparam, __NR_sched_getparam, __NR_sched_setaffinity,
+        __NR_sched_getaffinity, __NR_sched_get_priority_max, __NR_sched_get_priority_min, __NR_sched_rr_get_interval, 
+        __NR_sched_yield, __NR_setpriority, __NR_getpriority, __NR_ioprio_set,
+        __NR_ioprio_get, __NR_brk, __NR_mmap, __NR_munmap, 
+        __NR_mremap, __NR_mprotect, __NR_madvise, __NR_mlock,
+        __NR_mlock2, __NR_mlockall, __NR_munlock, __NR_munlockall,
+        __NR_membarrier, __NR_modify_ldt, __NR_capset, __NR_capget,
+        __NR_set_thread_area, __NR_get_thread_area, __NR_set_tid_address, __NR_arch_prctl,
+        __NR_ptrace, __NR_process_vm_readv, __NR_process_vm_writev
     };
 
     for (size_t i = 0; i < sizeof(syscalls) / sizeof(syscalls[0]); i++) {

@@ -3254,6 +3254,288 @@ static int handle_exit_getrusage(const struct event_t *e, const char *task_info)
     return 0;
 }
 
+static int handle_enter_sched_setattr(const struct event_t *e, const char *task_info) {
+    printf("Enter sched_setattr: %s, pid=%u, flags=%#x\n",
+            task_info, e->arg_u32[0], e->arg_u32[1]);
+    return 0;
+}
+
+static int handle_exit_sched_setattr(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit sched_setattr: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit sched_setattr: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_sched_getattr(const struct event_t *e, const char *task_info) {
+    printf("Enter sched_getattr: %s, pid=%u, size=%u, flags=%#x\n",
+            task_info, e->arg_u32[0], e->arg_u32[1], e->arg_u32[2]);
+    return 0;
+}
+
+static int handle_exit_sched_getattr(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit sched_getattr: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit sched_getattr: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_sched_setscheduler(const struct event_t *e, const char *task_info) {
+    printf("Enter sched_setscheduler: %s, pid=%u, policy=%d\n",
+            task_info, e->arg_u32[0], e->arg_s32[0]);
+    return 0;
+}
+
+static int handle_exit_sched_setscheduler(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit sched_setscheduler: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit sched_setscheduler: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_sched_getscheduler(const struct event_t *e, const char *task_info) {
+    printf("Enter sched_getscheduler: %s, pid=%u\n",
+            task_info, e->arg_u32[0]);
+    return 0;
+}
+
+static int handle_exit_sched_getscheduler(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit sched_getscheduler: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit sched_getscheduler: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_sched_setparam(const struct event_t *e, const char *task_info) {
+    printf("Enter sched_setparam: %s, pid=%u\n",
+            task_info, e->arg_u32[0]);
+    return 0;
+}
+
+static int handle_exit_sched_setparam(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit sched_setparam: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit sched_setparam: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_sched_getparam(const struct event_t *e, const char *task_info) {
+    printf("Enter sched_getparam: %s, pid=%u\n",
+            task_info, e->arg_u32[0]);
+    return 0;
+}
+
+static int handle_exit_sched_getparam(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit sched_getparam: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit sched_getparam: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_sched_setaffinity(const struct event_t *e, const char *task_info) {
+    if (e->is_valid == true) {
+        printf("Enter sched_setaffinity: %s, pid=%u, size=%llu, cpu_mask=%#llx\n",
+                task_info, e->arg_u32[0], e->arg_u64[0], e->arg_u64[1]);
+    } else {
+        printf("Enter sched_setaffinity: %s, pid=%u, size=%llu, failed to read cpu_mask\n",
+                task_info, e->arg_u32[0], e->arg_u64[0]);
+    }
+    return 0;
+}
+
+static int handle_exit_sched_setaffinity(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit sched_setaffinity: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit sched_setaffinity: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_sched_getaffinity(const struct event_t *e, const char *task_info) {
+    printf("Enter sched_getaffinity: %s, pid=%u, size=%llu\n",
+            task_info, e->arg_u32[0], e->arg_u64[0]);
+    return 0;
+}
+
+static int handle_exit_sched_getaffinity(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit sched_getaffinity: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else if (e->is_valid == true) {
+        printf("Exit sched_getaffinity: success, %s, cpu_mask=%#llx, ret=%lld\n",
+                task_info, e->arg_u64[1], e->ret);
+    } else {
+        printf("Exit sched_getaffinity: success, %s, failed to read cpu_mask, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_sched_get_priority_max(const struct event_t *e, const char *task_info) {
+    printf("Enter sched_get_priority_max: %s, policy=%d\n",
+            task_info, e->arg_s32[0]);
+    return 0;
+}
+
+static int handle_exit_sched_get_priority_max(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit sched_get_priority_max: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit sched_get_priority_max: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_sched_get_priority_min(const struct event_t *e, const char *task_info) {
+    printf("Enter sched_get_priority_min: %s, policy=%d\n",
+            task_info, e->arg_s32[0]);
+    return 0;
+}
+
+static int handle_exit_sched_get_priority_min(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit sched_get_priority_min: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit sched_get_priority_min: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_sched_rr_get_interval(const struct event_t *e, const char *task_info) {
+    printf("Enter sched_rr_get_interval: %s, pid=%u\n",
+            task_info, e->arg_u32[0]);
+    return 0;
+}
+
+static int handle_exit_sched_rr_get_interval(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit sched_rr_get_interval: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else if (e->is_valid == true) {
+        printf("Exit sched_rr_get_interval: success, %s, interval=%lld, ret=%lld\n",
+                task_info, e->arg_u64[0], e->ret);
+    } else {
+        printf("Exit sched_rr_get_interval: success, %s, failed to read interval, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_sched_yield(const struct event_t *e, const char *task_info) {
+    printf("Enter sched_yield: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_sched_yield(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit sched_yield: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit sched_yield: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_setpriority(const struct event_t *e, const char *task_info) {
+    printf("Enter setpriority: %s, which=%d, who=%u, priority=%d\n",
+            task_info, e->arg_s32[0], e->arg_u32[0], e->arg_s32[1]);
+    return 0;
+}
+
+static int handle_exit_setpriority(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit setpriority: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit setpriority: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getpriority(const struct event_t *e, const char *task_info) {
+    printf("Enter getpriority: %s, which=%d, who=%u\n",
+            task_info, e->arg_s32[0], e->arg_u32[0]);
+    return 0;
+}
+
+static int handle_exit_getpriority(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getpriority: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit getpriority: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_ioprio_set(const struct event_t *e, const char *task_info) {
+    printf("Enter ioprio_set: %s, which=%d, who=%d, ioprio=%d\n",
+            task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
+    return 0;
+}
+
+static int handle_exit_ioprio_set(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit ioprio_set: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit ioprio_set: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_ioprio_get(const struct event_t *e, const char *task_info) {
+    printf("Enter ioprio_get: %s, which=%d, who=%d\n",
+            task_info, e->arg_s32[0], e->arg_s32[1]);
+    return 0;
+}
+
+static int handle_exit_ioprio_get(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit ioprio_get: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit ioprio_get: success, %s, ioprio=%d, ret=%lld\n",
+                task_info, e->arg_s32[2], e->ret);
+    }
+    return 0;
+}
+
 static struct socket_handlers event_handler[MAX_EVENT_ID] = {0};
 
 void init_event_handlers(void) {
@@ -3575,6 +3857,38 @@ void init_event_handlers(void) {
     event_handler[__NR_prlimit64].exit = handle_exit_prlimit64;
     event_handler[__NR_getrusage].enter = handle_enter_getrusage;
     event_handler[__NR_getrusage].exit = handle_exit_getrusage;
+    event_handler[__NR_sched_setattr].enter = handle_enter_sched_setattr;
+    event_handler[__NR_sched_setattr].exit = handle_exit_sched_setattr;
+    event_handler[__NR_sched_getattr].enter = handle_enter_sched_getattr;
+    event_handler[__NR_sched_getattr].exit = handle_exit_sched_getattr;
+    event_handler[__NR_sched_setscheduler].enter = handle_enter_sched_setscheduler;
+    event_handler[__NR_sched_setscheduler].exit = handle_exit_sched_setscheduler;
+    event_handler[__NR_sched_getscheduler].enter = handle_enter_sched_getscheduler;
+    event_handler[__NR_sched_getscheduler].exit = handle_exit_sched_getscheduler;
+    event_handler[__NR_sched_setparam].enter = handle_enter_sched_setparam;
+    event_handler[__NR_sched_setparam].exit = handle_exit_sched_setparam;
+    event_handler[__NR_sched_getparam].enter = handle_enter_sched_getparam;
+    event_handler[__NR_sched_getparam].exit = handle_exit_sched_getparam;
+    event_handler[__NR_sched_setaffinity].enter = handle_enter_sched_setaffinity;
+    event_handler[__NR_sched_setaffinity].exit = handle_exit_sched_setaffinity;
+    event_handler[__NR_sched_getaffinity].enter = handle_enter_sched_getaffinity;
+    event_handler[__NR_sched_getaffinity].exit = handle_exit_sched_getaffinity;
+    event_handler[__NR_sched_get_priority_max].enter = handle_enter_sched_get_priority_max;
+    event_handler[__NR_sched_get_priority_max].exit = handle_exit_sched_get_priority_max;
+    event_handler[__NR_sched_get_priority_min].enter = handle_enter_sched_get_priority_min;
+    event_handler[__NR_sched_get_priority_min].exit = handle_exit_sched_get_priority_min;
+    event_handler[__NR_sched_rr_get_interval].enter = handle_enter_sched_rr_get_interval;
+    event_handler[__NR_sched_rr_get_interval].exit = handle_exit_sched_rr_get_interval;
+    event_handler[__NR_sched_yield].enter = handle_enter_sched_yield;
+    event_handler[__NR_sched_yield].exit = handle_exit_sched_yield;
+    event_handler[__NR_setpriority].enter = handle_enter_setpriority;
+    event_handler[__NR_setpriority].exit = handle_exit_setpriority;
+    event_handler[__NR_getpriority].enter = handle_enter_getpriority;
+    event_handler[__NR_getpriority].exit = handle_exit_getpriority;
+    event_handler[__NR_ioprio_set].enter = handle_enter_ioprio_set;
+    event_handler[__NR_ioprio_set].exit = handle_exit_ioprio_set;
+    event_handler[__NR_ioprio_get].enter = handle_enter_ioprio_get;
+    event_handler[__NR_ioprio_get].exit = handle_exit_ioprio_get;
 }
 
 int handle_event(void *ctx, void *data, size_t data_sz) {
