@@ -24,7 +24,7 @@ struct event_t {
     __u64 arg_u64[6];
     __u8 arg_str[256];
     __u8 arg_str2[256];
-    __u8 arg_str3[32];
+    __u8 filesystem_type[32];
 
     bool is_enter;
     bool is_valid;
@@ -57,25 +57,21 @@ struct sock_addr_args {
     __u64 *addrlen_ptr;
 };
 
-struct msg_args {
-    struct msghdr *msg_ptr;
-};
-
-struct poll_args {
-    struct pollfd *fds;
-};
-
 struct timespec_args {
     __kernel_time64_t tv_sec;
     long tv_nsec;
 };
 
-struct epoll_args {
-    struct epoll_event *events;
+struct resuid_args {
+    __u64 ruid;
+    __u64 euid;
+    __u64 suid;
 };
 
-struct getdents_args {
-    struct linux_dirent *dirents;
+struct resgid_args {
+    __u64 rgid;
+    __u64 egid;
+    __u64 sgid;
 };
 
 #endif

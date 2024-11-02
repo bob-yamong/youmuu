@@ -42,7 +42,7 @@ struct socket_handlers {
 };
 
 static int handle_enter_socket(const struct event_t *e, const char *task_info) {
-    printf("Enter socket: %s, domain=%d, type=%d, protocol=%d\n",
+    printf("Enter socket: %s, domain=%#x, type=%#x, protocol=%#x\n",
             task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
     return 0;
 }
@@ -59,7 +59,7 @@ static int handle_exit_socket(const struct event_t *e, const char *task_info) {
 }
 
 static int handle_enter_socketpair(const struct event_t *e, const char *task_info) {
-    printf("Enter socketpair: %s, domain=%d, type=%d, protocol=%d\n",
+    printf("Enter socketpair: %s, domain=%#x, type=%#x, protocol=%#x\n",
             task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
     return 0;
 }
@@ -80,10 +80,10 @@ static int handle_exit_socketpair(const struct event_t *e, const char *task_info
 
 static int handle_enter_setsockopt(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter setsockopt: %s, socktfd=%d, level=%d, optname=%d, optval=%u, optlen=%d\n",
+        printf("Enter setsockopt: %s, socktfd=%d, level=%#x, optname=%#x, optval=%u, optlen=%d\n",
                 task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2], e->arg_u32[0], e->arg_s32[3]);
     } else {
-        printf("Enter setsockopt: %s, socktfd=%d, level=%d, optname=%d, failed to read optval, optlen=%d\n",
+        printf("Enter setsockopt: %s, socktfd=%d, level=%#x, optname=%#x, failed to read optval, optlen=%d\n",
                 task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2], e->arg_s32[3]);
     }
     return 0;
@@ -101,7 +101,7 @@ static int handle_exit_setsockopt(const struct event_t *e, const char *task_info
 }
 
 static int handle_enter_getsockopt(const struct event_t *e, const char *task_info) {
-    printf("Enter getsockopt: %s, socketfd=%d, level=%d, optname=%d\n",
+    printf("Enter getsockopt: %s, socketfd=%d, level=%#x, optname=%#x\n",
             task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
     return 0;
 }
@@ -235,7 +235,7 @@ static int handle_exit_accept(const struct event_t *e, const char *task_info) {
 }
 
 static int handle_enter_accept4(const struct event_t *e, const char *task_info) {
-    printf("Enter accept4: %s, socktfd=%d, flags=%d\n",
+    printf("Enter accept4: %s, socktfd=%d, flags=%#x\n",
             task_info, e->arg_s32[0], e->arg_s32[1]);
     return 0;
 }
@@ -303,7 +303,7 @@ static int handle_exit_shutdown(const struct event_t *e, const char *task_info) 
 }
 
 static int handle_enter_recvfrom (const struct event_t *e, const char *task_info) {
-    printf("Enter recvfrom: %s, socktfd=%d, msg_len=%llu, flags=%d\n",
+    printf("Enter recvfrom: %s, socktfd=%d, msg_len=%llu, flags=%#x\n",
             task_info, e->arg_s32[0], e->arg_u64[0], e->arg_s32[1]);
     return 0;
 }
@@ -329,7 +329,7 @@ static int handle_exit_recvfrom(const struct event_t *e, const char *task_info) 
 }
 
 static int handle_enter_recvmsg(const struct event_t *e, const char *task_info) {
-    printf("Enter recvmsg: %s, socktfd=%d, msg_len=%llu, flags=%d\n",
+    printf("Enter recvmsg: %s, socktfd=%d, msg_len=%llu, flags=%#x\n",
             task_info, e->arg_s32[0], e->arg_u64[0], e->arg_s32[1]);
     return 0;
 }
@@ -352,7 +352,7 @@ static int handle_exit_recvmsg(const struct event_t *e, const char *task_info) {
 }
 
 static int handle_enter_recvmmsg(const struct event_t *e, const char *task_info) {
-    printf("Enter recvmmsg: %s, socktfd=%d, vlen=%u, flags=%d\n",
+    printf("Enter recvmmsg: %s, socktfd=%d, vlen=%u, flags=%#x\n",
             task_info, e->arg_s32[0], e->arg_u32[0], e->arg_s32[1]);
     return 0;
 }
@@ -372,11 +372,11 @@ static int handle_enter_sendto(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
         char ip_str[INET6_ADDRSTRLEN];
         get_ip_str(e, ip_str, sizeof(ip_str));
-        printf("Enter sendto: %s, socktfd=%d, msg_len=%llu, flags=%d, dest_addr=%s:%u, ip_version=%s\n",
+        printf("Enter sendto: %s, socktfd=%d, msg_len=%llu, flags=%#x, dest_addr=%s:%u, ip_version=%s\n",
                 task_info, e->arg_s32[0], e->arg_u64[0], e->arg_s32[1], ip_str, e->port, 
                 e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown");
     } else {
-        printf("Enter sendto: %s, socktfd=%d, msg_len=%llu, flags=%d, failed to read destination info\n",
+        printf("Enter sendto: %s, socktfd=%d, msg_len=%llu, flags=%#x, failed to read destination info\n",
                 task_info, e->arg_s32[0], e->arg_u64[0], e->arg_s32[1]);
     }
     return 0;
@@ -397,11 +397,11 @@ static int handle_enter_sendmsg(const struct event_t *e, const char *task_info) 
     if (e->is_valid == true) {
         char ip_str[INET6_ADDRSTRLEN];
         get_ip_str(e, ip_str, sizeof(ip_str));
-        printf("Enter sendmsg: %s, socktfd=%d, flags=%d, dest_addr=%s:%u, ip_version=%s\n",
+        printf("Enter sendmsg: %s, socktfd=%d, flags=%#x, dest_addr=%s:%u, ip_version=%s\n",
                 task_info, e->arg_s32[0], e->arg_s32[1], ip_str, e->port, 
                 e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown");
     } else {
-        printf("Enter sendmsg: %s, socktfd=%d, flags=%d, failed to read destination info\n",
+        printf("Enter sendmsg: %s, socktfd=%d, flags=%#x, failed to read destination info\n",
                 task_info, e->arg_s32[0], e->arg_s32[1]);
     }
     return 0;
@@ -419,7 +419,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const char *task_info) {
 }
 
 static int handle_enter_sendmmsg(const struct event_t *e, const char *task_info) {
-    printf("Enter sendmmsg: %s, socktfd=%d, vlen=%u, flags=%d\n",
+    printf("Enter sendmmsg: %s, socktfd=%d, vlen=%u, flags=%#x\n",
             task_info, e->arg_s32[0], e->arg_u32[0], e->arg_s32[1]);
     return 0;
 }
@@ -498,7 +498,7 @@ static int handle_exit_ioctl(const struct event_t *e, const char *task_info) {
 
 static int handle_enter_poll(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter poll: %s, nfds=%llu, timeout=%d, pollfd=%d, event=%d\n",
+        printf("Enter poll: %s, nfds=%llu, timeout=%d, pollfd=%d, event=%#x\n",
                 task_info, e->arg_u64[0], e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
     } else {
         printf("Enter poll: %s, nfds=%llu, timeout=%d, failed to read pollfd array\n",
@@ -512,7 +512,7 @@ static int handle_exit_poll(const struct event_t *e, const char *task_info) {
         printf("Exit poll: failed, %s, error_code=%lld\n",
                 task_info, e->ret);
     } else if (e->is_valid == true) {
-        printf("Exit poll: success, %s, revents=%d, ret=%llu\n",
+        printf("Exit poll: success, %s, revents=%#x, ret=%llu\n",
                 task_info, e->arg_s32[0], e->ret);
     } else {
         printf("Exit poll: success, %s, failed to read revents, ret=%llu\n",
@@ -524,10 +524,10 @@ static int handle_exit_poll(const struct event_t *e, const char *task_info) {
 static int handle_enter_ppoll(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
         if (e->arg_u64[1] == 999999999) {
-            printf("Enter ppoll: %s, nfds=%llu, timeout=infinite, pollfd=%d, event=%d\n",
+            printf("Enter ppoll: %s, nfds=%llu, timeout=infinite, pollfd=%d, event=%#x\n",
                     task_info, e->arg_u64[0], e->arg_s32[1], e->arg_s32[2]);
         } else {
-            printf("Enter ppoll: %s, nfds=%llu, timeout=%llu.%09llu, pollfd=%d, event=%d\n",
+            printf("Enter ppoll: %s, nfds=%llu, timeout=%llu.%09llu, pollfd=%d, event=%#x\n",
                     task_info, e->arg_u64[0], e->arg_u64[1], e->arg_u64[2],
                     e->arg_s32[1], e->arg_s32[2]);
         }
@@ -543,7 +543,7 @@ static int handle_exit_ppoll(const struct event_t *e, const char *task_info) {
         printf("Exit ppoll: failed, %s, error_code=%lld\n",
                 task_info, e->ret);
     } else if (e->is_valid == true) {
-        printf("Exit ppoll: success, %s, revents=%d, ret=%lld\n",
+        printf("Exit ppoll: success, %s, revents=%#x, ret=%lld\n",
                 task_info, e->arg_s32[0], e->ret);
     } else {
         printf("Exit ppoll: success, %s, failed to read revents, ret=%lld\n",
@@ -570,7 +570,7 @@ static int handle_exit_epoll_create(const struct event_t *e, const char *task_in
 }
 
 static int handle_enter_epoll_create1(const struct event_t *e, const char *task_info) {
-    printf("Enter epoll_create1: %s, flags=%d\n",
+    printf("Enter epoll_create1: %s, flags=%#x\n",
             task_info, e->arg_s32[0]);
     return 0;
 }
@@ -619,7 +619,7 @@ static int handle_exit_epoll_wait(const struct event_t *e, const char *task_info
         printf("Exit epoll_wait: failed, %s, error_code=%lld\n",
                 task_info, e->ret);
     } else if (e->is_valid == true) {
-        printf("Exit epoll_wait: success, %s, events=%d, data=%llu, ret=%lld\n",
+        printf("Exit epoll_wait: success, %s, events=%#x, data=%llu, ret=%lld\n",
                 task_info, e->arg_s32[0], e->arg_u64[0], e->ret);
     } else {
         printf("Exit epoll_wait: success, %s, failed to read revents, ret=%lld\n",
@@ -639,7 +639,7 @@ static int handle_exit_epoll_pwait(const struct event_t *e, const char *task_inf
         printf("Exit epoll_pwait: failed, %s, error_code=%lld\n",
                 task_info, e->ret);
     } else if (e->is_valid == true) {
-        printf("Exit epoll_pwait: success, %s, events=%d, data=%llu, ret=%lld\n",
+        printf("Exit epoll_pwait: success, %s, events=%#x, data=%llu, ret=%lld\n",
                 task_info, e->arg_s32[0], e->arg_u64[0], e->ret);
     } else {
         printf("Exit epoll_pwait: success, %s, failed to read revents, ret=%lld\n",
@@ -664,7 +664,7 @@ static int handle_exit_epoll_pwait2(const struct event_t *e, const char *task_in
         printf("Exit epoll_pwait2: failed, %s, error_code=%lld\n",
                 task_info, e->ret);
     } else if (e->is_valid == true) {
-        printf("Exit epoll_pwait2: success, %s, events=%d, data=%llu, ret=%lld\n",
+        printf("Exit epoll_pwait2: success, %s, events=%#x, data=%llu, ret=%lld\n",
                 task_info, e->arg_s32[0], e->arg_u64[0], e->ret);
     } else {
         printf("Exit epoll_pwait2: success, %s, failed to read revents, ret=%lld\n",
@@ -692,10 +692,10 @@ static int handle_exit_close(const struct event_t *e, const char *task_info) {
 
 static int handle_enter_creat(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter creat: %s, pathname=%s, mode=%o\n",
+        printf("Enter creat: %s, pathname=%s, mode=%#x\n",
                 task_info, e->arg_str, e->arg_u32[0]);
     } else {
-        printf("Enter creat: %s, failed to read pathname, mode=%o\n",
+        printf("Enter creat: %s, failed to read pathname, mode=%#x\n",
                 task_info, e->arg_u32[0]);
     }
     return 0;
@@ -714,10 +714,10 @@ static int handle_exit_creat(const struct event_t *e, const char *task_info) {
 
 static int handle_enter_open(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter open: %s, pathname=%s, flags=%d, mode=%o\n",
+        printf("Enter open: %s, pathname=%s, flags=%#x, mode=%#x\n",
                 task_info, e->arg_str, e->arg_s32[0], e->arg_u32[0]);
     } else {
-        printf("Enter open: %s, failed to read pathname, mode=%o\n",
+        printf("Enter open: %s, failed to read pathname, mode=%#x\n",
                 task_info, e->arg_u32[0]);
     }
     return 0;
@@ -736,10 +736,10 @@ static int handle_exit_open(const struct event_t *e, const char *task_info) {
 
 static int handle_enter_openat(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter openat: %s, dirfd=%d, pathname=%s, flags=%d, mode=%o\n",
+        printf("Enter openat: %s, dirfd=%d, pathname=%s, flags=%#x, mode=%#x\n",
                 task_info, e->arg_s32[0], e->arg_str, e->arg_s32[1], e->arg_u32[0]);
     } else {
-        printf("Enter openat: %s, dirfd=%d, failed to read pathname, flags=%d, mode=%o\n",
+        printf("Enter openat: %s, dirfd=%d, failed to read pathname, flags=%#x, mode=%#x\n",
                 task_info, e->arg_s32[0], e->arg_s32[1], e->arg_u32[0]);
     }
     return 0;
@@ -758,7 +758,7 @@ static int handle_exit_openat(const struct event_t *e, const char *task_info) {
 
 static int handle_enter_openat2(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter openat2: %s, dirfd=%d, pathname=%s, flags=%llu, mode=%llo, resolve=%llu, size=%llu\n",
+        printf("Enter openat2: %s, dirfd=%d, pathname=%s, flags=%#llx, mode=%#llx, resolve=%llu, size=%llu\n",
                 task_info, e->arg_s32[0], e->arg_str, e->arg_u64[1], e->arg_u64[2], e->arg_u64[3], e->arg_u64[0]);
     } else {
         printf("Enter openat2: %s, dirfd=%d, failed to read pathname, how, size=%llu\n",
@@ -780,10 +780,10 @@ static int handle_exit_openat2(const struct event_t *e, const char *task_info) {
 
 static int handle_enter_name_to_handle_at(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter name_to_handle_at: %s, dirfd=%d, pathname=%s, handle_bytes=%u, handle_type=%d, mount_id=%d, flags=%d\n",
+        printf("Enter name_to_handle_at: %s, dirfd=%d, pathname=%s, handle_bytes=%u, handle_type=%d, mount_id=%d, flags=%#x\n",
                 task_info, e->arg_s32[0], e->arg_str, e->arg_u32[0], e->arg_s32[3], e->arg_s32[2], e->arg_s32[1]);
     } else {
-        printf("Enter name_to_handle_at: %s, dirfd=%d, failed to read pathname, handle, mount_id, flags=%d\n",
+        printf("Enter name_to_handle_at: %s, dirfd=%d, failed to read pathname, handle, mount_id, flags=%#x\n",
                 task_info, e->arg_s32[0], e->arg_s32[1]);
     }
     return 0;
@@ -802,10 +802,10 @@ static int handle_exit_name_to_handle_at(const struct event_t *e, const char *ta
 
 static int handle_enter_open_by_handle_at(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter open_by_handle_at: %s, mount_fd=%d, handle_bytes=%u, handle_type=%d, flags=%d\n",
+        printf("Enter open_by_handle_at: %s, mount_fd=%d, handle_bytes=%u, handle_type=%d, flags=%#x\n",
                 task_info, e->arg_s32[0], e->arg_u32[0], e->arg_s32[2], e->arg_s32[1]);
     } else {
-        printf("Enter open_by_handle_at: %s, mount_fd=%d, failed to read handle, flags=%d\n",
+        printf("Enter open_by_handle_at: %s, mount_fd=%d, failed to read handle, flags=%#x\n",
                 task_info, e->arg_s32[0], e->arg_s32[1]);
     }
     return 0;
@@ -824,10 +824,10 @@ static int handle_exit_open_by_handle_at(const struct event_t *e, const char *ta
 
 static int handle_enter_memfd_create(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter memfd_create: %s, name=%s, flags=%u\n",
+        printf("Enter memfd_create: %s, name=%s, flags=%#x\n",
                 task_info, e->arg_str, e->arg_u32[0]);
     } else {
-        printf("Enter memfd_create: %s, failed to read name, flags=%u\n",
+        printf("Enter memfd_create: %s, failed to read name, flags=%#x\n",
                 task_info, e->arg_u32[0]);
     }
     return 0;
@@ -846,10 +846,10 @@ static int handle_exit_memfd_create(const struct event_t *e, const char *task_in
 
 static int handle_enter_mknod(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter mknod: %s, pathname=%s, mode=%o, dev=%llu\n",
+        printf("Enter mknod: %s, pathname=%s, mode=%#x, dev=%llu\n",
                 task_info, e->arg_str, e->arg_u32[0], e->arg_u64[0]);
     } else {
-        printf("Enter mknod: %s, failed to read pathname, mode=%o, dev=%llu\n",
+        printf("Enter mknod: %s, failed to read pathname, mode=%#x, dev=%llu\n",
                 task_info, e->arg_u32[0], e->arg_u64[0]);
     }
     return 0;
@@ -868,10 +868,10 @@ static int handle_exit_mknod(const struct event_t *e, const char *task_info) {
 
 static int handle_enter_mknodat(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter mknodat: %s, dirfd=%d, pathname=%s, mode=%o, dev=%llu\n",
+        printf("Enter mknodat: %s, dirfd=%d, pathname=%s, mode=%#x, dev=%llu\n",
                 task_info, e->arg_s32[0], e->arg_str, e->arg_u32[0], e->arg_u64[0]);
     } else {
-        printf("Enter mknodat: %s, dirfd=%d, failed to read pathname, mode=%o, dev=%llu\n",
+        printf("Enter mknodat: %s, dirfd=%d, failed to read pathname, mode=%#x, dev=%llu\n",
                 task_info, e->arg_s32[0], e->arg_u32[0], e->arg_u64[0]);
     }
     return 0;
@@ -934,10 +934,10 @@ static int handle_exit_renameat(const struct event_t *e, const char *task_info) 
 
 static int handle_enter_renameat2(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter renameat2: %s, olddirfd=%d, oldpath=%s, newdirfd=%d, newpath=%s, flags=%d\n",
+        printf("Enter renameat2: %s, olddirfd=%d, oldpath=%s, newdirfd=%d, newpath=%s, flags=%#x\n",
                 task_info, e->arg_s32[0], e->arg_str, e->arg_s32[1], e->arg_str2, e->arg_s32[2]);
     } else {
-        printf("Enter renameat2: %s, olddirfd=%d, newdirfd=%d, failed to read oldpath, newpath, flags=%d\n",
+        printf("Enter renameat2: %s, olddirfd=%d, newdirfd=%d, failed to read oldpath, newpath, flags=%#x\n",
                 task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
     }
     return 0;
@@ -994,7 +994,7 @@ static int handle_exit_ftruncate(const struct event_t *e, const char *task_info)
 }
 
 static int handle_enter_fallocate(const struct event_t *e, const char *task_info) {
-    printf("Enter fallocate: %s, fd=%d, mode=%d, offset=%llu, len=%llu\n",
+    printf("Enter fallocate: %s, fd=%d, mode=%#x, offset=%llu, len=%llu\n",
             task_info, e->arg_s32[0], e->arg_s32[1], e->arg_u64[0], e->arg_u64[1]);
     return 0;
 }
@@ -1012,10 +1012,10 @@ static int handle_exit_fallocate(const struct event_t *e, const char *task_info)
 
 static int handle_enter_mkdir(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter mkdir: %s, pathname=%s, mode=%o\n",
+        printf("Enter mkdir: %s, pathname=%s, mode=%#x\n",
                 task_info, e->arg_str, e->arg_u32[0]);
     } else {
-        printf("Enter mkdir: %s, failed to read pathname, mode=%o\n",
+        printf("Enter mkdir: %s, failed to read pathname, mode=%#x\n",
                 task_info, e->arg_u32[0]);
     }
     return 0;
@@ -1034,10 +1034,10 @@ static int handle_exit_mkdir(const struct event_t *e, const char *task_info) {
 
 static int handle_enter_mkdirat(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter mkdirat: %s, dirfd=%d, pathname=%s, mode=%o\n",
+        printf("Enter mkdirat: %s, dirfd=%d, pathname=%s, mode=%#x\n",
                 task_info, e->arg_s32[0], e->arg_str, e->arg_u32[0]);
     } else {
-        printf("Enter mkdirat: %s, dirfd=%d, failed to read pathname, mode=%o\n",
+        printf("Enter mkdirat: %s, dirfd=%d, failed to read pathname, mode=%#x\n",
                 task_info, e->arg_s32[0], e->arg_u32[0]);
     }
     return 0;
@@ -1240,10 +1240,10 @@ static int handle_exit_link(const struct event_t *e, const char *task_info) {
 
 static int handle_enter_linkat(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter linkat: %s, olddirfd=%d, oldpath=%s, newdirfd=%d, newpath=%s, flags=%d\n",
+        printf("Enter linkat: %s, olddirfd=%d, oldpath=%s, newdirfd=%d, newpath=%s, flags=%#x\n",
                 task_info, e->arg_s32[0], e->arg_str, e->arg_s32[1], e->arg_str2, e->arg_s32[2]);
     } else {
-        printf("Enter linkat: %s, olddirfd=%d, newdirfd=%d, failed to read oldpath, newpath, flags=%d\n",
+        printf("Enter linkat: %s, olddirfd=%d, newdirfd=%d, failed to read oldpath, newpath, flags=%#x\n",
                 task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
     }
     return 0;
@@ -1328,10 +1328,10 @@ static int handle_exit_unlink(const struct event_t *e, const char *task_info) {
 
 static int handle_enter_unlinkat(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter unlinkat: %s, dirfd=%d, pathname=%s, flags=%d\n",
+        printf("Enter unlinkat: %s, dirfd=%d, pathname=%s, flags=%#x\n",
                 task_info, e->arg_s32[0], e->arg_str, e->arg_s32[1]);
     } else {
-        printf("Enter unlinkat: %s, dirfd=%d, failed to read pathname, flags=%d\n",
+        printf("Enter unlinkat: %s, dirfd=%d, failed to read pathname, flags=%#x\n",
                 task_info, e->arg_s32[0], e->arg_s32[1]);
     }
     return 0;
@@ -1393,7 +1393,7 @@ static int handle_exit_readlinkat(const struct event_t *e, const char *task_info
 }
 
 static int handle_enter_umask(const struct event_t *e, const char *task_info) {
-    printf("Enter umask: %s, mask=%o\n",
+    printf("Enter umask: %s, mask=%#x\n",
             task_info, e->arg_u32[0]);
     return 0;
 }
@@ -1472,10 +1472,10 @@ static int handle_exit_newfstat(const struct event_t *e, const char *task_info) 
 
 static int handle_enter_newfstatat(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter newfstatat: %s, dirfd=%d, pathname=%s, flags=%d\n",
+        printf("Enter newfstatat: %s, dirfd=%d, pathname=%s, flags=%#x\n",
                 task_info, e->arg_s32[0], e->arg_str, e->arg_s32[1]);
     } else {
-        printf("Enter newfstatat: %s, dirfd=%d, failed to read pathname, flags=%d\n",
+        printf("Enter newfstatat: %s, dirfd=%d, failed to read pathname, flags=%#x\n",
                 task_info, e->arg_s32[0], e->arg_s32[1]);
     }
     return 0;
@@ -1494,10 +1494,10 @@ static int handle_exit_newfstatat(const struct event_t *e, const char *task_info
 
 static int handle_enter_statx(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter statx: %s, dirfd=%d, pathname=%s, flags=%d, mask=%o\n",
+        printf("Enter statx: %s, dirfd=%d, pathname=%s, flags=%#x, mask=%#x\n",
                 task_info, e->arg_s32[0], e->arg_str, e->arg_s32[1], e->arg_u32[0]);
     } else {
-        printf("Enter statx: %s, dirfd=%d, failed to read pathname, flags=%d, mask=%o\n",
+        printf("Enter statx: %s, dirfd=%d, failed to read pathname, flags=%#x, mask=%#x\n",
                 task_info, e->arg_s32[0], e->arg_s32[1], e->arg_u32[0]);
     }
     return 0;
@@ -1555,10 +1555,10 @@ static int handle_exit_fstatfs(const struct event_t *e, const char *task_info) {
 
 static int handle_enter_chmod(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter chmod: %s, pathname=%s, mode=%o\n",
+        printf("Enter chmod: %s, pathname=%s, mode=%#x\n",
                 task_info, e->arg_str, e->arg_u32[0]);
     } else {
-        printf("Enter chmod: %s, failed to read pathname, mode=%o\n",
+        printf("Enter chmod: %s, failed to read pathname, mode=%#x\n",
                 task_info, e->arg_u32[0]);
     }
     return 0;
@@ -1576,7 +1576,7 @@ static int handle_exit_chmod(const struct event_t *e, const char *task_info) {
 }
 
 static int handle_enter_fchmod(const struct event_t *e, const char *task_info) {
-    printf("Enter fchmod: %s, fd=%d, mode=%o\n",
+    printf("Enter fchmod: %s, fd=%d, mode=%#x\n",
             task_info, e->arg_s32[0], e->arg_u32[0]);
     return 0;
 }
@@ -1594,10 +1594,10 @@ static int handle_exit_fchmod(const struct event_t *e, const char *task_info) {
 
 static int handle_enter_fchmodat(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter fchmodat: %s, dirfd=%d, pathname=%s, mode=%o, flags=%d\n",
+        printf("Enter fchmodat: %s, dirfd=%d, pathname=%s, mode=%#x, flags=%#x\n",
                 task_info, e->arg_s32[0], e->arg_str, e->arg_u32[0], e->arg_s32[1]);
     } else {
-        printf("Enter fchmodat: %s, dirfd=%d, failed to read pathname, mode=%o, flags=%d\n",
+        printf("Enter fchmodat: %s, dirfd=%d, failed to read pathname, mode=%#x, flags=%#x\n",
                 task_info, e->arg_s32[0], e->arg_u32[0], e->arg_s32[1]);
     }
     return 0;
@@ -1677,10 +1677,10 @@ static int handle_exit_fchown(const struct event_t *e, const char *task_info) {
 
 static int handle_enter_fchownat(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter fchownat: %s, dirfd=%d, pathname=%s, owner=%u, group=%u, flags=%d\n",
+        printf("Enter fchownat: %s, dirfd=%d, pathname=%s, owner=%u, group=%u, flags=%#x\n",
                 task_info, e->arg_s32[0], e->arg_str, e->arg_u32[0], e->arg_u32[1], e->arg_s32[1]);
     } else {
-        printf("Enter fchownat: %s, dirfd=%d, failed to read pathname, owner=%u, group=%u, flags=%d\n",
+        printf("Enter fchownat: %s, dirfd=%d, failed to read pathname, owner=%u, group=%u, flags=%#x\n",
                 task_info, e->arg_s32[0], e->arg_u32[0], e->arg_u32[1], e->arg_s32[1]);
     }
     return 0;
@@ -1781,14 +1781,14 @@ static int handle_exit_futimesat(const struct event_t *e, const char *task_info)
 static int handle_enter_utimensat(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
         if (e->is_null == false) {
-            printf("Enter utimensat: %s, dirfd=%d, pathname=%s, actime=%llu.%llu modetime=%llu.%llu, flags=%d\n",
+            printf("Enter utimensat: %s, dirfd=%d, pathname=%s, actime=%llu.%llu modetime=%llu.%llu, flags=%#x\n",
                     task_info, e->arg_s32[0], e->arg_str, e->arg_u64[0], e->arg_u64[1], e->arg_u64[2], e->arg_u64[3], e->arg_s32[1]);
         } else {
-            printf("Enter utimensat: %s, dirfd=%d, pathname=%s, time=current time, flags=%d\n",
+            printf("Enter utimensat: %s, dirfd=%d, pathname=%s, time=current time, flags=%#x\n",
                     task_info, e->arg_s32[0], e->arg_str, e->arg_s32[1]);
         }
     } else {
-        printf("Enter utimensat: %s, dirfd=%d, failed to read pathname, flags=%d\n",
+        printf("Enter utimensat: %s, dirfd=%d, failed to read pathname, flags=%#x\n",
                 task_info, e->arg_s32[0], e->arg_s32[1]);
     }
     return 0;
@@ -1807,10 +1807,10 @@ static int handle_exit_utimensat(const struct event_t *e, const char *task_info)
 
 static int handle_enter_access(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter access: %s, pathname=%s, mode=%o\n",
+        printf("Enter access: %s, pathname=%s, mode=%#x\n",
                 task_info, e->arg_str, e->arg_s32[0]);
     } else {
-        printf("Enter access: %s, failed to read pathname, mode=%o\n",
+        printf("Enter access: %s, failed to read pathname, mode=%#x\n",
                 task_info, e->arg_s32[0]);
     }
     return 0;
@@ -1829,10 +1829,10 @@ static int handle_exit_access(const struct event_t *e, const char *task_info) {
 
 static int handle_enter_faccessat(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter faccessat: %s, dirfd=%d, pathname=%s, mode=%o, flags=%d\n",
+        printf("Enter faccessat: %s, dirfd=%d, pathname=%s, mode=%#x, flags=%#x\n",
                 task_info, e->arg_s32[0], e->arg_str, e->arg_s32[1], e->arg_s32[2]);
     } else {
-        printf("Enter faccessat: %s, dirfd=%d, failed to read pathname, mode=%o, flags=%d\n",
+        printf("Enter faccessat: %s, dirfd=%d, failed to read pathname, mode=%#x, flags=%#x\n",
                 task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
     }
     return 0;
@@ -1851,10 +1851,10 @@ static int handle_exit_faccessat(const struct event_t *e, const char *task_info)
 
 static int handle_enter_setxattr(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter setxattr: %s, pathname=%s, name=%s, size=%llu, flags=%d\n",
+        printf("Enter setxattr: %s, pathname=%s, name=%s, size=%llu, flags=%#x\n",
                 task_info, e->arg_str, e->arg_str2, e->arg_u64[0], e->arg_s32[0]);
     } else {
-        printf("Enter setxattr: %s, failed to read pathname, name, size=%llu, flags=%d\n",
+        printf("Enter setxattr: %s, failed to read pathname, name, size=%llu, flags=%#x\n",
                 task_info, e->arg_u64[0], e->arg_s32[0]);
     }
     return 0;
@@ -1873,10 +1873,10 @@ static int handle_exit_setxattr(const struct event_t *e, const char *task_info) 
 
 static int handle_enter_lsetxattr(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter lsetxattr: %s, pathname=%s, name=%s, size=%llu, flags=%d\n",
+        printf("Enter lsetxattr: %s, pathname=%s, name=%s, size=%llu, flags=%#x\n",
                 task_info, e->arg_str, e->arg_str2, e->arg_u64[0], e->arg_s32[0]);
     } else {
-        printf("Enter lsetxattr: %s, failed to read pathname, name, size=%llu, flags=%d\n",
+        printf("Enter lsetxattr: %s, failed to read pathname, name, size=%llu, flags=%#x\n",
                 task_info, e->arg_u64[0], e->arg_s32[0]);
     }
     return 0;
@@ -1895,10 +1895,10 @@ static int handle_exit_lsetxattr(const struct event_t *e, const char *task_info)
 
 static int handle_enter_fsetxattr(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter fsetxattr: %s, fd=%d, name=%s, size=%llu, flags=%d\n",
+        printf("Enter fsetxattr: %s, fd=%d, name=%s, size=%llu, flags=%#x\n",
                 task_info, e->arg_s32[0], e->arg_str, e->arg_u64[0], e->arg_s32[0]);
     } else {
-        printf("Enter fsetxattr: %s, fd=%d, failed to read name, size=%llu, flags=%d\n",
+        printf("Enter fsetxattr: %s, fd=%d, failed to read name, size=%llu, flags=%#x\n",
                 task_info, e->arg_s32[0], e->arg_u64[0], e->arg_s32[0]);
     }
     return 0;
@@ -2129,7 +2129,7 @@ static int handle_exit_fremovexattr(const struct event_t *e, const char *task_in
 }
 
 static int handle_enter_fcntl(const struct event_t *e, const char *task_info) {
-    printf("Enter fcntl: %s, fd=%d, cmd=%llu, arg=%llu\n",
+    printf("Enter fcntl: %s, fd=%d, cmd=%#llx, arg=%llu\n",
             task_info, e->arg_s32[0], e->arg_u64[0], e->arg_u64[1]);
     return 0;
 }
@@ -2180,7 +2180,7 @@ static int handle_exit_dup2(const struct event_t *e, const char *task_info) {
 }
 
 static int handle_enter_dup3(const struct event_t *e, const char *task_info) {
-    printf("Enter dup3: %s, oldfd=%d, newfd=%d, flags=%d\n",
+    printf("Enter dup3: %s, oldfd=%d, newfd=%d, flags=%#x\n",
             task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
     return 0;
 }
@@ -2282,7 +2282,7 @@ static int handle_exit_preadv(const struct event_t *e, const char *task_info) {
 }
 
 static int handle_enter_preadv2(const struct event_t *e, const char *task_info) {
-    printf("Enter preadv2: %s, fd=%d, iov_count=%d, offset=%lld, flags=%d\n",
+    printf("Enter preadv2: %s, fd=%d, iov_count=%d, offset=%lld, flags=%#x\n",
             task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s64[0], e->arg_s32[2]);
     return 0;
 }
@@ -2367,7 +2367,7 @@ static int handle_exit_pwritev(const struct event_t *e, const char *task_info) {
 }
 
 static int handle_enter_pwritev2(const struct event_t *e, const char *task_info) {
-    printf("Enter pwritev2: %s, fd=%d, iov_count=%d, offset=%lld, flags=%d\n",
+    printf("Enter pwritev2: %s, fd=%d, iov_count=%d, offset=%lld, flags=%#x\n",
             task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s64[0], e->arg_s32[2]);
     return 0;
 }
@@ -2434,7 +2434,7 @@ static int handle_exit_inotify_init(const struct event_t *e, const char *task_in
 }
 
 static int handle_enter_inotify_init1(const struct event_t *e, const char *task_info) {
-    printf("Enter inotify_init1: %s, flags=%d\n",
+    printf("Enter inotify_init1: %s, flags=%#x\n",
             task_info, e->arg_s32[0]);
     return 0;
 }
@@ -2452,10 +2452,10 @@ static int handle_exit_inotify_init1(const struct event_t *e, const char *task_i
 
 static int handle_enter_inotify_add_watch(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter inotify_add_watch: %s, fd=%d, pathname=%s, mask=%o\n",
+        printf("Enter inotify_add_watch: %s, fd=%d, pathname=%s, mask=%#x\n",
                 task_info, e->arg_s32[0], e->arg_str, e->arg_u32[0]);
     } else {
-        printf("Enter inotify_add_watch: %s, fd=%d, failed to read pathname, mask=%o\n",
+        printf("Enter inotify_add_watch: %s, fd=%d, failed to read pathname, mask=%#x\n",
                 task_info, e->arg_s32[0], e->arg_u32[0]);
     }
     return 0;
@@ -2490,7 +2490,7 @@ static int handle_exit_inotify_rm_watch(const struct event_t *e, const char *tas
 }
 
 static int handle_enter_fanotify_init(const struct event_t *e, const char *task_info) {
-    printf("Enter fanotify_init: %s, flags=%d, event_f_flags=%d\n",
+    printf("Enter fanotify_init: %s, flags=%#x, event_f_flags=%#x\n",
             task_info, e->arg_s32[0], e->arg_s32[1]);
     return 0;
 }
@@ -2509,14 +2509,14 @@ static int handle_exit_fanotify_init(const struct event_t *e, const char *task_i
 static int handle_enter_fanotify_mark(const struct event_t *e, const char *task_info) {
     if (e->is_null == false) {
         if (e->is_valid == true) {
-            printf("Enter fanotify_mark: %s, fanotify_fd=%d, flags=%u, mask=%llo, dirfd=%d, pathname=%s\n",
+            printf("Enter fanotify_mark: %s, fanotify_fd=%d, flags=%#x, mask=%#llx, dirfd=%d, pathname=%s\n",
                     task_info, e->arg_s32[0], e->arg_u32[0], e->arg_u64[0], e->arg_s32[1], e->arg_str);
         } else {
-            printf("Enter fanotify_mark: %s, fanotify_fd=%d, flags=%u, mask=%llo, dirfd=%d, failed to read pathname\n",
+            printf("Enter fanotify_mark: %s, fanotify_fd=%d, flags=%#x, mask=%#llx, dirfd=%d, failed to read pathname\n",
                     task_info, e->arg_s32[0], e->arg_u32[0], e->arg_u64[0], e->arg_s32[1]);
         }
     } else {
-        printf("Enter fanotify_mark: %s, fanotify_fd=%d, flags=%u, mask=%llo, dirfd=%d, pathname is NULL (monitoring directory events)\n",
+        printf("Enter fanotify_mark: %s, fanotify_fd=%d, flags=%#x, mask=%#llx, dirfd=%d, pathname is NULL (monitoring directory events)\n",
                 task_info, e->arg_s32[0], e->arg_u32[0], e->arg_u64[0], e->arg_s32[1]);
     }
     return 0;
@@ -2535,10 +2535,10 @@ static int handle_exit_fanotify_mark(const struct event_t *e, const char *task_i
 
 static int handle_enter_mount(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter mount: %s, source=%s, target=%s, filesystemtype=%s, mountflags=%llu\n",
-                task_info, e->arg_str, e->arg_str2, e->arg_str3, e->arg_u64[0]);
+        printf("Enter mount: %s, source=%s, target=%s, filesystemtype=%s, mountflags=%#llx\n",
+                task_info, e->arg_str, e->arg_str2, e->filesystem_type, e->arg_u64[0]);
     } else {
-        printf("Enter mount: %s, failed to read source, target, filesystemtype, mountflags=%llu\n",
+        printf("Enter mount: %s, failed to read source, target, filesystemtype, mountflags=%#llx\n",
                 task_info, e->arg_u64[0]);
     }
     return 0;
@@ -2557,10 +2557,10 @@ static int handle_exit_mount(const struct event_t *e, const char *task_info) {
 
 static int handle_enter_umount(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter umount: %s, target=%s, flags=%d\n",
+        printf("Enter umount: %s, target=%s, flags=%#x\n",
                 task_info, e->arg_str, e->arg_s32[0]);
     } else {
-        printf("Enter umount: %s, failed to read target, flags=%d\n",
+        printf("Enter umount: %s, failed to read target, flags=%#x\n",
                 task_info, e->arg_s32[0]);
     }
     return 0;
@@ -2579,10 +2579,10 @@ static int handle_exit_umount(const struct event_t *e, const char *task_info) {
 
 static int handle_enter_move_mount(const struct event_t *e, const char *task_info) {
     if (e->is_valid == true) {
-        printf("Enter move_mount: %s, from_fd=%d, from_pathname=%s, to_fd=%d, to_pathname=%s, flags=%llu\n",
+        printf("Enter move_mount: %s, from_fd=%d, from_pathname=%s, to_fd=%d, to_pathname=%s, flags=%#llx\n",
                 task_info, e->arg_s32[0], e->arg_str, e->arg_s32[1], e->arg_str2, e->arg_u64[0]);
     } else {
-        printf("Enter move_mount: %s, from_fd=%d, to_fd=%d, failed to read from_fd, from_pathname, to_fd, to_pathname, flags=%llu\n",
+        printf("Enter move_mount: %s, from_fd=%d, to_fd=%d, failed to read from_fd, from_pathname, to_fd, to_pathname, flags=%#llx\n",
                 task_info, e->arg_s32[0], e->arg_s32[1], e->arg_u64[0]);
     }
     return 0;
@@ -2594,6 +2594,1045 @@ static int handle_exit_move_mount(const struct event_t *e, const char *task_info
                 task_info, e->ret);
     } else {
         printf("Exit move_mount: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_clone(const struct event_t *e, const char *task_info) {
+    printf("Enter clone: %s, fn_ptr=%llu, flags=%#x\n",
+            task_info, e->arg_u64[0], e->arg_s32[0]);
+    return 0;
+}
+
+static int handle_exit_clone(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit clone: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit clone: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_clone3(const struct event_t *e, const char *task_info) {
+    if (e->is_valid == true) {
+        printf("Enter clone3: %s, flags=%#llx, stack=%llu, stack_size=%llu, cgroup=%llu\n",
+                task_info, e->arg_u64[0], e->arg_u64[1], e->arg_u64[2], e->arg_u64[3]);
+    } else {
+        printf("Enter clone3: %s, failed to read flags, stack, stack_size, cgroup\n",
+                task_info);
+    }
+    return 0;
+}
+
+static int handle_exit_clone3(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit clone3: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit clone3: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_fork(const struct event_t *e, const char *task_info) {
+    printf("Enter fork: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_fork(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit fork: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit fork: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_vfork(const struct event_t *e, const char *task_info) {
+    printf("Enter vfork: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_vfork(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit vfork: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit vfork: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_execve(const struct event_t *e, const char *task_info) {
+    if (e->is_valid == true) {
+        printf("Enter execve: %s, pathname=%s\n",
+                task_info, e->arg_str);
+    } else {
+        printf("Enter execve: %s, failed to read pathname\n",
+                task_info);
+    }
+    return 0;
+}
+
+static int handle_exit_execve(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit execve: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit execve: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_execveat(const struct event_t *e, const char *task_info) {
+    if (e->is_valid == true) {
+        printf("Enter execveat: %s, dirfd=%d, pathname=%s, flags=%#x\n",
+                task_info, e->arg_s32[0], e->arg_str, e->arg_s32[1]);
+    } else {
+        printf("Enter execveat: %s, dirfd=%d, failed to read pathname, flags=%#x\n",
+                task_info, e->arg_s32[0], e->arg_s32[1]);
+    }
+    return 0;
+}
+
+static int handle_exit_execveat(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit execveat: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit execveat: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_exit(const struct event_t *e, const char *task_info) {
+    printf("Enter exit: %s, status=%d\n",
+            task_info, e->arg_s32[0]);
+    return 0;
+}
+
+static int handle_exit_exit(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit exit: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit exit: success, %s\n", 
+                task_info);
+    }
+    return 0;
+}
+
+static int handle_enter_exit_group(const struct event_t *e, const char *task_info) {
+    printf("Enter exit_group: %s, status=%d\n",
+            task_info, e->arg_s32[0]);
+    return 0;
+}
+
+static int handle_exit_exit_group(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit exit_group: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit exit_group: success, %s\n", 
+                task_info);
+    }
+    return 0;
+}
+
+static int handle_enter_wait4(const struct event_t *e, const char *task_info) {
+    if (e->is_valid == true) {
+        printf("Enter wait4: %s, pid=%u, status=%d, options=%#x\n",
+                task_info, e->arg_u32[0], e->arg_s32[1], e->arg_s32[0]);
+    } else {
+        printf("Enter wait4: %s, pid=%u, failed to read status, options=%#x\n",
+                task_info, e->arg_u32[0], e->arg_s32[0]);
+    }
+    return 0;
+}
+
+static int handle_exit_wait4(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit wait4: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit wait4: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_waitid(const struct event_t *e, const char *task_info) {
+    if (e->is_valid == true) {
+        printf("Enter waitid: %s, idtype=%d, pid=%u, si_signo=%d, si_code=%d, options=%#x\n",
+                task_info, e->arg_s32[0], e->arg_u32[0], e->arg_s32[2], e->arg_s32[3], e->arg_s32[1]);
+    } else {
+        printf("Enter waitid: %s, idtype=%d, pid=%u, failed to siginfo, options=%#x\n",
+                task_info, e->arg_s32[0], e->arg_u32[0], e->arg_s32[1]);
+    }
+    return 0;
+}
+
+static int handle_exit_waitid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit waitid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit waitid: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getpid(const struct event_t *e, const char *task_info) {
+    printf("Enter getpid: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_getpid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getpid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit getpid: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getppid(const struct event_t *e, const char *task_info) {
+    printf("Enter getppid: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_getppid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getppid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit getppid: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_gettid(const struct event_t *e, const char *task_info) {
+    printf("Enter gettid: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_gettid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit gettid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit gettid: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_setsid(const struct event_t *e, const char *task_info) {
+    printf("Enter setsid: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_setsid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit setsid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit setsid: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getsid(const struct event_t *e, const char *task_info) {
+    printf("Enter getsid: %s, pid=%u\n",
+            task_info, e->arg_u32[0]);
+    return 0;
+}
+
+static int handle_exit_getsid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getsid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit getsid: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_setpgid(const struct event_t *e, const char *task_info) {
+    printf("Enter setpgid: %s, pid=%u, pgid=%u\n",
+            task_info, e->arg_u32[0], e->arg_u32[1]);
+    return 0;
+}
+
+static int handle_exit_setpgid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit setpgid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit setpgid: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getpgid(const struct event_t *e, const char *task_info) {
+    printf("Enter getpgid: %s, pid=%u\n",
+            task_info, e->arg_u32[0]);
+    return 0;
+}
+
+static int handle_exit_getpgid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getpgid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit getpgid: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getpgrp(const struct event_t *e, const char *task_info) {
+    printf("Enter getpgrp: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_getpgrp(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getpgrp: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit getpgrp: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_setuid(const struct event_t *e, const char *task_info) {
+    printf("Enter setreuid: %s, uid=%u\n",
+            task_info, e->arg_u32[0]);
+    return 0;
+}
+
+static int handle_exit_setuid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit setreuid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit setreuid: success, %s, ret=%lld\n", 
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getuid(const struct event_t *e, const char *task_info) {
+    printf("Enter getuid: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_getuid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getuid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit getuid: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_setgid(const struct event_t *e, const char *task_info) {
+    printf("Enter setregid: %s, gid=%u\n",
+            task_info, e->arg_u32[0]);
+    return 0;
+}
+
+static int handle_exit_setgid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit setregid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit setregid: success, %s, ret=%lld\n", 
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getgid(const struct event_t *e, const char *task_info) {
+    printf("Enter getgid: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_getgid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getgid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit getgid: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_setresuid(const struct event_t *e, const char *task_info) {
+    printf("Enter setresuid: %s, ruid=%u, euid=%u, suid=%u\n",
+            task_info, e->arg_u32[0], e->arg_u32[1], e->arg_u32[2]);
+    return 0;
+}
+
+static int handle_exit_setresuid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit setresuid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit setresuid: success, %s, ret=%lld\n", 
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getresuid(const struct event_t *e, const char *task_info) {
+    printf("Enter getresuid: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_getresuid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getresuid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else if (e->is_valid == true) {
+        printf("Exit getresuid: success, %s, ruid=%u, euid=%u, suid=%u, ret=%lld\n",
+                task_info, e->arg_u32[0], e->arg_u32[1], e->arg_u32[2], e->ret);
+    } else {
+        printf("Exit getresuid: success, %s, failed to read uid values, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_setresgid(const struct event_t *e, const char *task_info) {
+    printf("Enter setresgid: %s, rgid=%u, egid=%u, sgid=%u\n",
+            task_info, e->arg_u32[0], e->arg_u32[1], e->arg_u32[2]);
+    return 0;
+}
+
+static int handle_exit_setresgid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit setresgid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit setresgid: success, %s, ret=%lld\n", 
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getresgid(const struct event_t *e, const char *task_info) {
+    printf("Enter getresgid: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_getresgid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getresgid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else if (e->is_valid == true) {
+        printf("Exit getresgid: success, %s, rgid=%u, egid=%u, sgid=%u, ret=%lld\n",
+                task_info, e->arg_u32[0], e->arg_u32[1], e->arg_u32[2], e->ret);
+    } else {
+        printf("Exit getresgid: success, %s, failed to read gid values, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_setreuid(const struct event_t *e, const char *task_info) {
+    printf("Enter setreuid: %s, ruid=%u, euid=%u\n",
+            task_info, e->arg_u32[0], e->arg_u32[1]);
+    return 0;
+}
+
+static int handle_exit_setreuid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit setreuid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit setreuid: success, %s, ret=%lld\n", 
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_setregid(const struct event_t *e, const char *task_info) {
+    printf("Enter setregid: %s, rgid=%u, egid=%u\n",
+            task_info, e->arg_u32[0], e->arg_u32[1]);
+    return 0;
+}
+
+static int handle_exit_setregid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit setregid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit setregid: success, %s, ret=%lld\n", 
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_geteuid(const struct event_t *e, const char *task_info) {
+    printf("Enter geteuid: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_geteuid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit geteuid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit geteuid: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getegid(const struct event_t *e, const char *task_info) {
+    printf("Enter getegid: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_getegid(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getegid: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit getegid: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_setgroups(const struct event_t *e, const char *task_info) {
+    printf("Enter setgroups: %s, size=%llu\n",
+            task_info, e->arg_u64[0]);
+    return 0;
+}
+
+static int handle_exit_setgroups(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit setgroups: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit setgroups: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getgroups(const struct event_t *e, const char *task_info) {
+    printf("Enter getgroups: %s, size=%d\n",
+            task_info, e->arg_s32[0]);
+    return 0;
+}
+
+static int handle_exit_getgroups(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getgroups: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit getgroups: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_setns(const struct event_t *e, const char *task_info) {
+    printf("Enter setns: %s, fd=%d, nstype=%d\n",
+            task_info, e->arg_s32[0], e->arg_s32[1]);
+    return 0;
+}
+
+static int handle_exit_setns(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit setns: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit setns: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_setrlimit(const struct event_t *e, const char *task_info) {
+    if (e->is_valid == true) {
+        printf("Enter setrlimit: %s, resource=%d, rlim_cur=%llu, rlim_max=%llu\n",
+                task_info, e->arg_s32[0], e->arg_u64[0], e->arg_u64[1]);
+    } else {
+        printf("Enter setrlimit: %s, resource=%d, failed to read rlim_cur, rlim_max\n",
+                task_info, e->arg_s32[0]);
+    }
+    return 0;
+}
+
+static int handle_exit_setrlimit(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit setrlimit: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit setrlimit: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getrlimit(const struct event_t *e, const char *task_info) {
+    printf("Enter getrlimit: %s, resource=%d\n",
+            task_info, e->arg_s32[0]);
+    return 0;
+}
+
+static int handle_exit_getrlimit(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getrlimit: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else if (e->is_valid == true) {
+        printf("Exit getrlimit: success, %s, rlim_cur=%llu, rlim_max=%llu, ret=%lld\n",
+                task_info, e->arg_u64[0], e->arg_u64[1], e->ret);
+    } else {
+        printf("Exit getrlimit: success, %s, failed to read rlimit info, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_prlimit64(const struct event_t *e, const char *task_info) {
+    printf("Enter prlimit64: %s, pid=%u, resource=%d\n",
+            task_info, e->arg_u32[0], e->arg_s32[0]);
+    return 0;
+}
+
+static int handle_exit_prlimit64(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit prlimit64: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit prlimit64: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getrusage(const struct event_t *e, const char *task_info) {
+    printf("Enter getrusage: %s, who=%d\n",
+            task_info, e->arg_s32[0]);
+    return 0;
+}
+
+static int handle_exit_getrusage(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getrusage: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    }else {
+        printf("Exit getrusage: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_sched_setattr(const struct event_t *e, const char *task_info) {
+    printf("Enter sched_setattr: %s, pid=%u, flags=%#x\n",
+            task_info, e->arg_u32[0], e->arg_u32[1]);
+    return 0;
+}
+
+static int handle_exit_sched_setattr(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit sched_setattr: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit sched_setattr: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_sched_getattr(const struct event_t *e, const char *task_info) {
+    printf("Enter sched_getattr: %s, pid=%u, size=%u, flags=%#x\n",
+            task_info, e->arg_u32[0], e->arg_u32[1], e->arg_u32[2]);
+    return 0;
+}
+
+static int handle_exit_sched_getattr(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit sched_getattr: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit sched_getattr: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_sched_setscheduler(const struct event_t *e, const char *task_info) {
+    printf("Enter sched_setscheduler: %s, pid=%u, policy=%d\n",
+            task_info, e->arg_u32[0], e->arg_s32[0]);
+    return 0;
+}
+
+static int handle_exit_sched_setscheduler(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit sched_setscheduler: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit sched_setscheduler: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_sched_getscheduler(const struct event_t *e, const char *task_info) {
+    printf("Enter sched_getscheduler: %s, pid=%u\n",
+            task_info, e->arg_u32[0]);
+    return 0;
+}
+
+static int handle_exit_sched_getscheduler(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit sched_getscheduler: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit sched_getscheduler: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_sched_setparam(const struct event_t *e, const char *task_info) {
+    printf("Enter sched_setparam: %s, pid=%u\n",
+            task_info, e->arg_u32[0]);
+    return 0;
+}
+
+static int handle_exit_sched_setparam(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit sched_setparam: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit sched_setparam: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_sched_getparam(const struct event_t *e, const char *task_info) {
+    printf("Enter sched_getparam: %s, pid=%u\n",
+            task_info, e->arg_u32[0]);
+    return 0;
+}
+
+static int handle_exit_sched_getparam(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit sched_getparam: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit sched_getparam: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_sched_setaffinity(const struct event_t *e, const char *task_info) {
+    if (e->is_valid == true) {
+        printf("Enter sched_setaffinity: %s, pid=%u, size=%llu, cpu_mask=%#llx\n",
+                task_info, e->arg_u32[0], e->arg_u64[0], e->arg_u64[1]);
+    } else {
+        printf("Enter sched_setaffinity: %s, pid=%u, size=%llu, failed to read cpu_mask\n",
+                task_info, e->arg_u32[0], e->arg_u64[0]);
+    }
+    return 0;
+}
+
+static int handle_exit_sched_setaffinity(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit sched_setaffinity: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit sched_setaffinity: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_sched_getaffinity(const struct event_t *e, const char *task_info) {
+    printf("Enter sched_getaffinity: %s, pid=%u, size=%llu\n",
+            task_info, e->arg_u32[0], e->arg_u64[0]);
+    return 0;
+}
+
+static int handle_exit_sched_getaffinity(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit sched_getaffinity: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else if (e->is_valid == true) {
+        printf("Exit sched_getaffinity: success, %s, cpu_mask=%#llx, ret=%lld\n",
+                task_info, e->arg_u64[1], e->ret);
+    } else {
+        printf("Exit sched_getaffinity: success, %s, failed to read cpu_mask, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_sched_get_priority_max(const struct event_t *e, const char *task_info) {
+    printf("Enter sched_get_priority_max: %s, policy=%d\n",
+            task_info, e->arg_s32[0]);
+    return 0;
+}
+
+static int handle_exit_sched_get_priority_max(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit sched_get_priority_max: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit sched_get_priority_max: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_sched_get_priority_min(const struct event_t *e, const char *task_info) {
+    printf("Enter sched_get_priority_min: %s, policy=%d\n",
+            task_info, e->arg_s32[0]);
+    return 0;
+}
+
+static int handle_exit_sched_get_priority_min(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit sched_get_priority_min: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit sched_get_priority_min: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_sched_rr_get_interval(const struct event_t *e, const char *task_info) {
+    printf("Enter sched_rr_get_interval: %s, pid=%u\n",
+            task_info, e->arg_u32[0]);
+    return 0;
+}
+
+static int handle_exit_sched_rr_get_interval(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit sched_rr_get_interval: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else if (e->is_valid == true) {
+        printf("Exit sched_rr_get_interval: success, %s, interval=%lld, ret=%lld\n",
+                task_info, e->arg_u64[0], e->ret);
+    } else {
+        printf("Exit sched_rr_get_interval: success, %s, failed to read interval, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_sched_yield(const struct event_t *e, const char *task_info) {
+    printf("Enter sched_yield: %s\n", task_info);
+    return 0;
+}
+
+static int handle_exit_sched_yield(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit sched_yield: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit sched_yield: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_setpriority(const struct event_t *e, const char *task_info) {
+    printf("Enter setpriority: %s, which=%d, who=%u, priority=%d\n",
+            task_info, e->arg_s32[0], e->arg_u32[0], e->arg_s32[1]);
+    return 0;
+}
+
+static int handle_exit_setpriority(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit setpriority: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit setpriority: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_getpriority(const struct event_t *e, const char *task_info) {
+    printf("Enter getpriority: %s, which=%d, who=%u\n",
+            task_info, e->arg_s32[0], e->arg_u32[0]);
+    return 0;
+}
+
+static int handle_exit_getpriority(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit getpriority: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit getpriority: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_ioprio_set(const struct event_t *e, const char *task_info) {
+    printf("Enter ioprio_set: %s, which=%d, who=%d, ioprio=%d\n",
+            task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
+    return 0;
+}
+
+static int handle_exit_ioprio_set(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit ioprio_set: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit ioprio_set: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_ioprio_get(const struct event_t *e, const char *task_info) {
+    printf("Enter ioprio_get: %s, which=%d, who=%d\n",
+            task_info, e->arg_s32[0], e->arg_s32[1]);
+    return 0;
+}
+
+static int handle_exit_ioprio_get(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit ioprio_get: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit ioprio_get: success, %s, ioprio=%d, ret=%lld\n",
+                task_info, e->arg_s32[2], e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_mmap(const struct event_t *e, const char *task_info) {
+    printf("Enter mmap: %s, length=%llu, prot=%#x, flags=%#x, fd=%d, offset=%llu\n",
+            task_info, e->arg_u64[0], e->arg_s32[0], e->arg_s32[1], e->arg_s32[2], e->arg_u64[1]);
+    return 0;
+}
+
+static int handle_exit_mmap(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit mmap: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit mmap: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_mprotect(const struct event_t *e, const char *task_info) {
+    printf("Enter mprotect: %s, len=%llu, prot=%#x\n",
+            task_info, e->arg_u64[0], e->arg_s32[0]);
+    return 0;
+}
+
+static int handle_exit_mprotect(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit mprotect: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit mprotect: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_capset(const struct event_t *e, const char *task_info) {
+    printf("Enter capset: %s, header_version=%u, header_pid=%u, data_effective=%#x, data_permitted=%#x, data_inheritable=%#x\n",
+            task_info, e->arg_u32[0], e->arg_u32[1], e->arg_u32[2], e->arg_u32[3], e->arg_u32[4]);
+    return 0;
+}
+
+static int handle_exit_capset(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit capset: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit capset: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_ptrace(const struct event_t *e, const char *task_info) {
+    printf("Enter ptrace: %s, request=%d, pid=%u\n",
+            task_info, e->arg_s32[0], e->arg_u32[0]);
+    return 0;
+}
+
+static int handle_exit_ptrace(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit ptrace: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit ptrace: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_process_vm_readv(const struct event_t *e, const char *task_info) {
+    printf("Enter process_vm_readv: %s, pid=%u, local_iov_len=%llu, remote_iov_len=%llu, flags=%#llx\n",
+            task_info, e->arg_u32[0], e->arg_u64[0], e->arg_u64[1], e->arg_u64[2]);
+    return 0;
+}
+
+static int handle_exit_process_vm_readv(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit process_vm_readv: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit process_vm_readv: success, %s, ret=%lld\n",
+                task_info, e->ret);
+    }
+    return 0;
+}
+
+static int handle_enter_process_vm_writev(const struct event_t *e, const char *task_info) {
+    printf("Enter process_vm_writev: %s, pid=%u, local_iov_len=%llu, remote_iov_len=%llu, flags=%#llx\n",
+            task_info, e->arg_u32[0], e->arg_u64[0], e->arg_u64[1], e->arg_u64[2]);
+    return 0;
+}
+
+static int handle_exit_process_vm_writev(const struct event_t *e, const char *task_info) {
+    if (e->ret < 0) {
+        printf("Exit process_vm_writev: failed, %s, error_code=%lld\n",
+                task_info, e->ret);
+    } else {
+        printf("Exit process_vm_writev: success, %s, ret=%lld\n",
                 task_info, e->ret);
     }
     return 0;
@@ -2846,6 +3885,124 @@ void init_event_handlers(void) {
     event_handler[__NR_umount2].exit = handle_exit_umount;
     event_handler[__NR_move_mount].enter = handle_enter_move_mount;
     event_handler[__NR_move_mount].exit = handle_exit_move_mount;
+    event_handler[__NR_clone].enter = handle_enter_clone;
+    event_handler[__NR_clone].exit = handle_exit_clone;
+    event_handler[__NR_clone3].enter = handle_enter_clone3;
+    event_handler[__NR_clone3].exit = handle_exit_clone3;
+    event_handler[__NR_fork].enter = handle_enter_fork;
+    event_handler[__NR_fork].exit = handle_exit_fork;
+    event_handler[__NR_vfork].enter = handle_enter_vfork;
+    event_handler[__NR_vfork].exit = handle_exit_vfork;
+    event_handler[__NR_execve].enter = handle_enter_execve;
+    event_handler[__NR_execve].exit = handle_exit_execve;
+    event_handler[__NR_execveat].enter = handle_enter_execveat;
+    event_handler[__NR_execveat].exit = handle_exit_execveat;
+    event_handler[__NR_exit].enter = handle_enter_exit;
+    event_handler[__NR_exit].exit = handle_exit_exit;
+    event_handler[__NR_exit_group].enter = handle_enter_exit_group;
+    event_handler[__NR_exit_group].exit = handle_exit_exit_group;
+    event_handler[__NR_wait4].enter = handle_enter_wait4;
+    event_handler[__NR_wait4].exit = handle_exit_wait4;
+    event_handler[__NR_waitid].enter = handle_enter_waitid;
+    event_handler[__NR_waitid].exit = handle_exit_waitid;
+    event_handler[__NR_getpid].enter = handle_enter_getpid;
+    event_handler[__NR_getpid].exit = handle_exit_getpid;
+    event_handler[__NR_getppid].enter = handle_enter_getppid;
+    event_handler[__NR_getppid].exit = handle_exit_getppid;
+    event_handler[__NR_gettid].enter = handle_enter_gettid;
+    event_handler[__NR_gettid].exit = handle_exit_gettid;
+    event_handler[__NR_setsid].enter = handle_enter_setsid;
+    event_handler[__NR_setsid].exit = handle_exit_setsid;
+    event_handler[__NR_getsid].enter = handle_enter_getsid;
+    event_handler[__NR_getsid].exit = handle_exit_getsid;
+    event_handler[__NR_setpgid].enter = handle_enter_setpgid;
+    event_handler[__NR_setpgid].exit = handle_exit_setpgid;
+    event_handler[__NR_getpgid].enter = handle_enter_getpgid;
+    event_handler[__NR_getpgid].exit = handle_exit_getpgid;
+    event_handler[__NR_getpgrp].enter = handle_enter_getpgrp;
+    event_handler[__NR_getpgrp].exit = handle_exit_getpgrp;
+    event_handler[__NR_setuid].enter = handle_enter_setuid;
+    event_handler[__NR_setuid].exit = handle_exit_setuid;
+    event_handler[__NR_getuid].enter = handle_enter_getuid;
+    event_handler[__NR_getuid].exit = handle_exit_getuid;
+    event_handler[__NR_setgid].enter = handle_enter_setgid;
+    event_handler[__NR_setgid].exit = handle_exit_setgid;
+    event_handler[__NR_getgid].enter = handle_enter_getgid;
+    event_handler[__NR_getgid].exit = handle_exit_getgid;
+    event_handler[__NR_setresuid].enter = handle_enter_setresuid;
+    event_handler[__NR_setresuid].exit = handle_exit_setresuid;
+    event_handler[__NR_getresuid].enter = handle_enter_getresuid;
+    event_handler[__NR_getresuid].exit = handle_exit_getresuid;
+    event_handler[__NR_setresgid].enter = handle_enter_setresgid;
+    event_handler[__NR_setresgid].exit = handle_exit_setresgid;
+    event_handler[__NR_getresgid].enter = handle_enter_getresgid;
+    event_handler[__NR_getresgid].exit = handle_exit_getresgid;
+    event_handler[__NR_setreuid].enter = handle_enter_setreuid;
+    event_handler[__NR_setreuid].exit = handle_exit_setreuid;
+    event_handler[__NR_setregid].enter = handle_enter_setregid;
+    event_handler[__NR_setregid].exit = handle_exit_setregid;
+    event_handler[__NR_geteuid].enter = handle_enter_geteuid;
+    event_handler[__NR_geteuid].exit = handle_exit_geteuid;
+    event_handler[__NR_getegid].enter = handle_enter_getegid;
+    event_handler[__NR_getegid].exit = handle_exit_getegid;
+    event_handler[__NR_setgroups].enter = handle_enter_setgroups;
+    event_handler[__NR_setgroups].exit = handle_exit_setgroups;
+    event_handler[__NR_getgroups].enter = handle_enter_getgroups;
+    event_handler[__NR_getgroups].exit = handle_exit_getgroups;
+    event_handler[__NR_setns].enter = handle_enter_setns;
+    event_handler[__NR_setns].exit = handle_exit_setns;
+    event_handler[__NR_setrlimit].enter = handle_enter_setrlimit;
+    event_handler[__NR_setrlimit].exit = handle_exit_setrlimit;
+    event_handler[__NR_getrlimit].enter = handle_enter_getrlimit;
+    event_handler[__NR_getrlimit].exit = handle_exit_getrlimit;
+    event_handler[__NR_prlimit64].enter = handle_enter_prlimit64;
+    event_handler[__NR_prlimit64].exit = handle_exit_prlimit64;
+    event_handler[__NR_getrusage].enter = handle_enter_getrusage;
+    event_handler[__NR_getrusage].exit = handle_exit_getrusage;
+    event_handler[__NR_sched_setattr].enter = handle_enter_sched_setattr;
+    event_handler[__NR_sched_setattr].exit = handle_exit_sched_setattr;
+    event_handler[__NR_sched_getattr].enter = handle_enter_sched_getattr;
+    event_handler[__NR_sched_getattr].exit = handle_exit_sched_getattr;
+    event_handler[__NR_sched_setscheduler].enter = handle_enter_sched_setscheduler;
+    event_handler[__NR_sched_setscheduler].exit = handle_exit_sched_setscheduler;
+    event_handler[__NR_sched_getscheduler].enter = handle_enter_sched_getscheduler;
+    event_handler[__NR_sched_getscheduler].exit = handle_exit_sched_getscheduler;
+    event_handler[__NR_sched_setparam].enter = handle_enter_sched_setparam;
+    event_handler[__NR_sched_setparam].exit = handle_exit_sched_setparam;
+    event_handler[__NR_sched_getparam].enter = handle_enter_sched_getparam;
+    event_handler[__NR_sched_getparam].exit = handle_exit_sched_getparam;
+    event_handler[__NR_sched_setaffinity].enter = handle_enter_sched_setaffinity;
+    event_handler[__NR_sched_setaffinity].exit = handle_exit_sched_setaffinity;
+    event_handler[__NR_sched_getaffinity].enter = handle_enter_sched_getaffinity;
+    event_handler[__NR_sched_getaffinity].exit = handle_exit_sched_getaffinity;
+    event_handler[__NR_sched_get_priority_max].enter = handle_enter_sched_get_priority_max;
+    event_handler[__NR_sched_get_priority_max].exit = handle_exit_sched_get_priority_max;
+    event_handler[__NR_sched_get_priority_min].enter = handle_enter_sched_get_priority_min;
+    event_handler[__NR_sched_get_priority_min].exit = handle_exit_sched_get_priority_min;
+    event_handler[__NR_sched_rr_get_interval].enter = handle_enter_sched_rr_get_interval;
+    event_handler[__NR_sched_rr_get_interval].exit = handle_exit_sched_rr_get_interval;
+    event_handler[__NR_sched_yield].enter = handle_enter_sched_yield;
+    event_handler[__NR_sched_yield].exit = handle_exit_sched_yield;
+    event_handler[__NR_setpriority].enter = handle_enter_setpriority;
+    event_handler[__NR_setpriority].exit = handle_exit_setpriority;
+    event_handler[__NR_getpriority].enter = handle_enter_getpriority;
+    event_handler[__NR_getpriority].exit = handle_exit_getpriority;
+    event_handler[__NR_ioprio_set].enter = handle_enter_ioprio_set;
+    event_handler[__NR_ioprio_set].exit = handle_exit_ioprio_set;
+    event_handler[__NR_ioprio_get].enter = handle_enter_ioprio_get;
+    event_handler[__NR_ioprio_get].exit = handle_exit_ioprio_get;
+    event_handler[__NR_mmap].enter = handle_enter_mmap;
+    event_handler[__NR_mmap].exit = handle_exit_mmap;
+    event_handler[__NR_mprotect].enter = handle_enter_mprotect;
+    event_handler[__NR_mprotect].exit = handle_exit_mprotect;
+    event_handler[__NR_capset].enter = handle_enter_capset;
+    event_handler[__NR_capset].exit = handle_exit_capset;
+    event_handler[__NR_ptrace].enter = handle_enter_ptrace;
+    event_handler[__NR_ptrace].exit = handle_exit_ptrace;
+    event_handler[__NR_process_vm_readv].enter = handle_enter_process_vm_readv;
+    event_handler[__NR_process_vm_readv].exit = handle_exit_process_vm_readv;
+    event_handler[__NR_process_vm_writev].enter = handle_enter_process_vm_writev;
+    event_handler[__NR_process_vm_writev].exit = handle_exit_process_vm_writev;
 }
 
 int handle_event(void *ctx, void *data, size_t data_sz) {

@@ -205,7 +205,25 @@ void get_user_input(struct tracepoint_bpf *skel, __u32 ns_id) {
         __NR_inotify_init, __NR_inotify_init1, __NR_inotify_add_watch, __NR_inotify_rm_watch, 
         __NR_fanotify_init, __NR_fanotify_mark, __NR_mount, __NR_umount2, 
         __NR_move_mount, 
-        
+        __NR_clone, __NR_clone3, __NR_fork, __NR_vfork, 
+        __NR_execve, __NR_execveat, __NR_exit, __NR_exit_group,
+        __NR_wait4, __NR_waitid, __NR_getpid, __NR_getppid,
+        __NR_gettid, __NR_setsid, __NR_getsid, __NR_setpgid,
+        __NR_getpgid, __NR_getpgrp, __NR_setuid, __NR_getuid, 
+        __NR_setgid, __NR_getgid, __NR_setresuid, __NR_getresuid,
+        __NR_setresgid, __NR_getresgid, __NR_setreuid, __NR_setregid,
+        __NR_geteuid, __NR_getegid, __NR_setgroups, __NR_getgroups, 
+        __NR_setns, __NR_setrlimit, __NR_getrlimit, __NR_prlimit64,
+        __NR_getrusage, __NR_sched_setattr, __NR_sched_getattr, __NR_sched_setscheduler,
+        __NR_sched_getscheduler, __NR_sched_setparam, __NR_sched_getparam, __NR_sched_setaffinity,
+        __NR_sched_getaffinity, __NR_sched_get_priority_max, __NR_sched_get_priority_min, __NR_sched_rr_get_interval, 
+        __NR_sched_yield, __NR_setpriority, __NR_getpriority, __NR_ioprio_set,
+        __NR_ioprio_get, __NR_brk, __NR_mmap, __NR_munmap, 
+        __NR_mremap, __NR_mprotect, __NR_madvise, __NR_mlock,
+        __NR_mlock2, __NR_mlockall, __NR_munlock, __NR_munlockall,
+        __NR_membarrier, __NR_capset, __NR_capget, __NR_set_thread_area,
+        __NR_get_thread_area, __NR_set_tid_address, __NR_arch_prctl, __NR_ptrace,
+        __NR_process_vm_readv, __NR_process_vm_writev
     };
 
     for (size_t i = 0; i < sizeof(syscalls) / sizeof(syscalls[0]); i++) {
