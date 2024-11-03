@@ -2,7 +2,7 @@
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 
-Welcome to the **`Youmuu's Ghostblade`**! This project is an eBF based container runtime engine.
+Welcome to the **`Youmuu's Ghostblade`**! This project is an eBPF based container runtime engine.
 
 ## **How to use**
 
@@ -72,9 +72,9 @@ sudo src/youmuu
 ```
 
 ### **Additional**
-You can print the kernel space log created by `bpf_printk` following command.
+You can print the kernel space log created by `bpf_printk` using following command.
 ```sh
-$ sudo cat /sys/kernel/debug/tracing/trace_pipe
+sudo cat /sys/kernel/debug/tracing/trace_pipe
 ```
 
 ## **License**
