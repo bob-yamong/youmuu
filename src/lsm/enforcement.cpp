@@ -9,7 +9,7 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <iostream>
-
+ 
 #include "enforcement.skel.h"
 
 #include "container_info.h"
@@ -82,12 +82,12 @@ int get_docker_pid(const char* container_name) {
     fp = popen(cmd, "r");
     if (fp == NULL) {
         perror("Failed to run docker command");
-        return -1;
+        return 0;
     }
 
     if (fgets(output, sizeof(output), fp) == NULL) {
         pclose(fp);
-        return -1;
+        return 0;
     }
     pclose(fp);
 
@@ -101,7 +101,7 @@ unsigned long get_pid_ns_id(pid_t container_pid) {
     int fd = open(path, O_RDONLY);
     if (fd < 0) {
         perror("Failed to open namespace file");
-        return 1;
+        return 0;
     }
 
     char link_target[MAX_PATH_LENGTH];
@@ -109,7 +109,7 @@ unsigned long get_pid_ns_id(pid_t container_pid) {
     if (len < 0) {
         perror("Failed to read link");
         close(fd);
-        return 1;
+        return 0;
     }
     link_target[len] = '\0';
 
@@ -117,7 +117,7 @@ unsigned long get_pid_ns_id(pid_t container_pid) {
     if (sscanf(link_target, "pid:[%u]", &ns_id) != 1) {
         fprintf(stderr, "Failed to parse namespace ID\n");
         close(fd);
-        return 1;
+        return 0;
     }
 
     close(fd);
@@ -136,7 +136,7 @@ unsigned long get_mnt_ns_id(pid_t container_pid) {
 
     // Open namespace File
     fd = open(path, O_RDONLY);
-    if (fd == -1) {
+    if (fd == 0) {
         fprintf(stderr, "Failed to open %s: %s\n", path, strerror(errno));
         return 0;
     }
@@ -185,7 +185,7 @@ void print_policies(int map_fd) {
             for (int i = 0; i < value.num_file_policies; i++) {
                 printf("  Path: %s\n", value.file_policies[i].path);
                 printf("  Flags: ");
-                for (const auto &flag: flagsToString(value.file_policies[i].flags)) cout << flag << " ";
+                for (const auto &flag: flags_to_string(value.file_policies[i].flags)) cout << flag << " ";
                 printf("\n");
             }
 
@@ -208,7 +208,7 @@ void print_policies(int map_fd) {
 
                 printf("  IP: %s/%d, Port: %u, Protocol: %u\n", ip_str, prefix_len, ntohs(value.network_policies[i].port), value.network_policies[i].protocol);
                 printf("  Flags: ");
-                for (const auto &flag: flagsToString(value.network_policies[i].flags)) cout << flag << " ";
+                for (const auto &flag: flags_to_string(value.network_policies[i].flags)) cout << flag << " ";
                 printf("\n");
             }
 
@@ -217,7 +217,7 @@ void print_policies(int map_fd) {
             for (int i = 0; i < value.num_process_policies; i++) {
                 printf("  Command: %s\n", value.process_policies[i].comm);
                 printf("  Flags: ");
-                for (const auto &flag: flagsToString(value.process_policies[i].flags)) cout << flag << " ";
+                for (const auto &flag: flags_to_string(value.process_policies[i].flags)) cout << flag << " ";
                 printf("\n");
             }
 
@@ -380,27 +380,43 @@ int add_policy(int map_fd) {
 }
 
 int update_policy_with_file(int map_fd, char* abs_file_name) {
-    Policy policy = parseYamlPolicy(abs_file_name);
+    const rfl::Result<YamlPolicy> result = rfl::yaml::load<YamlPolicy>(abs_file_name);
+    YamlPolicy policy = result.value();
+
+    const std::string yaml_string = rfl::yaml::write(policy);
+
+    cout << yaml_string << endl;
 
     if (policy.containers.empty()) {
         fprintf(stderr, "No policy found in the file\n");
         return -1;
     }
+
     clear_bpf_map(map_fd);
 
-    for (const auto& container : policy.containers) {
+    for (const YamlContainerPolicy& container : policy.containers) {
         struct policy_key key;
         struct policy_value value;
 
         int container_pid = get_docker_pid(container.container_name.c_str());
+        if (!container_pid) {
+            fprintf(stderr, "Failed to get container pid: %s\n", container.container_name.c_str());
+            continue;
+        }
+
         key = make_policy_key(container_pid);
+        if (!key.pid_ns_id || !key.mnt_ns_id) {
+            fprintf(stderr, "Failed to get namespace ID\n");
+            continue;
+        }
+        printf("Container %s(%u %u)-%d\n", container.container_name.c_str(), key.pid_ns_id, key.mnt_ns_id, container_pid);
         
         //file policies
-        if (!(container.file_policies.empty())) {
+        if (!(container.lsm_policies.file.empty())) {
             value.num_file_policies = 0;
-            for (const auto& file : container.file_policies) {
+            for (const auto& file : container.lsm_policies.file) {
                 strcpy(value.file_policies[value.num_file_policies].path, file.path.c_str());
-                value.file_policies[value.num_file_policies].flags = file.flags;
+                value.file_policies[value.num_file_policies].flags = string_to_flags(file.flags);
                 
                 for (int i = 0; i < file.uid.size(); i++) {
                     value.file_policies[value.num_file_policies].uid[i] = file.uid[i];
@@ -410,17 +426,18 @@ int update_policy_with_file(int map_fd, char* abs_file_name) {
         }
         
         // network policies
-        if (!(container.network_policies.empty())) {
+        if (!(container.lsm_policies.network.empty())) {
             value.num_network_policies = 0;
-            for (const auto& network : container.network_policies) {
+            for (const auto& network : container.lsm_policies.network) {
                 char ip_str[INET_ADDRSTRLEN];
-                uint32_t ip_network_order = htonl(network.ip_info.ip);
+                IpAddress ip = parse_ip(network.ip);
+                uint32_t ip_network_order = htonl(ip.ip);
                 inet_ntop(AF_INET, &ip_network_order, ip_str, INET_ADDRSTRLEN);
                 inet_pton(AF_INET, ip_str, &value.network_policies[value.num_network_policies].ip);
-                value.network_policies[value.num_network_policies].subnet_mask = network.ip_info.subnet_mask;
+                value.network_policies[value.num_network_policies].subnet_mask = ip.subnet_mask;
                 value.network_policies[value.num_network_policies].port = network.port;
                 value.network_policies[value.num_network_policies].protocol = network.protocol;
-                value.network_policies[value.num_network_policies].flags = network.flags;
+                value.network_policies[value.num_network_policies].flags = string_to_flags(network.flags);
                 
                 for (int i = 0; i < network.uid.size(); i++) {
                     value.file_policies[value.num_network_policies].uid[i] = network.uid[i];
@@ -430,11 +447,11 @@ int update_policy_with_file(int map_fd, char* abs_file_name) {
         }
         
         // process policies
-        if (!(container.process_policies.empty())) {
+        if (!(container.lsm_policies.process.empty())) {
             value.num_process_policies = 0;
-            for (const auto& process : container.process_policies) {
+            for (const auto& process : container.lsm_policies.process) {
                 strcpy(value.process_policies[value.num_process_policies].comm, process.comm.c_str());
-                value.process_policies[value.num_process_policies].flags = process.flags;
+                value.process_policies[value.num_process_policies].flags = string_to_flags(process.flags);
                 
                 for (int i = 0; i < process.uid.size(); i++) {
                     value.process_policies[value.num_process_policies].uid[i] = process.uid[i];
@@ -442,6 +459,7 @@ int update_policy_with_file(int map_fd, char* abs_file_name) {
                 value.num_process_policies++;
             }
         }
+
         if (bpf_map_update_elem(map_fd, &key, &value, BPF_ANY)) {
             fprintf(stderr, "Failed to Add policy: mnt ns: %u, pid ns: %u\n", key.mnt_ns_id, key.pid_ns_id, strerror(errno));
         }
