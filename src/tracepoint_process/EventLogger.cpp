@@ -6,7 +6,7 @@
 #include <cstring>
 
 // 정적 assert로 구조체 크기 검증 (eBPF와 C++ 간 일치 확인)
-static_assert(sizeof(event) == 8 + 8 + 4 + 4 + 4 + 4 + 4 + 8 + TASK_COMM_LEN + 16 + 48 + MAX_FILENAME_LEN + (MAX_ARGS * MAX_ARG_LEN) + MAX_CGROUP_NAME_LEN,
+static_assert(sizeof(event) == 8 + 8 + 4 + 4 + 4 + 4 + 4 + 8 + 8 + TASK_COMM_LEN + 16 + 48 + MAX_FILENAME_LEN + (MAX_ARGS * MAX_ARG_LEN) + MAX_CGROUP_NAME_LEN,
               "Size of event struct does not match expected size");
 
 EventLogger::EventLogger(size_t bufferSize, const std::string& logFilePath)
@@ -14,13 +14,17 @@ EventLogger::EventLogger(size_t bufferSize, const std::string& logFilePath)
       logFilePath_(logFilePath),
       buffer1_(),
       buffer2_(),
+      buffer3_(),
+      buffer4_(),
       currentBuffer_(&buffer1_),
-      flushBuffer_(&buffer2_),
+      flushBuffers_(),
       isFlushing_(false),
       shutdown_(false)
 {
     buffer1_.reserve(bufferSize_);
     buffer2_.reserve(bufferSize_);
+    buffer3_.reserve(bufferSize_);
+    buffer4_.reserve(bufferSize_);
     
     // 플러시 쓰레드 시작
     flushThread_ = std::thread(&EventLogger::flushThreadFunc, this);
@@ -36,11 +40,27 @@ EventLogger::~EventLogger()
         flushThread_.join();
     }
     
-    // 마지막 버퍼 플러시
+    // 모든 버퍼 플러시
     std::lock_guard<std::mutex> lock(mtx_);
+    
+    // 현재 버퍼가 비어있지 않다면 플러시 버퍼 대기열에 추가
     if (!currentBuffer_->empty()) {
-        flushToFile(*currentBuffer_);
-        currentBuffer_->clear();
+        flushBuffers_.push_back(currentBuffer_);
+    }
+    
+    // 다른 버퍼들도 비어있지 않다면 플러시 버퍼 대기열에 추가
+    for(auto buffer_ptr : {&buffer1_, &buffer2_, &buffer3_, &buffer4_}) {
+        if(buffer_ptr != currentBuffer_ && !buffer_ptr->empty()) {
+            flushBuffers_.push_back(buffer_ptr);
+        }
+    }
+    
+    // 모든 플러시 버퍼 플러시
+    while(!flushBuffers_.empty()) {
+        std::vector<event>* bufferToFlush = flushBuffers_.front();
+        flushBuffers_.pop_front();
+        flushToFile(*bufferToFlush);
+        bufferToFlush->clear();
     }
 }
 
@@ -49,11 +69,48 @@ void EventLogger::addEvent(const event& e)
     std::unique_lock<std::mutex> lock(mtx_);
     currentBuffer_->push_back(e);
     
-    if (currentBuffer_->size() >= bufferSize_ && !isFlushing_.load()) {
+    if (currentBuffer_->size() >= bufferSize_) {
+        // 현재 버퍼를 플러시 버퍼 대기열에 추가
+        flushBuffers_.push_back(currentBuffer_);
+        
+        // 다음 사용 가능한 버퍼를 찾음
+        if (&buffer1_ != currentBuffer_ && buffer1_.size() < bufferSize_) {
+            currentBuffer_ = &buffer1_;
+        }
+        else if (&buffer2_ != currentBuffer_ && buffer2_.size() < bufferSize_) {
+            currentBuffer_ = &buffer2_;
+        }
+        else if (&buffer3_ != currentBuffer_ && buffer3_.size() < bufferSize_) {
+            currentBuffer_ = &buffer3_;
+        }
+        else if (&buffer4_ != currentBuffer_ && buffer4_.size() < bufferSize_) {
+            currentBuffer_ = &buffer4_;
+        }
+        else {
+            // 모든 버퍼가 꽉 찼다면, 대기
+            cv_.wait(lock, [this]() { return !flushBuffers_.empty(); });
+            // 재시도
+            if (&buffer1_ != currentBuffer_ && buffer1_.size() < bufferSize_) {
+                currentBuffer_ = &buffer1_;
+            }
+            else if (&buffer2_ != currentBuffer_ && buffer2_.size() < bufferSize_) {
+                currentBuffer_ = &buffer2_;
+            }
+            else if (&buffer3_ != currentBuffer_ && buffer3_.size() < bufferSize_) {
+                currentBuffer_ = &buffer3_;
+            }
+            else if (&buffer4_ != currentBuffer_ && buffer4_.size() < bufferSize_) {
+                currentBuffer_ = &buffer4_;
+            }
+            else {
+                // 여전히 모든 버퍼가 꽉 찬 경우, 에러 메시지 출력
+                std::cerr << "Error: All buffers are full. Dropping event." << std::endl;
+                return;
+            }
+        }
+        
+        // 플러시 플래그 설정
         isFlushing_.store(true);
-        // 현재 버퍼를 플러시 버퍼로 교체
-        std::swap(currentBuffer_, flushBuffer_);
-        // 플러시 쓰레드에게 알림
         cv_.notify_one();
     }
 }
@@ -63,24 +120,30 @@ void EventLogger::flushThreadFunc()
     try {
         while (!shutdown_.load()) {
             std::unique_lock<std::mutex> lock(mtx_);
-            cv_.wait(lock, [this]() { return isFlushing_.load() || shutdown_.load(); });
+            cv_.wait(lock, [this]() { return !flushBuffers_.empty() || shutdown_.load(); });
             
-            if (shutdown_.load() && flushBuffer_->empty()) {
+            if (shutdown_.load() && flushBuffers_.empty()) {
                 break;
             }
             
-            if (isFlushing_.load() && !flushBuffer_->empty()) {
-                // 플러시 플래그 해제
-                isFlushing_.store(false);
+            if (!flushBuffers_.empty()) {
+                // 플러시할 버퍼를 가져옴
+                std::vector<event>* bufferToFlush = flushBuffers_.front();
+                flushBuffers_.pop_front();
                 
-                // 플러시 버퍼 복사
-                std::vector<event> bufferToFlush;
-                bufferToFlush.swap(*flushBuffer_);
+                // 플러시 플래그 해제 (대기열이 비었을 때)
+                if(flushBuffers_.empty()) {
+                    isFlushing_.store(false);
+                }
                 
+                // 잠금 해제
                 lock.unlock();
                 
                 // 파일에 기록
-                flushToFile(bufferToFlush);
+                flushToFile(*bufferToFlush);
+                
+                // 버퍼 클리어
+                bufferToFlush->clear();
             }
         }
     }
@@ -109,9 +172,9 @@ void EventLogger::flushToFile(const std::vector<event>& buffer)
                 << ", tid=" << e.tid
                 << ", ppid=" << e.ppid
                 << ", uid=" << e.uid
-                << ", comm=" << e.comm
+                << ", comm=" << std::string(e.comm)  // null 문자 제거
                 << ", cgroup_id=" << e.cgroup_id
-                << ", cgroup_name=" << e.cgroup_name << ")\n";
+                << ", cgroup_name=" << std::string(e.cgroup_name) << ")\n";  // null 문자 제거
             
             // 시스템 콜 별 처리
             switch (e.syscall_nr)
@@ -123,9 +186,10 @@ void EventLogger::flushToFile(const std::vector<event>& buffer)
                     ofs << "New process creation\n";
                     break;
                 case __NR_execve:
-                    ofs << "Executing new program: " << e.filename << "\n";
+                case __NR_execveat:
+                    ofs << "Executing new program: " << std::string(e.filename) << "\n";  // null 문자 제거
                     for (int i = 0; i < MAX_ARGS && e.argv[i][0] != '\0'; i++) {
-                        ofs << "Arg " << i << ": " << e.argv[i] << "\n";
+                        ofs << "Arg " << i << ": " << std::string(e.argv[i]) << "\n";  // null 문자 제거
                     }
                     break;
                 case __NR_exit:
@@ -173,7 +237,7 @@ void EventLogger::flushToFile(const std::vector<event>& buffer)
                 case __NR_readlink:
                 case __NR_readlinkat:
                     if (e.filename[0] != '\0') {
-                        ofs << "File operation: " << e.syscall << " on file: " << e.filename << "\n";
+                        ofs << "File operation: " << e.syscall << " on file: " << std::string(e.filename) << "\n";  // null 문자 제거
                     }
                     break;
                 case __NR_close:

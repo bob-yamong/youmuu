@@ -115,6 +115,7 @@ static inline int has_filename_arg(int syscall_nr) {
 
 // debug
 __u64 cnt = 0;
+__u64 err_cnt = 0;
 //__u32 rb_flag = 0;
 
 SEC("tracepoint/raw_syscalls/sys_enter")
@@ -134,14 +135,14 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     // cgroup id 가져오기
     __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    if (!should_monitor(ppid, cgroup_id)) {
-        return 0;
-    }
+    // if (!should_monitor(ppid, cgroup_id)) {
+    //     return 0;
+    // }
 
-    u64 *existing_cgroup_id = bpf_map_lookup_elem(&container_cgroup_id, &cgroup_id);
-    if (!existing_cgroup_id) {
-        bpf_map_update_elem(&container_cgroup_id, &cgroup_id, &cgroup_id, BPF_ANY);
-    }
+    // u64 *existing_cgroup_id = bpf_map_lookup_elem(&container_cgroup_id, &cgroup_id);
+    // if (!existing_cgroup_id) {
+    //     bpf_map_update_elem(&container_cgroup_id, &cgroup_id, &cgroup_id, BPF_ANY);
+    // }
 
     u64 syscall_nr = ctx->id;
     
@@ -158,10 +159,10 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     e = bpf_ringbuf_reserve(&events_1, sizeof(*e), 0);
 
     if (!e){
-        bpf_printk("failed to reserve ring buffer\n");
+        __sync_fetch_and_add(&err_cnt, 1);
         return 0;
     }
-        
+    e->error_cnt = err_cnt;
     e->timestamp = bpf_ktime_get_ns();
     e->cnt = cnt;
     e->pid = pid;

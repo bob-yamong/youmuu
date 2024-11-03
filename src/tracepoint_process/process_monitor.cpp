@@ -23,7 +23,10 @@ std::atomic<bool> stop_workers(false);
 struct process_monitor_bpf *skel;
 std::atomic<bool> ringbuf_thread_running(true);
 static std::atomic<bool> exiting(false);
+
+// debug value
 int rb_cnt_1 = 0;
+int err_cnt = 0;
 
 // EventLogger 객체 생성 (전역 또는 싱글톤으로 관리 가능)
 const size_t BUFFER_SIZE = 100000; // 예: 10만 개
@@ -42,7 +45,10 @@ static int handle_event1(void *ctx, void *data, size_t data_sz)
     rb_cnt_1++;
     if (rb_cnt_1 % 100000 == 0)
         std::cout << "handle_event1 호출됨: cnt=" << e->cnt << ", syscall_nr=" << e->syscall_nr << "\n";
-
+    if(err_cnt != e->error_cnt){
+        err_cnt = e->error_cnt;
+        std::cout << "Error count: " << err_cnt << "\n";
+    }
     // 로그 이벤트를 EventLogger에 추가
     logging(*e);
 

@@ -9,6 +9,7 @@
 #include <fstream>
 #include <string>
 #include <condition_variable>
+#include <deque>
 #include <sys/syscall.h>
 #include <linux/types.h>
 #include "event.h" // event 구조체가 정의된 헤더 파일
@@ -32,10 +33,15 @@ private:
     size_t bufferSize_;
     std::string logFilePath_;
     
+    // 4개의 버퍼
     std::vector<event> buffer1_;
     std::vector<event> buffer2_;
+    std::vector<event> buffer3_;
+    std::vector<event> buffer4_;
+    
+    // 현재 버퍼와 플러시 버퍼 대기열
     std::vector<event>* currentBuffer_;
-    std::vector<event>* flushBuffer_;
+    std::deque<std::vector<event>*> flushBuffers_;
     
     std::mutex mtx_;
     std::condition_variable cv_;

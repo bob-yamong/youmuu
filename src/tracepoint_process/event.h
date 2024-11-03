@@ -22,6 +22,7 @@ struct event {
     char argv[MAX_ARGS][MAX_ARG_LEN];
     __u64 cgroup_id;
     char cgroup_name[MAX_CGROUP_NAME_LEN];  // cgroup 이름 추가
+    __u64 error_cnt;
 }__attribute__((packed));
 
 #endif // EVENT_H
