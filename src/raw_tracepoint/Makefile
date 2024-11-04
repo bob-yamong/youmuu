@@ -38,7 +38,7 @@ ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS)
 # 다음 줄 추가_추후 삭제
 LIBS := -lyaml-cpp -lelf -lz -lcurl -ljson-c -lpthread  # pthread 라이브러리 추가
 
-APPS = process_monitor
+APPS = raw_tracepoint
 
 # Get Clang's default includes on this system. We'll explicitly add these dirs
 # to the includes list when compiling with `-target bpf` because otherwise some

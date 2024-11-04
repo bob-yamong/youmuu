@@ -1,6 +1,6 @@
 {
     "files.associations": {
-        "process_monitor.skel.h": "c",
+        "raw_tracepoint.skel.h": "c",
         "array": "cpp",
         "atomic": "cpp",
         "bit": "cpp",

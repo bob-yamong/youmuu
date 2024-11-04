@@ -3,7 +3,7 @@
 
 #include <sys/syscall.h>
 
-void init_syscall_map(struct process_monitor_bpf *skel)
+void init_syscall_map(struct raw_tracepoint_bpf *skel)
 {
     struct {
         int nr;

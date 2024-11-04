@@ -12,7 +12,7 @@
 #include <sys/resource.h>
 #include <bpf/libbpf.h>
 #include <filesystem> // 추가
-#include "process_monitor.skel.h"
+#include "raw_tracepoint.skel.h"
 #include "event.h"
 #include "container_info.h"
 #include "syscall_list.h"
@@ -23,7 +23,7 @@
 
 // 작업 스레드 종료 플래그
 std::atomic<bool> stop_workers(false);
-struct process_monitor_bpf *skel;
+struct raw_tracepoint_bpf *skel;
 std::atomic<bool> ringbuf_thread_running(true);
 static std::atomic<bool> exiting(false);
 
@@ -150,7 +150,7 @@ int main(int argc, char **argv)
         system("mkdir -p log");
 
         // BPF 애플리케이션 로드 및 검증
-        skel = process_monitor_bpf__open_and_load();
+        skel = raw_tracepoint_bpf__open_and_load();
         if (!skel)
         {
             std::cerr << "Failed to load BPF skeleton.\n";
@@ -158,11 +158,11 @@ int main(int argc, char **argv)
         }
 
         // BPF 프로그램 연결
-        err = process_monitor_bpf__attach(skel);
+        err = raw_tracepoint_bpf__attach(skel);
         if (err)
         {
             std::cerr << "Failed to attach BPF skeleton.\n";
-            process_monitor_bpf__destroy(skel);
+            raw_tracepoint_bpf__destroy(skel);
             return 1;
         }
 
@@ -195,7 +195,7 @@ int main(int argc, char **argv)
             if (detected_containers <= 0)
             {
                 std::cerr << "실행 중인 컨테이너를 찾을 수 없습니다.\n";
-                process_monitor_bpf__destroy(skel);
+                raw_tracepoint_bpf__destroy(skel);
                 return 1;
             }
             std::cout << detected_containers << "개의 컨테이너를 감지했습니다.\n";
@@ -234,7 +234,7 @@ int main(int argc, char **argv)
         if (!rb1)
         {
             std::cerr << "Failed to create ring buffer\n";
-            process_monitor_bpf__destroy(skel);
+            raw_tracepoint_bpf__destroy(skel);
             return 1;
         }
 
@@ -257,20 +257,20 @@ int main(int argc, char **argv)
         ring_buffer__free(rb1);
 
         // BPF 스켈레톤 정리
-        process_monitor_bpf__destroy(skel);
+        raw_tracepoint_bpf__destroy(skel);
     }
     catch (const std::bad_alloc &e)
     {
         std::cerr << "Memory allocation failed: " << e.what() << "\n";
         if (skel)
-            process_monitor_bpf__destroy(skel);
+            raw_tracepoint_bpf__destroy(skel);
         return 1;
     }
     catch (const std::exception &e)
     {
         std::cerr << "Exception: " << e.what() << "\n";
         if (skel)
-            process_monitor_bpf__destroy(skel);
+            raw_tracepoint_bpf__destroy(skel);
         return 1;
     }
 
