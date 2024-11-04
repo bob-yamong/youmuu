@@ -186,8 +186,8 @@ void get_user_input(struct tracepoint_bpf *skel, __u32 ns_id) {
         __NR_creat, __NR_open, __NR_openat, __NR_openat2, __NR_write, 
         __NR_pwrite64, __NR_writev, __NR_pwritev, __NR_pwritev2, __NR_mkdir, 
         __NR_mkdirat, __NR_rmdir, __NR_chdir, __NR_fchdir, __NR_chroot, 
-        __NR_pivot_root, __NR_unlink, __NR_unlinkat, __NR_link, __NR_linkat, 
-        __NR_symlink, __NR_symlinkat, __NR_rename, __NR_renameat, __NR_renameat2, 
+        __NR_pivot_root, __NR_link, __NR_linkat, __NR_symlink, __NR_symlinkat, 
+        __NR_unlink, __NR_unlinkat, __NR_rename, __NR_renameat, __NR_renameat2, 
         __NR_chmod, __NR_fchmod, __NR_fchmodat, __NR_chown, __NR_lchown, 
         __NR_fchown, __NR_fchownat, __NR_mount, __NR_umount2, __NR_move_mount, 
 
@@ -216,13 +216,14 @@ void get_user_input(struct tracepoint_bpf *skel, __u32 ns_id) {
         __NR_getppid, __NR_gettid, __NR_getsid, __NR_getpgid, __NR_getpgrp, 
         __NR_getuid, __NR_getgid, __NR_getresuid, __NR_getresgid, __NR_geteuid, 
         __NR_getegid,  __NR_getgroups, __NR_setrlimit, __NR_getrlimit, __NR_prlimit64,
-        __NR_getrusage, __NR_sched_setattr, __NR_sched_getattr, __NR_sched_setscheduler,__NR_sched_getscheduler, 
-        __NR_sched_setparam, __NR_sched_getparam, __NR_sched_setaffinity, __NR_sched_getaffinity, __NR_sched_get_priority_max, 
-        __NR_sched_get_priority_min, __NR_sched_rr_get_interval, __NR_sched_yield, __NR_setpriority, __NR_getpriority, 
-        __NR_ioprio_set, __NR_ioprio_get, __NR_brk, __NR_munmap, __NR_mremap, 
-        __NR_madvise, __NR_mlock, __NR_mlock2, __NR_mlockall, __NR_munlock, 
-        __NR_munlockall, __NR_membarrier, __NR_capget, __NR_set_thread_area, __NR_get_thread_area, 
-        __NR_set_tid_address, __NR_arch_prctl,
+        __NR_getrusage, __NR_setpriority, __NR_getpriority, __NR_ioprio_set, __NR_ioprio_get, 
+        __NR_brk, __NR_munmap, __NR_mremap, __NR_madvise, __NR_mlock, 
+        __NR_mlock2, __NR_mlockall, __NR_munlock, __NR_munlockall, __NR_membarrier, 
+        __NR_capget, __NR_set_thread_area, __NR_get_thread_area, __NR_set_tid_address, __NR_arch_prctl,
+
+        // __NR_sched_setattr, __NR_sched_getattr, __NR_sched_setscheduler,__NR_sched_getscheduler, 
+        // __NR_sched_setparam, __NR_sched_getparam, __NR_sched_setaffinity, __NR_sched_getaffinity, __NR_sched_get_priority_max, 
+        // __NR_sched_get_priority_min, __NR_sched_rr_get_interval, __NR_sched_yield,
     };
 
     for (size_t i = 0; i < sizeof(syscalls) / sizeof(syscalls[0]); i++) {
@@ -328,14 +329,41 @@ int main(int argc, char **argv) {
     printf("\nMonitoring started. Press Ctrl+C to exit...\n\n");
 
     while (running) {
-        err = ring_buffer__poll(rb, 100);
-        if (err == -EINTR) {
+        printf("Enter container name to restrict (or 'quit' to exit): ");
+        if (fgets(container_str, sizeof(container_str), stdin) == NULL || !running) {
             printf("\nExiting...\n");
             break;
-        } else if (err < 0) {
-            printf("Error polling ring buffer: %d\n", err);
-            break;
         }
+        container_str[strcspn(container_str, "\n")] = 0;
+        if (strcmp(container_str, "quit") == 0) {
+            printf("Monitoring started. Press Ctrl+C to exit...\n\n");
+            while (running) {
+                err = ring_buffer__poll(rb, 100);
+                if (err == -EINTR) {
+                    printf("\nExiting...\n");
+                    break;
+                } else if (err < 0) {
+                    printf("Error polling ring buffer: %d\n", err);
+                    break;
+                }
+            }
+        }
+        switch(runtime) {
+            case RUNTIME_DOCKER:
+                pid = get_docker_pid(container_str);
+                break;
+            case RUNTIME_CONTAINERD:
+                pid =  get_containerd_pid(container_str);
+                break;
+            case RUNTIME_CRIO:
+                pid = get_crio_pid(container_str);
+                break;
+            default:
+                fprintf(stderr, "Unknown or unsupported container runtime\n");
+                goto cleanup;
+        }
+        ns_id = get_namespace_id(pid);
+        get_user_input(skel, ns_id);
     }
 
 cleanup:
