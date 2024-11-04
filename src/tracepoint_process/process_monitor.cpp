@@ -11,10 +11,13 @@
 #include <atomic>
 #include <sys/resource.h>
 #include <bpf/libbpf.h>
+#include <filesystem> // 추가
 #include "process_monitor.skel.h"
 #include "event.h"
 #include "container_info.h"
 #include "syscall_list.h"
+#include "parser.h" // YAML 파싱 관련 헤더 포함
+#include <algorithm> // std::find 사용을 위해 추가
 
 #include "EventLogger.h" // EventLogger 클래스 헤더 추가
 
@@ -34,22 +37,52 @@ const std::string LOG_FILE_PATH = "log/general.log";
 EventLogger eventLogger(BUFFER_SIZE, LOG_FILE_PATH);
 
 int update_policy_with_file(char* abs_file_name) {
-    // TODO : 모니터링 해야하는 컨테이너 이름 리스트를 가져와서 main 코드에서 컨테이너 이름을 비교하고 매칭되면 맵에 추가하는 기능
+    // YAML 파일에서 정책 로드
     const rfl::Result<YamlPolicy> result = rfl::yaml::load<YamlPolicy>(abs_file_name);
+    if (!result) {
+        std::cerr << "Failed to load YAML policy: " << result.error().message << std::endl;
+        return -1;
+    }
     YamlPolicy policy = result.value();
 
-    const std::string yaml_string = rfl::yaml::write(policy);
-
-    cout << yaml_string << endl;
-
-    if(policy.raw_tp_policy == "true"){
-        
+    // raw_tp_policy가 true인 컨테이너 이름을 리스트에 저장
+    ContainerManager::monitored_containers.clear(); // 기존 리스트 초기화
+    for (const auto& item : policy.containers) { // YamlPolicy 구조에 따라 수정 필요
+        if (item.raw_tp_policy) {
+            ContainerManager::monitored_containers.push_back(item.name);
+        }
     }
-    else if(policy.raw_tp_policy == "false"){
-        
+
+    // 모니터링할 컨테이너 PID 가져오기
+    int detected_containers = ContainerManager::getContainerPIDs();
+    if (detected_containers <= 0) {
+        std::cerr << "모니터링할 컨테이너를 찾을 수 없습니다.\n";
+        return -1;
     }
-    else{
-        cout << "Invalid raw tracepoint policy type" << endl;
+    std::cout << detected_containers << "개의 컨테이너를 모니터링합니다.\n";
+
+    // 컨테이너 PID를 BPF 맵에 추가
+    for (const auto &container : ContainerManager::containers) {
+        __u32 key_pid = static_cast<__u32>(container.pid);
+        __u32 value_pid = 1;
+        __u64 key_inode = static_cast<__u64>(ContainerManager::getContainerInode(container.id));
+        __u64 value_inode = 1;
+
+        int err = bpf_map__update_elem(skel->maps.container_pids, &key_pid, sizeof(key_pid), &value_pid, sizeof(value_pid), BPF_ANY);
+        if (err) {
+            std::cerr << "컨테이너 PID " << container.pid << "를 맵에 추가하는데 실패했습니다: " << strerror(errno) << "\n";
+            continue;
+        }
+
+        err = bpf_map__update_elem(skel->maps.container_cgroup_id, &key_inode, sizeof(key_inode), &value_inode, sizeof(value_inode), BPF_ANY);
+        if (err) {
+            std::cerr << "컨테이너 inode " << key_inode << "를 맵에 추가하는데 실패했습니다: " << strerror(errno) << "\n";
+            // PID 맵에서 제거
+            bpf_map__delete_elem(skel->maps.container_pids, &key_pid, sizeof(key_pid), BPF_ANY);
+            continue;
+        }
+
+        std::cout << "컨테이너 ID: " << container.id << ", 이름: " << container.name << ", PID: " << container.pid << ", inode: " << key_inode << "를 모니터링 중\n";
     }
 
     return 0;
@@ -135,7 +168,30 @@ int main(int argc, char **argv)
 
         std::cout << "BPF 프로그램을 성공적으로 시작했습니다! 프로세스 모니터링을 시작합니다...\n";
 
-        std::cout << "컨테이너 PID 자동 감지 중...\n";
+        // YAML 파일 경로 지정 (예: "policy.yaml")
+        std::string yaml_file = "/policy/policy.yaml";
+
+        if (std::filesystem::exists(yaml_file))
+        {
+            std::cout << "YAML 정책 파일을 발견했습니다. 정책을 업데이트합니다...\n";
+            err = update_policy_with_file(const_cast<char*>(yaml_file.c_str()));
+            if (err < 0)
+            {
+                std::cerr << "YAML 정책 파일을 처리하는데 실패했습니다. 모든 컨테이너를 모니터링 합니다.\n";
+                ContainerManager::monitored_containers.clear(); // 모든 컨테이너를 모니터링하도록 리스트 비우기
+            }
+            else
+            {
+                std::cout << "YAML 정책에 따라 컨테이너를 모니터링 합니다.\n";
+            }
+        }
+        else
+        {
+            std::cout << "YAML 정책 파일이 존재하지 않습니다. 모든 컨테이너를 모니터링 합니다.\n";
+            ContainerManager::monitored_containers.clear(); // 모든 컨테이너를 모니터링하도록 리스트 비우기
+        }
+
+        // 모니터링할 컨테이너 PID 가져오기
         int detected_containers = ContainerManager::getContainerPIDs();
         if (detected_containers <= 0)
         {
