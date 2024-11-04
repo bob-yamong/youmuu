@@ -32,7 +32,7 @@ int rb_cnt_1 = 0;
 u_int64_t err_cnt = 0;
 
 // EventLogger 객체 생성 (전역 또는 싱글톤으로 관리 가능)
-const size_t BUFFER_SIZE = 100000; // 예: 10만 개
+const size_t BUFFER_SIZE = 10000; // 예: 10만 개
 const std::string LOG_FILE_PATH = "log/general.log";
 EventLogger eventLogger(BUFFER_SIZE, LOG_FILE_PATH);
 
@@ -40,7 +40,7 @@ int update_policy_with_file(char* abs_file_name) {
     // YAML 파일에서 정책 로드
     const rfl::Result<YamlPolicy> result = rfl::yaml::load<YamlPolicy>(abs_file_name);
     if (!result) {
-        std::cerr << "Failed to load YAML policy: " << result.error().message << std::endl;
+        std::cerr << "Failed to load YAML policy: " << std::endl;
         return -1;
     }
     YamlPolicy policy = result.value();
@@ -49,7 +49,7 @@ int update_policy_with_file(char* abs_file_name) {
     ContainerManager::monitored_containers.clear(); // 기존 리스트 초기화
     for (const auto& item : policy.containers) { // YamlPolicy 구조에 따라 수정 필요
         if (item.raw_tp_policy) {
-            ContainerManager::monitored_containers.push_back(item.name);
+            ContainerManager::monitored_containers.push_back(item.container_name);
         }
     }
 
@@ -189,42 +189,42 @@ int main(int argc, char **argv)
         {
             std::cout << "YAML 정책 파일이 존재하지 않습니다. 모든 컨테이너를 모니터링 합니다.\n";
             ContainerManager::monitored_containers.clear(); // 모든 컨테이너를 모니터링하도록 리스트 비우기
-        }
 
-        // 모니터링할 컨테이너 PID 가져오기
-        int detected_containers = ContainerManager::getContainerPIDs();
-        if (detected_containers <= 0)
-        {
-            std::cerr << "실행 중인 컨테이너를 찾을 수 없습니다.\n";
-            process_monitor_bpf__destroy(skel);
-            return 1;
-        }
-        std::cout << detected_containers << "개의 컨테이너를 감지했습니다.\n";
-
-        for (const auto &container : ContainerManager::containers)
-        {
-            __u32 key_pid = static_cast<__u32>(container.pid);
-            __u32 value_pid = 1;
-            __u64 key_inode = static_cast<__u64>(ContainerManager::getContainerInode(container.id));
-            __u64 value_inode = 1;
-
-            err = bpf_map__update_elem(skel->maps.container_pids, &key_pid, sizeof(key_pid), &value_pid, sizeof(value_pid), BPF_ANY);
-            if (err)
+            // 모니터링할 컨테이너 PID 가져오기
+            int detected_containers = ContainerManager::getContainerPIDs();
+            if (detected_containers <= 0)
             {
-                std::cerr << "컨테이너 PID " << container.pid << "를 맵에 추가하는데 실패했습니다: " << strerror(errno) << "\n";
-                continue;
+                std::cerr << "실행 중인 컨테이너를 찾을 수 없습니다.\n";
+                process_monitor_bpf__destroy(skel);
+                return 1;
             }
+            std::cout << detected_containers << "개의 컨테이너를 감지했습니다.\n";
 
-            err = bpf_map__update_elem(skel->maps.container_cgroup_id, &key_inode, sizeof(key_inode), &value_inode, sizeof(value_inode), BPF_ANY);
-            if (err)
+            for (const auto &container : ContainerManager::containers)
             {
-                std::cerr << "컨테이너 inode " << key_inode << "를 맵에 추가하는데 실패했습니다: " << strerror(errno) << "\n";
-                // PID 맵에서 제거
-                bpf_map__delete_elem(skel->maps.container_pids, &key_pid, sizeof(key_pid), BPF_ANY);
-                continue;
-            }
+                __u32 key_pid = static_cast<__u32>(container.pid);
+                __u32 value_pid = 1;
+                __u64 key_inode = static_cast<__u64>(ContainerManager::getContainerInode(container.id));
+                __u64 value_inode = 1;
 
-            std::cout << "컨테이너 ID: " << container.id << ", PID: " << container.pid << ", inode: " << key_inode << "를 모니터링 중\n";
+                err = bpf_map__update_elem(skel->maps.container_pids, &key_pid, sizeof(key_pid), &value_pid, sizeof(value_pid), BPF_ANY);
+                if (err)
+                {
+                    std::cerr << "컨테이너 PID " << container.pid << "를 맵에 추가하는데 실패했습니다: " << strerror(errno) << "\n";
+                    continue;
+                }
+
+                err = bpf_map__update_elem(skel->maps.container_cgroup_id, &key_inode, sizeof(key_inode), &value_inode, sizeof(value_inode), BPF_ANY);
+                if (err)
+                {
+                    std::cerr << "컨테이너 inode " << key_inode << "를 맵에 추가하는데 실패했습니다: " << strerror(errno) << "\n";
+                    // PID 맵에서 제거
+                    bpf_map__delete_elem(skel->maps.container_pids, &key_pid, sizeof(key_pid), BPF_ANY);
+                    continue;
+                }
+
+                std::cout << "컨테이너 ID: " << container.id << ", PID: " << container.pid << ", inode: " << key_inode << "를 모니터링 중\n";
+            }
         }
 
         init_syscall_map(skel);

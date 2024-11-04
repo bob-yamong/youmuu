@@ -18,12 +18,25 @@ VMLINUX := ../../vmlinux/$(ARCH)/vmlinux.h
 # libbpf to avoid dependency on system-wide headers, which could be missing or
 # outdated
 INCLUDES := -I$(OUTPUT) -I../../libbpf/include/uapi -I$(dir $(VMLINUX))
-CFLAGS := -g -Wall
-CXXFLAGS := -g -Wall -std=c++11 -pthread # C++ 컴파일러 플래그 추가
+INCLUDES += -I../include/reflect-cpp/include
+INCLUDES += -I../include/reflect-cpp/include/rfl/thirdparty  # yyjson.h를 위한 경로
+INCLUDES += -I../include
+
+
+CFLAGS := -g -Wall 
+CXXFLAGS := $(CFLAGS) -std=c++20 -pthread
+CXXFLAGS += -I/usr/include/yaml-cpp
+CXXFLAGS += -I../include/reflect-cpp/include
+CXXFLAGS += -I../include/reflect-cpp/include/rfl/thirdparty  
+
+# CFLAGS := -g -Wall
+# CXXFLAGS += -I../include/reflect-cpp/include
+# CXXFLAGS += -I../include/reflect-cpp/include/rfl/thirdparty  
+# CXXFLAGS := -g -Wall -std=c++20 -pthread # C++ 컴파일러 플래그 추가
 ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS)
 
 # 다음 줄 추가_추후 삭제
-LIBS := -lelf -lz -lcurl -ljson-c -lpthread  # pthread 라이브러리 추가
+LIBS := -lyaml-cpp -lelf -lz -lcurl -ljson-c -lpthread  # pthread 라이브러리 추가
 
 APPS = process_monitor
 
@@ -107,7 +120,6 @@ $(OUTPUT)/%.o: %.cpp $(wildcard %.h) | $(OUTPUT)  # C++ 파일 컴파일 규칙 
 $(APPS): %: $(OUTPUT)/%.o $(LIBBPF_OBJ) $(OUTPUT)/container_info.o $(OUTPUT)/EventLogger.o | $(OUTPUT)  # container_info.o 추가
 	$(call msg,BINARY,$@)
 	$(Q)$(CXX) $(CXXFLAGS) $^ $(ALL_LDFLAGS) $(LIBS) -o $@
-
 # delete failed targets
 .DELETE_ON_ERROR:
 

@@ -135,14 +135,14 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     // cgroup id 가져오기
     __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    // if (!should_monitor(ppid, cgroup_id)) {
-    //     return 0;
-    // }
+    if (!should_monitor(ppid, cgroup_id)) {
+        return 0;
+    }
 
-    // u64 *existing_cgroup_id = bpf_map_lookup_elem(&container_cgroup_id, &cgroup_id);
-    // if (!existing_cgroup_id) {
-    //     bpf_map_update_elem(&container_cgroup_id, &cgroup_id, &cgroup_id, BPF_ANY);
-    // }
+    u64 *existing_cgroup_id = bpf_map_lookup_elem(&container_cgroup_id, &cgroup_id);
+    if (!existing_cgroup_id) {
+        bpf_map_update_elem(&container_cgroup_id, &cgroup_id, &cgroup_id, BPF_ANY);
+    }
 
     u64 syscall_nr = ctx->id;
     
