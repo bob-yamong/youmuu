@@ -26,12 +26,34 @@ static std::atomic<bool> exiting(false);
 
 // debug value
 int rb_cnt_1 = 0;
-int err_cnt = 0;
+u_int64_t err_cnt = 0;
 
 // EventLogger 객체 생성 (전역 또는 싱글톤으로 관리 가능)
 const size_t BUFFER_SIZE = 100000; // 예: 10만 개
 const std::string LOG_FILE_PATH = "log/general.log";
 EventLogger eventLogger(BUFFER_SIZE, LOG_FILE_PATH);
+
+int update_policy_with_file(char* abs_file_name) {
+    // TODO : 모니터링 해야하는 컨테이너 이름 리스트를 가져와서 main 코드에서 컨테이너 이름을 비교하고 매칭되면 맵에 추가하는 기능
+    const rfl::Result<YamlPolicy> result = rfl::yaml::load<YamlPolicy>(abs_file_name);
+    YamlPolicy policy = result.value();
+
+    const std::string yaml_string = rfl::yaml::write(policy);
+
+    cout << yaml_string << endl;
+
+    if(policy.raw_tp_policy == "true"){
+        
+    }
+    else if(policy.raw_tp_policy == "false"){
+        
+    }
+    else{
+        cout << "Invalid raw tracepoint policy type" << endl;
+    }
+
+    return 0;
+}
 
 // 이벤트 핸들러 대신 로그 메시지를 큐에 추가하는 함수
 void logging(const struct event& e){
