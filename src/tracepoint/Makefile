@@ -18,9 +18,17 @@ VMLINUX := ../../vmlinux/$(ARCH)/vmlinux.h
 # libbpf to avoid dependency on system-wide headers, which could be missing or
 # outdated
 INCLUDES := -I$(OUTPUT) -I../../libbpf/include/uapi -I$(dir $(VMLINUX))
-CFLAGS := -g -Wall -pthread
-CXXFLAGS := $(CFLAGS) -std=c++17
-ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS) -pthread
+INCLUDES += -I../include/reflect-cpp/include
+INCLUDES += -I../include/reflect-cpp/include/rfl/thirdparty  # yyjson.h를 위한 경로
+INCLUDES += -I../include
+
+CFLAGS := -g -Wall
+CXXFLAGS := $(CFLAGS) -std=c++20
+CXXFLAGS += -I/usr/include/yaml-cpp
+CXXFLAGS += -I../include/reflect-cpp/include
+CXXFLAGS += -I../include/reflect-cpp/include/rfl/thirdparty 
+
+ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS)
 
 APPS = tracepoint
 SRCS = tracepoint.cpp handler.cpp
@@ -105,7 +113,7 @@ $(OUTPUT)/%.o: %.cpp $(wildcard %.h) | $(OUTPUT)
 # Build application binary
 $(APPS): %: $(OBJS) $(LIBBPF_OBJ) | $(OUTPUT)
 	$(call msg,BINARY,$@)
-	$(Q)$(CXX) $(CXXFLAGS) $^ $(ALL_LDFLAGS) -lelf -lz -o $@
+	$(Q)$(CXX) $(CXXFLAGS) $^ $(ALL_LDFLAGS) -lelf -lz -lyaml-cpp -o $@
 
 # delete failed targets
 .DELETE_ON_ERROR:

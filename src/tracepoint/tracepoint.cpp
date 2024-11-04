@@ -9,6 +9,7 @@
 #include "tracepoint.skel.h"
 #include "structs.h"
 #include "handler.h"
+#include "parser.h"
 
 #define MAX_CMD_LEN 1024
 #define MAX_OUTPUT_LEN 256
@@ -251,6 +252,43 @@ static time_t get_boot_time() {
     return current_time - si.uptime;
 }
 
+int update_policy_with_file(struct bpf_map *event_policy_map, char* abs_file_name) {
+    __u32 action = LOGGING;
+    int err;
+    const rfl::Result<YamlPolicy> result = rfl::yaml::load<YamlPolicy>(abs_file_name);
+    YamlPolicy policy = result.value();
+
+    if (policy.containers.empty()) {
+        fprintf(stderr, "No policy found in the file\n");
+        return -1;
+    }
+
+    for (const YamlContainerPolicy& container: policy.containers) {
+        struct event_key key{};
+        vector<int> syscall_list = string_to_syscalls(container.tracepoint_policy.syscalls);
+
+        __u32 container_pid = get_docker_pid(container.container_name.c_str());
+        if (!container_pid) {
+            fprintf(stderr, "Failed to get container pid: %s\n", container.container_name.c_str());
+            continue;
+        }
+        __u32 ns_id = get_namespace_id(container_pid);
+
+        for (size_t i = 0; i < syscall_list.size(); i++) {
+            key.ns_id = ns_id;
+            key.event_id = syscall_list[i];
+            
+            err = bpf_map__update_elem(event_policy_map, &key, sizeof(key), &action, sizeof(action), BPF_ANY);
+            if (err) {
+                fprintf(stderr, "Failed to update map for enter event: %d\n", err);
+                continue;
+            }
+            
+            printf("Updated map for syscall %ld\n", syscall_list[i]);
+        }
+    }
+}
+
 int main(int argc, char **argv) {
     signal(SIGINT, sig_handler);
     signal(SIGTERM, sig_handler);
@@ -297,74 +335,93 @@ int main(int argc, char **argv) {
     printf("Successfully started!\n");
 
     runtime = get_runtime_from_user();
-
-    printf("Enter container name to restrict (or 'quit' to exit): ");
-    if (fgets(container_str, sizeof(container_str), stdin) == NULL || !running) {
-        printf("\nExiting...\n");
-        goto cleanup;
-    }
-    container_str[strcspn(container_str, "\n")] = 0;
-    if (strcmp(container_str, "quit") == 0) {
-        printf("Exiting...\n");
-        goto cleanup;
-    }
+    // printf("Enter container name to restrict (or 'quit' to exit): ");
+    // if (fgets(container_str, sizeof(container_str), stdin) == NULL || !running) {
+    //     printf("\nExiting...\n");
+    //     goto cleanup;
+    // }
+    // container_str[strcspn(container_str, "\n")] = 0;
+    // if (strcmp(container_str, "quit") == 0) {
+    //     printf("Exiting...\n");
+    //     goto cleanup;
+    // }
     
-    switch(runtime) {
-        case RUNTIME_DOCKER:
-            pid = get_docker_pid(container_str);
-            break;
-        case RUNTIME_CONTAINERD:
-            pid =  get_containerd_pid(container_str);
-            break;
-        case RUNTIME_CRIO:
-            pid = get_crio_pid(container_str);
-            break;
-        default:
-            fprintf(stderr, "Unknown or unsupported container runtime\n");
-            goto cleanup;
-    }
-    ns_id = get_namespace_id(pid);
-    get_user_input(skel, ns_id);
+    // switch(runtime) {
+    //     case RUNTIME_DOCKER:
+    //         pid = get_docker_pid(container_str);
+    //         break;
+    //     case RUNTIME_CONTAINERD:
+    //         pid =  get_containerd_pid(container_str);
+    //         break;
+    //     case RUNTIME_CRIO:
+    //         pid = get_crio_pid(container_str);
+    //         break;
+    //     default:
+    //         fprintf(stderr, "Unknown or unsupported container runtime\n");
+    //         goto cleanup;
+    // }
+    // ns_id = get_namespace_id(pid);
+    // get_user_input(skel, ns_id);
 
-    printf("\nMonitoring started. Press Ctrl+C to exit...\n\n");
+    // printf("\nMonitoring started. Press Ctrl+C to exit...\n\n");
+
+    printf("input abs path: ");
+    char abs_file_name[256];
+    if (fgets(abs_file_name, sizeof(abs_file_name), stdin) == NULL) {
+        fprintf(stderr, "Failed to read file path\n");
+        goto cleanup;
+    }
+    abs_file_name[strcspn(abs_file_name, "\n")] = 0;
+    update_policy_with_file(skel->maps.event_policy_map, abs_file_name);
 
     while (running) {
-        printf("Enter container name to restrict (or 'quit' to exit): ");
-        if (fgets(container_str, sizeof(container_str), stdin) == NULL || !running) {
+        err = ring_buffer__poll(rb, 100);
+        if (err == -EINTR) {
             printf("\nExiting...\n");
             break;
+        } else if (err < 0) {
+            printf("Error polling ring buffer: %d\n", err);
+            break;
         }
-        container_str[strcspn(container_str, "\n")] = 0;
-        if (strcmp(container_str, "quit") == 0) {
-            printf("Monitoring started. Press Ctrl+C to exit...\n\n");
-            while (running) {
-                err = ring_buffer__poll(rb, 100);
-                if (err == -EINTR) {
-                    printf("\nExiting...\n");
-                    break;
-                } else if (err < 0) {
-                    printf("Error polling ring buffer: %d\n", err);
-                    break;
-                }
-            }
-        }
-        switch(runtime) {
-            case RUNTIME_DOCKER:
-                pid = get_docker_pid(container_str);
-                break;
-            case RUNTIME_CONTAINERD:
-                pid =  get_containerd_pid(container_str);
-                break;
-            case RUNTIME_CRIO:
-                pid = get_crio_pid(container_str);
-                break;
-            default:
-                fprintf(stderr, "Unknown or unsupported container runtime\n");
-                goto cleanup;
-        }
-        ns_id = get_namespace_id(pid);
-        get_user_input(skel, ns_id);
     }
+
+    // while (running) {
+    //     printf("Enter container name to restrict (or 'quit' to exit): ");
+    //     if (fgets(container_str, sizeof(container_str), stdin) == NULL || !running) {
+    //         printf("\nExiting...\n");
+    //         break;
+    //     }
+    //     container_str[strcspn(container_str, "\n")] = 0;
+    //     if (strcmp(container_str, "quit") == 0) {
+    //         printf("Monitoring started. Press Ctrl+C to exit...\n\n");
+    //         while (running) {
+    //             err = ring_buffer__poll(rb, 100);
+    //             if (err == -EINTR) {
+    //                 printf("\nExiting...\n");
+    //                 break;
+    //             } else if (err < 0) {
+    //                 printf("Error polling ring buffer: %d\n", err);
+    //                 break;
+    //             }
+    //         }
+    //     }
+    //     switch(runtime) {
+    //         case RUNTIME_DOCKER:
+    //             pid = get_docker_pid(container_str);
+    //             break;
+    //         case RUNTIME_CONTAINERD:
+    //             pid =  get_containerd_pid(container_str);
+    //             break;
+    //         case RUNTIME_CRIO:
+    //             pid = get_crio_pid(container_str);
+    //             break;
+    //         default:
+    //             fprintf(stderr, "Unknown or unsupported container runtime\n");
+    //             goto cleanup;
+    //     }
+    //     ns_id = get_namespace_id(pid);
+    //     get_user_input(skel, ns_id);
+    // }
 
 cleanup:
     running = false;
