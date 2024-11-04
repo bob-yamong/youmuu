@@ -1,0 +1,122 @@
+api_version: policy.yamong.com/v1
+name: multi-container-example-policy
+
+containers:
+  - container_name: asd
+    tracepoint_policy:
+      syscalls:
+        - __NR_open
+        - __NR_read
+        - __NR_write
+        - __NR_close
+        - __NR_sendto
+        - __NR_recvfrom
+        - __NR_connect
+        - __NR_accept
+        - __NR_bind
+        - __NR_execve
+        - __NR_fork
+        - __NR_clone
+        - __NR_socket
+    lsm_policies:
+      file:
+        - path: "/etc/passwd"
+          flags:
+            - POLICY_ALLOW
+            - POLICY_AUDIT
+            - POLICY_FILE_READ
+          uid: 
+            - 1000
+            - 1001
+        - path: "/var/log"
+          flags:
+            - POLICY_ALLOW
+            - POLICY_AUDIT
+            - POLICY_FILE_WRITE
+            - POLICY_FILE_APPEND
+            - POLICY_RECURSIVE
+          uid: 
+            - 1000
+            - 1001
+        - path: "/sys"
+          flags:
+            - POLICY_ALLOW
+            - POLICY_AUDIT
+            - POLICY_FILE_WRITE
+            - POLICY_FILE_APPEND
+            - POLICY_RECURSIVE
+          uid: 
+            - 1000
+            - 1001   
+      network:
+        - ip: "192.168.1.100"
+          port: 80
+          protocol: 6  # TCP
+          flags:
+            - POLICY_ALLOW
+            - POLICY_AUDIT
+            - POLICY_NET_CONNECT
+          uid: 
+            - 1000
+            - 1001   
+        - ip: "10.0.0.0/8"
+          port: 443
+          protocol: 6  # TCP
+          flags:
+            - POLICY_NET_CONNECT
+            - POLICY_DENY
+          uid: 
+            - 1000
+            - 1001   
+      process:
+        - comm: "nginx"
+          flags:
+            - POLICY_ALLOW
+            - POLICY_AUDIT
+            - POLICY_PROC_EXEC
+          uid: 
+            - 1000
+            - 1001   
+        - comm: "bash"
+          flags:
+            - POLICY_ALLOW
+            - POLICY_AUDIT
+            - POLICY_PROC_EXEC
+          uid: 
+            - 1000
+            - 1001
+  - container_name: test-container-2
+    tracepoint_policy:
+      syscalls: []
+    lsm_policies:
+      file:
+        - path: "/app/data"
+          flags:
+            - POLICY_ALLOW
+            - POLICY_AUDIT
+            - POLICY_FILE_READ
+            - POLICY_FILE_WRITE
+          uid: 
+            - 1000
+            - 1001   
+      network:
+        - ip: "0.0.0.0/0"
+          port: 8080
+          protocol: 6  # TCP
+          flags:
+            - POLICY_ALLOW
+            - POLICY_AUDIT
+            - POLICY_NET_BIND
+            - POLICY_NET_ACCEPT
+          uid: 
+            - 1000
+            - 1001   
+      process:
+        - comm: "python"
+          flags:
+            - POLICY_ALLOW
+            - POLICY_AUDIT
+            - POLICY_PROC_EXEC
+          uid: 
+            - 1000
+            - 1001

@@ -383,10 +383,6 @@ int update_policy_with_file(int map_fd, char* abs_file_name) {
     const rfl::Result<YamlPolicy> result = rfl::yaml::load<YamlPolicy>(abs_file_name);
     YamlPolicy policy = result.value();
 
-    const std::string yaml_string = rfl::yaml::write(policy);
-
-    cout << yaml_string << endl;
-
     if (policy.containers.empty()) {
         fprintf(stderr, "No policy found in the file\n");
         return -1;
@@ -528,8 +524,7 @@ void clear_bpf_map(int map_fd) {
 }
 
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     struct enforcement_bpf *skel;
     struct ring_buffer *rb = NULL;
     int map_fd = -1;
@@ -592,30 +587,26 @@ int main(int argc, char **argv)
     {
         std::cout << "컨테이너 PID 자동 감지 중...\n";
         int detected_containers = ContainerManager::getContainerPIDs();
-        if (detected_containers <= 0)
-        {
+        if (detected_containers <= 0) {
             std::cerr << "실행 중인 컨테이너를 찾을 수 없습니다.\n";
             goto cleanup;
         }
         std::cout << detected_containers << "개의 컨테이너를 감지했습니다.\n";
 
-        for (const auto &container : ContainerManager::containers)
-        {
+        for (const auto &container : ContainerManager::containers) {
             __u32 key_pid = static_cast<__u32>(container.pid);
             __u32 value_pid = 1;
             __u64 key_inode = static_cast<__u64>(ContainerManager::getContainerInode(container.id));
             __u64 value_inode = 1;
 
             err = bpf_map__update_elem(skel->maps.container_pids, &key_pid, sizeof(key_pid), &value_pid, sizeof(value_pid), BPF_ANY);
-            if (err)
-            {
+            if (err) {
                 std::cerr << "컨테이너 PID " << container.pid << "를 맵에 추가하는데 실패했습니다: " << strerror(errno) << "\n";
                 continue;
             }
 
             err = bpf_map__update_elem(skel->maps.container_cgroup_id, &key_inode, sizeof(key_inode), &value_inode, sizeof(value_inode), BPF_ANY);
-            if (err)
-            {
+            if (err) {
                 std::cerr << "컨테이너 inode " << key_inode << "를 맵에 추가하는데 실패했습니다: " << strerror(errno) << "\n";
                 // PID 맵에서 제거
                 bpf_map__delete_elem(skel->maps.container_pids, &key_pid, sizeof(key_pid), BPF_ANY);
@@ -652,8 +643,7 @@ int main(int argc, char **argv)
         cmd[strcspn(cmd, "\n")] = 0;
         int mode = get_menu(cmd);
 
-        switch (mode)
-        {
+        switch (mode) {
         case ADD_POLICY:
             printf("Add Policy\n");
             printf("Adding a new policy\n");
