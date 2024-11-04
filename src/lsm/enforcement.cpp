@@ -281,16 +281,36 @@ int add_policy(int map_fd) {
     getchar(); // Consume newline
 
     switch (policy_type) {
-        char input;
+        char input; //이건 왜 있는 변수지?
         case POLICY_FILE: {
-            struct file_policy *fp = &value.file_policies[value.num_file_policies];
+            struct file_policy *fp = NULL;
+            bool is_found = false;
+            char file_path[256];  
             printf("Enter file path: ");
-            if (fgets(fp->path, sizeof(fp->path), stdin) == NULL) {
+            if (fgets(file_path, sizeof(file_path), stdin) == NULL) {
                 fprintf(stderr, "Failed to read file path\n");
                 return -1;
             }
-            fp->path[strcspn(fp->path, "\n")] = 0;
+            file_path[strcspn(file_path, "\n")] = 0;
 
+            for (int i=0; i < value.num_file_policies; i++){
+                if(strcmp(value.file_policies[i].path, file_path) == 0){
+                    fp = &value.file_policies[i]; //만약 해당 파일 경로 정책이 있으면, 포인터 할당
+                    is_found = true;
+                    break;
+                }
+            }
+
+            if(!is_found){
+                if(value.num_file_policies >= MAX_POLICIES_PER_CONTAINER){
+                    fprintf(stderr, "Maximum number of file policies reached\n");
+                    return -1;
+                }
+                fp = &value.file_policies[value.num_file_policies++];
+                strncpy(fp->path, file_path, sizeof(fp->path));
+                fp->path[sizeof(fp->path) - 1] = '\0';
+            }
+       
             if (get_yes_no_input("Block Read")) fp->flags |= POLICY_FILE_READ;
             if (get_yes_no_input("Block Write")) fp->flags |= POLICY_FILE_WRITE;
             if (get_yes_no_input("Block Execute")) fp->flags |= POLICY_FILE_EXEC;
@@ -303,7 +323,6 @@ int add_policy(int map_fd) {
             if (get_yes_no_input("Owner Policy")) fp->flags |= POLICY_OWNER;
             if (get_yes_no_input("Recursive Policy in Dir")) fp->flags |= POLICY_RECURSIVE;
             
-            value.num_file_policies++;
             break;
         }
         case POLICY_NETWORK: {

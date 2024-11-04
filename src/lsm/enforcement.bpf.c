@@ -104,21 +104,35 @@ int BPF_PROG(file_open, struct file *file)
 
     __u32 flags = match_policy(task, POLICY_FILE, e->data.path);
 
-    if (!flags) goto clear;
+    //bpf_printk("file_open at %s flag is %u and file_flags is %u \n", e->data.path, flags, file->f_flags);
+    //if (!flags) goto clear;
+    //맵에 해당 경로에 대한 정책이 없으면 플래그가 반환이 안됨, 하지만 이걸 화이트리스트로 하려고하면 플래그가 반환이 안되면 차단을 해야됨.
+    //결국 flag는 해당 경로에 대한 체킹포인트가 되는거임. => 화이트 리스트가 반영되는 순간 결국 모든 경로에 대한 후킹 체크는 들어가야함
 
     ret = 0;
-    __u8 mode = flags & POLICY_ALLOW;
-    if (mode) e->retval = -1;
+    // __u8 mode = flags & POLICY_ALLOW;
+    // if (mode) e->retval = -1;
 
-    
+    //(파일을 생성하면 파일을 생성하는 경로가 아닌 생성되는 파일의 경로이므로 /test에 대해서 파일 작업을 막으려면 /test/filename을 막아야함)
+    //r => 블랙리스트
+    //w => 화이트리스트, 근데 해당 경로만 허락이 되는게 아닌 recursive하게 선언하면 결국 이것도 마찬가지로 다 됨
+    //e => 블랙리스트
     if ((flags & POLICY_FILE_READ) && ((file->f_flags & O_WRONLY) == 0))  {
         //bpf_printk("block read at %s %d \n", e->data.path, flags);
         ret -= 1;
     }
-    else if ((flags & POLICY_FILE_WRITE) && (file->f_flags & (O_WRONLY | O_RDWR))) {
-        //bpf_printk("block write at %s %d \n", e->data.path, flags);
+    if ((!flags) && (file->f_flags & (O_WRONLY | O_RDWR))) {
+        bpf_printk("block write at %s %d \n", e->data.path, flags);
         ret -= 1;
     }
+    else if((flags & POLICY_FILE_WRITE) && (file->f_flags & (O_WRONLY | O_RDWR))) {
+        bpf_printk("allow write at %s %d \n", e->data.path, flags);
+        ret = 0;
+    }
+    // if ((flags & POLICY_FILE_WRITE) && (file->f_flags & (O_WRONLY | O_RDWR))) {
+    //     //bpf_printk("block write at %s %d \n", e->data.path, flags);
+    //     ret -= 1;
+    // }
     if ((flags & POLICY_FILE_EXEC) && (file->f_flags & FMODE_EXEC)) {
         //bpf_printk("block execute at %s %d \n", e->data.path, flags);
         ret -= 1;
@@ -686,6 +700,7 @@ int BPF_PROG(file_permission, struct file *file, int mask)
 // }
 
 SEC("lsm/path_unlink")
+//삭제는 블랙리스트
 int BPF_PROG(path_unlink, struct path *path)
 {
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
@@ -716,12 +731,19 @@ int BPF_PROG(path_unlink, struct path *path)
 
     __u32 flags = match_policy(task, POLICY_FILE, e->data.path);
     
-    if (!flags) goto clear;
+    //if (!flags) goto clear;
 
     __u8 allow_mode = flags & POLICY_ALLOW;
     ret = allow_mode ? 1:0;
 
-    if (flags & POLICY_FILE_DELETE) ret -= 1;       
+    if (flags & POLICY_FILE_DELETE) {
+        //해당 경로가 선언이 되어있고, 그 플래그가 파일 생성에 대한 플래그가 있을 때
+        ret = 0;       
+    }else{
+        //경로가 선언만 되어있거나, 선언되어있지 않으면 블락
+        ret -= 1; 
+    }
+  
     
     //bpf_printk("Operation not permitted at %s by policy \n",e->data.path);
  
@@ -775,6 +797,7 @@ clear:
 // }
 
 SEC("lsm/path_mkdir")
+//폴더 생성은 화이트 리스트
 int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
 {    
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
@@ -809,13 +832,19 @@ int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
 
     __u32 flags = match_policy(task, POLICY_FILE,e->data.path);
     
-    if (!flags) goto clear;
+    //if (!flags) goto clear;
 
     __u8 allow_mode = flags & POLICY_ALLOW;
     ret = allow_mode ? 1:0;
 
-    if (flags & POLICY_FILE_APPEND) ret -= 1;       
-    
+
+    if (flags & POLICY_FILE_APPEND) {
+        //해당 경로가 선언이 되어있고, 그 플래그가 파일 생성에 대한 플래그가 있을 때
+        ret = 0;       
+    }else{
+        //경로가 선언만 되어있거나, 선언되어있지 않으면 블락
+        ret -= 1; 
+    }
     //bpf_printk("Operation not permitted at %s by policy \n",e->data.path);
  
     e->retval = ret;
@@ -869,6 +898,7 @@ clear:
 // }
 
 SEC("lsm/path_rename")
+//이름 변경은 화이트 리스트
 int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
              const struct path *new_dir, struct dentry *new_dentry) {
     //인자 잘못 선언되어있던 것 수정, 차후 파일 전체 로직 통합 및 수정 필요
@@ -904,12 +934,20 @@ int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
 
     //bpf_printk("lsm_hook: fs: path_rename at %s\n", e->data.path);
     
-    if (!flags) goto clear;
+    //if (!flags) goto clear;
 
     __u8 allow_mode = flags & POLICY_ALLOW;
     ret = allow_mode ? 1 : 0;
 
-    if (flags & POLICY_FILE_RENAME) ret -= 1;    
+
+    if (flags & POLICY_FILE_RENAME) {
+        //해당 경로가 선언이 되어있고, 그 플래그가 파일 생성에 대한 플래그가 있을 때
+        ret = 0;       
+    }else{
+        //경로가 선언만 되어있거나, 선언되어있지 않으면 블락
+        ret -= 1; 
+    }
+    //bpf_printk("Operation not permitted at %s by policy \n",e->data.path);
     
     get_process_path(e->data.source, sizeof(e->data.source));
 
