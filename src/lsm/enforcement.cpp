@@ -22,7 +22,7 @@
 #define BPF_FS_PATH "/sys/fs/bpf"
 #define MAP_PIN_PATH "/sys/fs/bpf/policy_map"
 #define POLICY_FILE_PATH "/policy/policy.yaml"
-#define POLICY_UPDATE_INTERVAL 1
+#define POLICY_UPDATE_INTERVAL 60
 
 #define MAX_CMD_LEN 1024
 #define MAX_OUTPUT_LEN 256
@@ -483,7 +483,7 @@ void update_policy_periodically(int map_fd) {
         }
         
         // Sleep for 60 seconds
-        std::this_thread::sleep_for(std::chrono::minutes(POLICY_UPDATE_INTERVAL));
+        std::this_thread::sleep_for(std::chrono::seconds(POLICY_UPDATE_INTERVAL));
     }
 }
 
