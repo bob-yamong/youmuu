@@ -296,6 +296,7 @@ int main(int argc, char **argv) {
     struct tracepoint_bpf *skel;
     struct ring_buffer *rb;
     ContainerRuntime runtime;
+    char abs_file_name[256] = "/policy/policy.yaml";
     char container_str[256];
     __u32 ns_id, pid;
     int err;
@@ -334,7 +335,7 @@ int main(int argc, char **argv) {
 
     printf("Successfully started!\n");
 
-    runtime = get_runtime_from_user();
+    // runtime = get_runtime_from_user();
     // printf("Enter container name to restrict (or 'quit' to exit): ");
     // if (fgets(container_str, sizeof(container_str), stdin) == NULL || !running) {
     //     printf("\nExiting...\n");
@@ -365,13 +366,12 @@ int main(int argc, char **argv) {
 
     // printf("\nMonitoring started. Press Ctrl+C to exit...\n\n");
 
-    printf("input abs path: ");
-    char abs_file_name[256];
-    if (fgets(abs_file_name, sizeof(abs_file_name), stdin) == NULL) {
-        fprintf(stderr, "Failed to read file path\n");
-        goto cleanup;
-    }
-    abs_file_name[strcspn(abs_file_name, "\n")] = 0;
+    // printf("input abs path: ");
+    // if (fgets(abs_file_name, sizeof(abs_file_name), stdin) == NULL) {
+    //     fprintf(stderr, "Failed to read file path\n");
+    //     goto cleanup;
+    // }
+    // abs_file_name[strcspn(abs_file_name, "\n")] = 0;
     update_policy_with_file(skel->maps.event_policy_map, abs_file_name);
 
     while (running) {
