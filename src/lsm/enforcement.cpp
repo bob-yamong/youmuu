@@ -681,7 +681,7 @@ int main(int argc, char **argv) {
             }
             break;
         case UPDATE_POLICY_FILE:
-            printf("Update Policy with file\n");
+            printf("Tryin to update policy with file...\n");
 
             if (file_exists(POLICY_FILE_PATH)) {
                 // Create a new thread to periodically update the policy
@@ -691,11 +691,10 @@ int main(int argc, char **argv) {
                 policy_update_thread.detach();
                 
                 std::cout << "Policy update thread started, updating every minute.\n" << std::endl;
+                status = SHOW_LOG;
             } else {
-                std::cerr << "Policy file not found\n";
+                std::cout << "Policy file not found\n";
             }
-
-            status = SHOW_LOG;
             break;
         case DELETE_POLICY:
             printf("Delete Policy\n");
