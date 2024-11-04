@@ -2,7 +2,7 @@ api_version: policy.yamong.com/v1
 name: multi-container-example-policy
 
 containers:
-  - container_name: asd
+  - container_name: ubuntu1
     tracepoint_policy:
       syscalls:
         - __NR_open
@@ -85,7 +85,7 @@ containers:
           uid: 
             - 1000
             - 1001
-  - container_name: test-container-2
+  - container_name: ubuntu2
     tracepoint_policy:
       syscalls: []
     lsm_policies:

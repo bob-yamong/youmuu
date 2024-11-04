@@ -93,7 +93,7 @@ struct YamlLsmPolicy {
 };
 
 struct YamlTracepointPolicy {
-    vector<string> tracepoints;
+    vector<string> syscalls;
 };
 
 struct YamlContainerPolicy {
