@@ -6,6 +6,9 @@
 #include <string.h>
 #include <asm/unistd_64.h>
 #include <bpf/libbpf.h>
+#include <sys/stat.h>
+#include <thread>
+#include <chrono>
 #include "tracepoint.skel.h"
 #include "structs.h"
 #include "handler.h"
@@ -18,7 +21,8 @@
 #define ALLOW 0
 #define BLOCK 1
 #define LOGGING 2
-#define NUM_THREADS 4
+#define POLICY_UPDATE_INTERVAL 60
+#define POLICY_FILE_PATH "/policy/policy.yaml"
 
 static volatile bool running = true;
 
@@ -284,8 +288,29 @@ int update_policy_with_file(struct bpf_map *event_policy_map, char* abs_file_nam
                 continue;
             }
             
-            printf("Updated map for syscall %ld\n", syscall_list[i]);
+            printf("Updated map for syscall %d\n", syscall_list[i]);
         }
+    }
+
+    return 0;
+}
+
+bool file_exists(const char *file_path) {
+    struct stat buffer;
+    return stat(file_path, &buffer) == 0;
+}
+
+void update_policy_periodically(struct bpf_map *event_policy_map) {
+    while (true) {
+        // Call the update function
+        if (update_policy_with_file(event_policy_map, POLICY_FILE_PATH) == 0) {
+            std::cout << "update_policy_with_file called successfully.\n" << std::endl;
+        } else {
+            std::cerr << "Failed to call update_policy_with_file." << std::endl;
+        }
+        
+        // Sleep for 60 seconds
+        std::this_thread::sleep_for(std::chrono::seconds(POLICY_UPDATE_INTERVAL));
     }
 }
 
@@ -372,7 +397,22 @@ int main(int argc, char **argv) {
     //     goto cleanup;
     // }
     // abs_file_name[strcspn(abs_file_name, "\n")] = 0;
-    update_policy_with_file(skel->maps.event_policy_map, abs_file_name);
+
+    while (running) {
+        if (file_exists(POLICY_FILE_PATH)) {
+            // Create a new thread to periodically update the policy
+            std::thread policy_update_thread(update_policy_periodically, skel->maps.event_policy_map);
+            
+            // Detach the thread so it runs independently
+            policy_update_thread.detach();
+            
+            std::cout << "Policy update thread started, updating every minute.\n" << std::endl;
+            break;
+        } else {
+            std::cout << "Policy file not found\n";
+            sleep(10);
+        }
+    }
 
     while (running) {
         err = ring_buffer__poll(rb, 100);
