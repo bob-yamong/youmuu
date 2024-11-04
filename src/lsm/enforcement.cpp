@@ -9,6 +9,9 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <iostream>
+#include <fstream>
+#include <thread>
+#include <chrono>
  
 #include "enforcement.skel.h"
 
@@ -18,6 +21,8 @@
 
 #define BPF_FS_PATH "/sys/fs/bpf"
 #define MAP_PIN_PATH "/sys/fs/bpf/policy_map"
+#define POLICY_FILE_PATH "/policy/policy.yaml"
+#define POLICY_UPDATE_INTERVAL 60
 
 #define MAX_CMD_LEN 1024
 #define MAX_OUTPUT_LEN 256
@@ -25,6 +30,11 @@
 static volatile bool exiting = false;
 
 void clear_bpf_map(int map_fd);
+
+bool file_exists(const char *path) {
+    struct stat buffer;
+    return stat(path, &buffer) == 0;
+}
 
 static int print_event(void *ctx, void *data, size_t data_sz) {
     event *e = (event *)data;
@@ -463,6 +473,20 @@ int update_policy_with_file(int map_fd, char* abs_file_name) {
     return 0;
 }
 
+void update_policy_periodically(int map_fd) {
+    while (true) {
+        // Call the update function
+        if (update_policy_with_file(map_fd, POLICY_FILE_PATH) == 0) {
+            std::cout << "update_policy_with_file called successfully.\n" << std::endl;
+        } else {
+            std::cerr << "Failed to call update_policy_with_file." << std::endl;
+        }
+        
+        // Sleep for 60 seconds
+        std::this_thread::sleep_for(std::chrono::seconds(POLICY_UPDATE_INTERVAL));
+    }
+}
+
 enum view_mode {
     ADD_POLICY,
     UPDATE_POLICY_FILE,
@@ -528,6 +552,7 @@ int main(int argc, char **argv) {
     struct enforcement_bpf *skel;
     struct ring_buffer *rb = NULL;
     int map_fd = -1;
+    int status = 0;
 
     /* Set up libbpf errors and debug info callback */
     // libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
@@ -632,18 +657,20 @@ int main(int argc, char **argv) {
     printf("Successfully started! Please run `sudo cat /sys/kernel/debug/tracing/trace_pipe` "
            "to see output of the BPF programs.\n");
 
+    status = UPDATE_POLICY_FILE;
+
     while (!exiting) {
-        char cmd[256];
-        print_menu();
-        printf("> ");
-        if (!fgets(cmd, sizeof(cmd), stdin)) {
-            break;
-        }
+        // char cmd[256];
+        // print_menu();
+        // printf("> ");
+        // if (!fgets(cmd, sizeof(cmd), stdin)) {
+        //     break;
+        // }
 
-        cmd[strcspn(cmd, "\n")] = 0;
-        int mode = get_menu(cmd);
+        // cmd[strcspn(cmd, "\n")] = 0;
+        // int mode = get_menu(cmd);  
 
-        switch (mode) {
+        switch (status) {
         case ADD_POLICY:
             printf("Add Policy\n");
             printf("Adding a new policy\n");
@@ -655,17 +682,20 @@ int main(int argc, char **argv) {
             break;
         case UPDATE_POLICY_FILE:
             printf("Update Policy with file\n");
-            printf("Enter the absolute path of the policy file: ");
-            char abs_file_name[256];
-            if (!fgets(abs_file_name, sizeof(abs_file_name), stdin)) {
-                break;
-            }
-            abs_file_name[strcspn(abs_file_name, "\n")] = 0;
-            if (update_policy_with_file(map_fd, abs_file_name) == 0) {
-                printf("Policy updated successfully\n");
+
+            if (file_exists(POLICY_FILE_PATH)) {
+                // Create a new thread to periodically update the policy
+                std::thread policy_update_thread(update_policy_periodically, map_fd);
+                
+                // Detach the thread so it runs independently
+                policy_update_thread.detach();
+                
+                std::cout << "Policy update thread started, updating every minute.\n" << std::endl;
             } else {
-                printf("Failed to update policy\n");
+                std::cerr << "Policy file not found\n";
             }
+
+            status = SHOW_LOG;
             break;
         case DELETE_POLICY:
             printf("Delete Policy\n");
