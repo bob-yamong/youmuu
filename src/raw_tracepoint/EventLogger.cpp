@@ -4,6 +4,8 @@
 #include <iomanip>
 #include <exception>
 #include <cstring>
+#include <sstream>
+#include <zlib.h>
 
 // 정적 assert로 구조체 크기 검증 (eBPF와 C++ 간 일치 확인)
 static_assert(sizeof(event) == 8 + 8 + 4 + 4 + 4 + 4 + 4 + 8 + 8 + TASK_COMM_LEN + 16 + 48 + MAX_FILENAME_LEN + (MAX_ARGS * MAX_ARG_LEN) + MAX_CGROUP_NAME_LEN,
@@ -19,12 +21,19 @@ EventLogger::EventLogger(size_t bufferSize, const std::string& logFilePath)
       currentBuffer_(&buffer1_),
       flushBuffers_(),
       isFlushing_(false),
-      shutdown_(false)
+      shutdown_(false),
+      gzFile_(nullptr) // 초기화
 {
     buffer1_.reserve(bufferSize_);
     buffer2_.reserve(bufferSize_);
     buffer3_.reserve(bufferSize_);
     buffer4_.reserve(bufferSize_);
+    
+    // 압축된 파일 열기 (쓰기 모드, 압축 레벨 6)
+    gzFile_ = gzopen(logFilePath_.c_str(), "wb6");
+    if (!gzFile_) {
+        throw std::runtime_error("Failed to open compressed log file: " + logFilePath_);
+    }
     
     // 플러시 쓰레드 시작
     flushThread_ = std::thread(&EventLogger::flushThreadFunc, this);
@@ -61,6 +70,12 @@ EventLogger::~EventLogger()
         flushBuffers_.pop_front();
         flushToFile(*bufferToFlush);
         bufferToFlush->clear();
+    }
+
+    // 압축된 파일 닫기
+    if (gzFile_) {
+        gzclose(gzFile_);
+        gzFile_ = nullptr;
     }
 }
 
@@ -139,7 +154,7 @@ void EventLogger::flushThreadFunc()
                 // 잠금 해제
                 lock.unlock();
                 
-                // 파일에 기록
+                // 파일에 기록 (압축된 형태로)
                 flushToFile(*bufferToFlush);
                 
                 // 버퍼 클리어
@@ -158,14 +173,14 @@ void EventLogger::flushThreadFunc()
 void EventLogger::flushToFile(const std::vector<event>& buffer)
 {
     try {
-        std::ofstream ofs(logFilePath_, std::ios::app);
-        if (!ofs.is_open()) {
-            std::cerr << "Failed to open log file: " << logFilePath_ << std::endl;
+        if (!gzFile_) {
+            std::cerr << "Compressed log file is not open.\n";
             return;
         }
-        
+
         for (const auto& e : buffer) {
-            ofs << "[" << std::setw(13) << std::setfill('0') << e.cnt << "] "
+            std::ostringstream oss;
+            oss << "[" << std::setw(13) << std::setfill('0') << e.cnt << "] "
                 << "Process syscall: " << e.syscall
                 << " (nr=" << e.syscall_nr
                 << ", pid=" << e.pid
@@ -183,30 +198,30 @@ void EventLogger::flushToFile(const std::vector<event>& buffer)
                 case __NR_fork:
                 case __NR_vfork:
                 case __NR_clone:
-                    ofs << "New process creation\n";
+                    oss << "New process creation\n";
                     break;
                 case __NR_execve:
                 case __NR_execveat:
-                    ofs << "Executing new program: " << std::string(e.filename) << "\n";  // null 문자 제거
+                    oss << "Executing new program: " << std::string(e.filename) << "\n";  // null 문자 제거
                     for (int i = 0; i < MAX_ARGS && e.argv[i][0] != '\0'; i++) {
-                        ofs << "Arg " << i << ": " << std::string(e.argv[i]) << "\n";  // null 문자 제거
+                        oss << "Arg " << i << ": " << std::string(e.argv[i]) << "\n";  // null 문자 제거
                     }
                     break;
                 case __NR_exit:
                 case __NR_exit_group:
-                    ofs << "Process exit\n";
+                    oss << "Process exit\n";
                     break;
                 case __NR_wait4:
                 case __NR_waitid:
-                    ofs << "Waiting for child process\n";
+                    oss << "Waiting for child process\n";
                     break;
                 case __NR_kill:
                 case __NR_tkill:
                 case __NR_tgkill:
-                    ofs << "Sending signal " << e.args[1] << " to process/thread\n";
+                    oss << "Sending signal " << e.args[1] << " to process/thread\n";
                     break;
                 case __NR_ptrace:
-                    ofs << "Ptrace call with request " << e.args[0] << "\n";
+                    oss << "Ptrace call with request " << e.args[0] << "\n";
                     break;
         
                 // 파일 시스템 관련
@@ -237,52 +252,52 @@ void EventLogger::flushToFile(const std::vector<event>& buffer)
                 case __NR_readlink:
                 case __NR_readlinkat:
                     if (e.filename[0] != '\0') {
-                        ofs << "File operation: " << e.syscall << " on file: " << std::string(e.filename) << "\n";  // null 문자 제거
+                        oss << "File operation: " << e.syscall << " on file: " << std::string(e.filename) << "\n";  // null 문자 제거
                     }
                     break;
                 case __NR_close:
-                    ofs << "Closing file descriptor: " << e.args[0] << "\n";
+                    oss << "Closing file descriptor: " << e.args[0] << "\n";
                     break;
                 case __NR_read:
                 case __NR_write:
-                    ofs << ((e.syscall_nr == __NR_read) ? "Read" : "Write")
+                    oss << ((e.syscall_nr == __NR_read) ? "Read" : "Write")
                         << " operation on fd " << e.args[0]
                         << ", " << e.args[2] << " bytes\n";
                     break;
                 case __NR_mount:
-                    ofs << "Mounting filesystem\n";
+                    oss << "Mounting filesystem\n";
                     break;
                 case __NR_umount2:
-                    ofs << "Unmounting filesystem\n";
+                    oss << "Unmounting filesystem\n";
                     break;
         
                 // 네트워크 관련
                 case __NR_socket:
-                    ofs << "Creating socket: domain " << e.args[0]
+                    oss << "Creating socket: domain " << e.args[0]
                         << ", type " << e.args[1]
                         << ", protocol " << e.args[2] << "\n";
                     break;
                 case __NR_connect:
-                    ofs << "Connecting to socket\n";
+                    oss << "Connecting to socket\n";
                     break;
                 case __NR_accept:
-                    ofs << "Accepting connection on socket\n";
+                    oss << "Accepting connection on socket\n";
                     break;
                 case __NR_bind:
-                    ofs << "Binding socket\n";
+                    oss << "Binding socket\n";
                     break;
                 case __NR_listen:
-                    ofs << "Listening on socket\n";
+                    oss << "Listening on socket\n";
                     break;
                 case __NR_sendto:
                 case __NR_recvfrom:
-                    ofs << ((e.syscall_nr == __NR_sendto) ? "Sending" : "Receiving")
+                    oss << ((e.syscall_nr == __NR_sendto) ? "Sending" : "Receiving")
                         << " on socket " << e.args[0]
                         << ", " << e.args[2] << " bytes\n";
                     break;
                 case __NR_setsockopt:
                 case __NR_getsockopt:
-                    ofs << ((e.syscall_nr == __NR_setsockopt) ? "Setting" : "Getting")
+                    oss << ((e.syscall_nr == __NR_setsockopt) ? "Setting" : "Getting")
                         << " socket option\n";
                     break;
         
@@ -297,27 +312,27 @@ void EventLogger::flushToFile(const std::vector<event>& buffer)
                 case __NR_setresgid:
                 case __NR_setgroups:
                 case __NR_capset:
-                    ofs << "Changing process attributes: " << e.syscall << "\n";
+                    oss << "Changing process attributes: " << e.syscall << "\n";
                     break;
                 case __NR_prctl:
-                    ofs << "Process control operation: " << e.args[0] << "\n";
+                    oss << "Process control operation: " << e.args[0] << "\n";
                     break;
                 case __NR_setpriority:
                 case __NR_sched_setscheduler:
                 case __NR_sched_setparam:
                 case __NR_sched_setaffinity:
-                    ofs << "Changing process scheduling: " << e.syscall << "\n";
+                    oss << "Changing process scheduling: " << e.syscall << "\n";
                     break;
                 case __NR_sched_yield:
-                    ofs << "Yielding processor\n";
+                    oss << "Yielding processor\n";
                     break;
                 case __NR_mprotect:
-                    ofs << "mprotect called with addr=" << e.args[0]
+                    oss << "mprotect called with addr=" << e.args[0]
                         << ", len=" << e.args[1]
                         << ", prot=" << e.args[2] << "\n";
                     break;
                 case __NR_mmap:
-                    ofs << "mmap called with addr=" << e.args[0]
+                    oss << "mmap called with addr=" << e.args[0]
                         << ", len=" << e.args[1]
                         << ", prot=" << e.args[2]
                         << ", flags=" << e.args[3]
@@ -325,16 +340,28 @@ void EventLogger::flushToFile(const std::vector<event>& buffer)
                         << ", offset=" << e.args[5] << "\n";
                     break;
                 case __NR_munmap:
-                    ofs << "munmap called with addr=" << e.args[0]
+                    oss << "munmap called with addr=" << e.args[0]
                         << ", len=" << e.args[1] << "\n";
                     break;
                 default:
-                    ofs << "Other system call: " << e.syscall << "\n";
+                    oss << "Other system call: " << e.syscall << "\n";
                     break;
             }
+
+            // 압축된 파일에 쓰기
+            std::string logEntry = oss.str();
+            int writeResult = gzwrite(gzFile_, logEntry.c_str(), logEntry.size());
+            if (writeResult == 0) {
+                int err_no = 0;
+                const char* error_string = gzerror(gzFile_, &err_no);
+                if (err_no) {
+                    std::cerr << "Error writing to compressed log file: " << error_string << "\n";
+                }
+            }
         }
-        
-        ofs.close();
+
+        // 데이터 플러시
+        gzflush(gzFile_, Z_SYNC_FLUSH);
     }
     catch (const std::exception& ex) {
         std::cerr << "Exception in flushToFile: " << ex.what() << "\n";

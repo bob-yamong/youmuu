@@ -31,7 +31,7 @@ u_int64_t err_cnt = 0;
 
 // EventLogger 객체 생성 (전역 또는 싱글톤으로 관리 가능)
 const size_t BUFFER_SIZE = 100000; // 예: 10만 개
-const std::string LOG_FILE_PATH = "log/general.log";
+const std::string LOG_FILE_PATH = "log/general.log.gz";
 EventLogger eventLogger(BUFFER_SIZE, LOG_FILE_PATH);
 
 int update_monitoring_map(){

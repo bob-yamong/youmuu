@@ -1,4 +1,3 @@
-// EventLogger.h
 #ifndef EVENTLOGGER_H
 #define EVENTLOGGER_H
 
@@ -6,12 +5,12 @@
 #include <mutex>
 #include <thread>
 #include <atomic>
-#include <fstream>
 #include <string>
 #include <condition_variable>
 #include <deque>
 #include <sys/syscall.h>
 #include <linux/types.h>
+#include <zlib.h> // zlib 헤더 추가
 #include "event.h" // event 구조체가 정의된 헤더 파일
 
 class EventLogger {
@@ -52,6 +51,9 @@ private:
     
     // 쓰레드 종료를 위한 플래그
     std::atomic<bool> shutdown_;
+    
+    // zlib 압축 스트림
+    gzFile gzFile_; // 압축된 파일 스트림 추가
 };
 
 #endif // EVENTLOGGER_H
