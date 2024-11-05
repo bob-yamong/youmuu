@@ -9,6 +9,7 @@
 #include <string>
 #include <iomanip>
 #include <atomic>
+#include <condition_variable>
 #include <sys/resource.h>
 #include <bpf/libbpf.h>
 #include <filesystem>
@@ -23,6 +24,8 @@
 
 // 단일 종료 플래그 사용
 static std::atomic<bool> exiting(false);
+std::condition_variable cv;
+std::mutex cv_m;
 struct raw_tracepoint_bpf *skel;
 
 // debug value
@@ -149,8 +152,10 @@ void ringbuf_thread_func(struct ring_buffer *rb)
 
 // 정책을 주기적으로 재적용하는 쓰레드 함수
 void policy_reload_thread(const std::string &yaml_file_path) {
+    std::unique_lock<std::mutex> lock(cv_m);
     while (!exiting.load(std::memory_order_relaxed)) {
-        std::this_thread::sleep_for(std::chrono::minutes(1));
+        if(cv.wait_for(lock, std::chrono::minutes(1), []{ return exiting.load(); }))
+            break;
 
         std::cout << "정책을 재로딩합니다: " << yaml_file_path << "\n";
 
@@ -166,18 +171,22 @@ void policy_reload_thread(const std::string &yaml_file_path) {
 }
 
 // 시그널 핸들러
-static void sig_handler(int sig)
-{
-    exiting.store(true, std::memory_order_relaxed);
+void sig_handler(int signum) {
+    if (signum == SIGINT) {
+        exiting.store(true);
+        cv.notify_all();
+    }
 }
 
 int main(int argc, char **argv)
 {
     int err, parsing_err;
-
     // 시그널 핸들러 등록
-    signal(SIGINT, sig_handler);
-    signal(SIGTERM, sig_handler);
+    struct sigaction sa;
+    sa.sa_handler = sig_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGINT, &sa, NULL);
 
     try
     {
@@ -252,12 +261,11 @@ int main(int argc, char **argv)
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
 
-
+        // 정책 재적용 스레드 종료
+        policy_thread.join();
         // 링버퍼 읽기 스레드 종료
         ringbuf_thread1.join();
 
-        // 정책 재적용 스레드 종료
-        policy_thread.join();
 
         // 링버퍼 정리
         ring_buffer__free(rb1);
