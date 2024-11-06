@@ -17,12 +17,11 @@
 #define MAX_CMD_LEN 1024
 #define MAX_OUTPUT_LEN 256
 #define MAX_PATH 256
-#define MAX_EVENTS 4096
 #define ALLOW 0
 #define BLOCK 1
 #define LOGGING 2
 #define POLICY_UPDATE_INTERVAL 60
-#define POLICY_FILE_PATH "/policy/policy.yaml"
+#define POLICY_FILE_PATH const_cast<char*>("/policy/policy.yaml")
 
 static volatile bool running = true;
 
@@ -141,7 +140,7 @@ int get_container_pid(const char* container_name) {
     }
 }
 
-__u64 get_namespace_id(int container_pid) {
+__u32 get_namespace_id(int container_pid) {
     char path[MAX_PATH];
     snprintf(path, sizeof(path), "/proc/%d/ns/pid", container_pid);
     
@@ -171,79 +170,6 @@ __u64 get_namespace_id(int container_pid) {
 
     close(fd);
     return ns_id;
-}
-
-void get_user_input(struct tracepoint_bpf *skel, __u32 ns_id) {
-    __u32 action = LOGGING;
-    int err;
-    
-    long syscalls[] = {
-        __NR_socket, __NR_socketpair, __NR_setsockopt,__NR_bind, __NR_listen, 
-        __NR_accept, __NR_accept4, __NR_connect, __NR_shutdown, __NR_recvfrom,
-        __NR_recvmsg, __NR_recvmmsg, __NR_sendto, __NR_sendmsg, __NR_sendmmsg,
-        __NR_sethostname, __NR_setdomainname, 
-
-        __NR_getsockopt, __NR_getsockname, __NR_getpeername, __NR_ioctl, 
-
-        // __NR_poll, __NR_ppoll, __NR_epoll_create, __NR_epoll_create1, __NR_epoll_ctl, 
-        // __NR_epoll_wait, __NR_epoll_pwait, __NR_epoll_pwait2, 
-
-        __NR_creat, __NR_open, __NR_openat, __NR_openat2, __NR_write, 
-        __NR_pwrite64, __NR_writev, __NR_pwritev, __NR_pwritev2, __NR_mkdir, 
-        __NR_mkdirat, __NR_rmdir, __NR_chdir, __NR_fchdir, __NR_chroot, 
-        __NR_pivot_root, __NR_link, __NR_linkat, __NR_symlink, __NR_symlinkat, 
-        __NR_unlink, __NR_unlinkat, __NR_rename, __NR_renameat, __NR_renameat2, 
-        __NR_chmod, __NR_fchmod, __NR_fchmodat, __NR_chown, __NR_lchown, 
-        __NR_fchown, __NR_fchownat, __NR_mount, __NR_umount2, __NR_move_mount, 
-
-        __NR_read, __NR_pread64, __NR_readv, __NR_preadv, __NR_preadv2, 
-        __NR_close, __NR_dup, __NR_dup2, __NR_dup3, __NR_flock, 
-        __NR_name_to_handle_at , __NR_open_by_handle_at, __NR_memfd_create,__NR_mknod, __NR_mknodat,  
-        __NR_truncate, __NR_ftruncate, __NR_fallocate, __NR_getcwd, __NR_getdents, 
-        __NR_getdents64, __NR_readlink, __NR_readlinkat, __NR_umask, __NR_stat, 
-        __NR_lstat, __NR_fstat, __NR_newfstatat, __NR_statx, __NR_statfs, 
-        __NR_fstatfs,   __NR_access, __NR_faccessat, __NR_lseek, __NR_sendfile, 
-        __NR_inotify_init, __NR_inotify_init1, __NR_inotify_add_watch, __NR_inotify_rm_watch, __NR_fanotify_init, 
-        __NR_fanotify_mark,  __NR_fcntl,
-
-        // __NR_setxattr, __NR_lsetxattr, __NR_fsetxattr, __NR_getxattr, __NR_lgetxattr, 
-        // __NR_fgetxattr, __NR_listxattr, __NR_llistxattr, __NR_flistxattr, __NR_removexattr, 
-        // __NR_lremovexattr, __NR_fremovexattr, __NR_utime, __NR_utimes, __NR_futimesat, 
-        // __NR_utimensat,
-
-        __NR_clone, __NR_clone3, __NR_fork, __NR_vfork, __NR_execve, 
-        __NR_execveat, __NR_setsid, __NR_setpgid, __NR_setuid, __NR_setgid, 
-        __NR_setresuid, __NR_setresgid, __NR_setreuid, __NR_setregid, __NR_setgroups, 
-        __NR_setns, __NR_capset, __NR_mmap, __NR_mprotect,  __NR_ptrace,
-        __NR_process_vm_readv, __NR_process_vm_writev, __NR_init_module, __NR_delete_module, __NR_finit_module,
-
-        __NR_exit, __NR_exit_group, __NR_wait4, __NR_waitid, __NR_getpid, 
-        __NR_getppid, __NR_gettid, __NR_getsid, __NR_getpgid, __NR_getpgrp, 
-        __NR_getuid, __NR_getgid, __NR_getresuid, __NR_getresgid, __NR_geteuid, 
-        __NR_getegid,  __NR_getgroups, __NR_setrlimit, __NR_getrlimit, __NR_prlimit64,
-        __NR_getrusage, __NR_setpriority, __NR_getpriority, __NR_ioprio_set, __NR_ioprio_get, 
-        __NR_brk, __NR_munmap, __NR_mremap, __NR_madvise, __NR_mlock, 
-        __NR_mlock2, __NR_mlockall, __NR_munlock, __NR_munlockall, __NR_membarrier, 
-        __NR_capget, __NR_set_thread_area, __NR_get_thread_area, __NR_set_tid_address, __NR_arch_prctl,
-
-        // __NR_sched_setattr, __NR_sched_getattr, __NR_sched_setscheduler,__NR_sched_getscheduler, 
-        // __NR_sched_setparam, __NR_sched_getparam, __NR_sched_setaffinity, __NR_sched_getaffinity, __NR_sched_get_priority_max, 
-        // __NR_sched_get_priority_min, __NR_sched_rr_get_interval, __NR_sched_yield,
-    };
-
-    for (size_t i = 0; i < sizeof(syscalls) / sizeof(syscalls[0]); i++) {
-        struct event_key key{};
-        key.ns_id = ns_id;
-        key.event_id = syscalls[i];
-        
-        err = bpf_map__update_elem(skel->maps.event_policy_map, &key, sizeof(key), &action, sizeof(action), BPF_ANY);
-        if (err) {
-            fprintf(stderr, "Failed to update map for enter event: %d\n", err);
-            continue;
-        }
-        
-        printf("Updated map for syscall %ld\n", syscalls[i]);
-    }
 }
 
 static time_t get_boot_time() {
@@ -320,10 +246,6 @@ int main(int argc, char **argv) {
 
     struct tracepoint_bpf *skel;
     struct ring_buffer *rb;
-    ContainerRuntime runtime;
-    char abs_file_name[256] = "/policy/policy.yaml";
-    char container_str[256];
-    __u32 ns_id, pid;
     int err;
 
     boot_time = get_boot_time();
@@ -360,44 +282,6 @@ int main(int argc, char **argv) {
 
     printf("Successfully started!\n");
 
-    // runtime = get_runtime_from_user();
-    // printf("Enter container name to restrict (or 'quit' to exit): ");
-    // if (fgets(container_str, sizeof(container_str), stdin) == NULL || !running) {
-    //     printf("\nExiting...\n");
-    //     goto cleanup;
-    // }
-    // container_str[strcspn(container_str, "\n")] = 0;
-    // if (strcmp(container_str, "quit") == 0) {
-    //     printf("Exiting...\n");
-    //     goto cleanup;
-    // }
-    
-    // switch(runtime) {
-    //     case RUNTIME_DOCKER:
-    //         pid = get_docker_pid(container_str);
-    //         break;
-    //     case RUNTIME_CONTAINERD:
-    //         pid =  get_containerd_pid(container_str);
-    //         break;
-    //     case RUNTIME_CRIO:
-    //         pid = get_crio_pid(container_str);
-    //         break;
-    //     default:
-    //         fprintf(stderr, "Unknown or unsupported container runtime\n");
-    //         goto cleanup;
-    // }
-    // ns_id = get_namespace_id(pid);
-    // get_user_input(skel, ns_id);
-
-    // printf("\nMonitoring started. Press Ctrl+C to exit...\n\n");
-
-    // printf("input abs path: ");
-    // if (fgets(abs_file_name, sizeof(abs_file_name), stdin) == NULL) {
-    //     fprintf(stderr, "Failed to read file path\n");
-    //     goto cleanup;
-    // }
-    // abs_file_name[strcspn(abs_file_name, "\n")] = 0;
-
     while (running) {
         if (file_exists(POLICY_FILE_PATH)) {
             // Create a new thread to periodically update the policy
@@ -424,45 +308,7 @@ int main(int argc, char **argv) {
             break;
         }
     }
-
-    // while (running) {
-    //     printf("Enter container name to restrict (or 'quit' to exit): ");
-    //     if (fgets(container_str, sizeof(container_str), stdin) == NULL || !running) {
-    //         printf("\nExiting...\n");
-    //         break;
-    //     }
-    //     container_str[strcspn(container_str, "\n")] = 0;
-    //     if (strcmp(container_str, "quit") == 0) {
-    //         printf("Monitoring started. Press Ctrl+C to exit...\n\n");
-    //         while (running) {
-    //             err = ring_buffer__poll(rb, 100);
-    //             if (err == -EINTR) {
-    //                 printf("\nExiting...\n");
-    //                 break;
-    //             } else if (err < 0) {
-    //                 printf("Error polling ring buffer: %d\n", err);
-    //                 break;
-    //             }
-    //         }
-    //     }
-    //     switch(runtime) {
-    //         case RUNTIME_DOCKER:
-    //             pid = get_docker_pid(container_str);
-    //             break;
-    //         case RUNTIME_CONTAINERD:
-    //             pid =  get_containerd_pid(container_str);
-    //             break;
-    //         case RUNTIME_CRIO:
-    //             pid = get_crio_pid(container_str);
-    //             break;
-    //         default:
-    //             fprintf(stderr, "Unknown or unsupported container runtime\n");
-    //             goto cleanup;
-    //     }
-    //     ns_id = get_namespace_id(pid);
-    //     get_user_input(skel, ns_id);
-    // }
-
+    
 cleanup:
     running = false;
     tracepoint_bpf__destroy(skel);

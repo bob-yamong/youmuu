@@ -143,6 +143,10 @@ map<string, __u32> tracepoints_map = {
     {"__NR_init_module", __NR_init_module},
     {"__NR_delete_module", __NR_delete_module},
     {"__NR_finit_module", __NR_finit_module},
+    {"__NR_kill", __NR_kill},
+    {"__NR_tkill", __NR_tkill},
+    {"__NR_tgkill", __NR_tgkill},
+    {"__NR_prctl", __NR_prctl},
 
     {"__NR_exit", __NR_exit},
     {"__NR_exit_group", __NR_exit_group},
@@ -169,7 +173,6 @@ map<string, __u32> tracepoints_map = {
     {"__NR_getpriority", __NR_getpriority},
     {"__NR_ioprio_set", __NR_ioprio_set},
     {"__NR_ioprio_get", __NR_ioprio_get},
-    {"__NR_brk", __NR_brk},
     {"__NR_munmap", __NR_munmap},
     {"__NR_mremap", __NR_mremap},
     {"__NR_madvise", __NR_madvise},
@@ -180,9 +183,6 @@ map<string, __u32> tracepoints_map = {
     {"__NR_munlockall", __NR_munlockall},
     {"__NR_membarrier", __NR_membarrier},
     {"__NR_capget", __NR_capget},
-    {"__NR_set_thread_area", __NR_set_thread_area},
-    {"__NR_get_thread_area", __NR_get_thread_area},
-    {"__NR_set_tid_address", __NR_set_tid_address},
     {"__NR_arch_prctl", __NR_arch_prctl}
 };
 
