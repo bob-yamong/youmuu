@@ -85,41 +85,6 @@ struct {
     __type(value, __u64);
 } recvmsg_args_map SEC(".maps");
 
-// struct {
-//     __uint(type, BPF_MAP_TYPE_HASH);
-//     __uint(max_entries, 1024);
-//     __type(key, struct map_key);
-//     __type(value, __u64);
-// } poll_args_map SEC(".maps");
-
-// struct {
-//     __uint(type, BPF_MAP_TYPE_HASH);
-//     __uint(max_entries, 1024);
-//     __type(key, struct map_key);
-//     __type(value, __u64);
-// } ppoll_args_map SEC(".maps");
-
-// struct {
-//     __uint(type, BPF_MAP_TYPE_HASH);
-//     __uint(max_entries, 1024);
-//     __type(key, struct map_key);
-//     __type(value, __u64);
-// } epoll_wait_args_map SEC(".maps");
-
-// struct {
-//     __uint(type, BPF_MAP_TYPE_HASH);
-//     __uint(max_entries, 1024);
-//     __type(key, struct map_key);
-//     __type(value, __u64);
-// } epoll_pwait_args_map SEC(".maps");
-
-// struct {
-//     __uint(type, BPF_MAP_TYPE_HASH);
-//     __uint(max_entries, 1024);
-//     __type(key, struct map_key);
-//     __type(value, __u64);
-// } epoll_pwait2_args_map SEC(".maps");
-
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 1024);
@@ -168,5 +133,12 @@ struct {
     __type(key, struct map_key);
     __type(value, __u64);
 } sched_getaffinity_args_map SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 1024);
+    __type(key, struct map_key);
+    __type(value, struct capget_args);
+} capget_args_map SEC(".maps");
 
 #endif

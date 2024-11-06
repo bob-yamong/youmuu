@@ -74,4 +74,9 @@ struct resgid_args {
     __u64 sgid;
 };
 
+struct capget_args {
+    __u64 hdrp;
+    __u64 datap;
+};
+
 #endif
