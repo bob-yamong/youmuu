@@ -2,3 +2,5 @@
 */.output
 lsm/enforcement
 tracepoint/tracepoint
+*/.log
+*.log
