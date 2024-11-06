@@ -11,6 +11,7 @@ struct current_task  {
     __u32 tid;
     __u32 uid;
     __u32 gid;
+    __u8 comm[16];
 };
 
 struct event_t {
