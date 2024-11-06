@@ -36,6 +36,7 @@ static __always_inline struct current_task get_task_struct() {
     ct.tid = (__u32)pid_tgid;
     ct.uid = uid_gid;
     ct.gid = uid_gid >> 32;
+    bpf_get_current_comm(&ct.comm, sizeof(ct.comm));
 
     return ct;
 }
