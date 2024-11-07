@@ -1,2 +1,7 @@
 /.output
 */.output
+lsm/enforcement
+tracepoint/tracepoint
+raw_tracepoint/raw_tracepoint
+*/.log
+*.log
