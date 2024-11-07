@@ -22,6 +22,8 @@
 
 #include "EventLogger.h" // EventLogger 클래스 헤더 추가
 
+#define POLICY_FILE_PATH "/policy/policy.yaml"
+
 // 단일 종료 플래그 사용
 static std::atomic<bool> exiting(false);
 std::condition_variable cv;
@@ -37,7 +39,19 @@ const size_t BUFFER_SIZE = 100000;
 const std::string LOG_FILE_PATH = "log/general.log.gz";
 EventLogger eventLogger(BUFFER_SIZE, LOG_FILE_PATH);
 
-int update_monitoring_map(){
+int delete_all_monitoring_map() {
+    for(const auto &container : ContainerManager::containers){
+        __u32 key_pid = static_cast<__u32>(container.pid);
+        __u64 key_inode = static_cast<__u64>(container.cgroup_id);
+        bpf_map__delete_elem(skel->maps.container_pids, &key_pid, sizeof(key_pid), BPF_ANY);
+        bpf_map__delete_elem(skel->maps.container_cgroup_id, &key_inode, sizeof(key_inode), BPF_ANY);
+    }
+    ContainerManager::containers.clear();
+    std::cout << "모니터링 맵을 초기화에 완료했습니다." << std::endl;
+    return 0;
+}
+
+int update_monitoring_map() {
     std::vector<ContainerInfo> temp_containers = ContainerManager::containers;
     ContainerManager::containers.clear();
 
@@ -159,6 +173,13 @@ void policy_reload_thread(const std::string &yaml_file_path) {
 
         std::cout << "정책을 재로딩합니다: " << yaml_file_path << "\n";
 
+        int parsing_err = std::filesystem::exists(yaml_file_path);
+        if(parsing_err == 0){
+            std::cerr << "YAML 정책 파일을 찾을 수 없습니다.\n";
+            delete_all_monitoring_map();
+            continue;
+        }
+
         // YAML 정책을 업데이트
         int err = update_policy_with_file(const_cast<char*>(yaml_file_path.c_str()));
         if (err < 0) {
@@ -213,7 +234,7 @@ int main(int argc, char **argv)
         std::cout << "BPF 프로그램을 성공적으로 시작했습니다! 프로세스 모니터링을 시작합니다...\n";
 
         // YAML 파일 경로 지정 (예: "policy.yaml")
-        std::string yaml_file = "/policy/policy.yaml";
+        std::string yaml_file = POLICY_FILE_PATH;
         parsing_err = std::filesystem::exists(yaml_file);
         if (parsing_err)
         {
@@ -222,7 +243,7 @@ int main(int argc, char **argv)
             if (err < 0)
             {
                 std::cerr << "YAML 정책 파일을 처리하는데 실패했습니다. 정책이 파일이 감지되면 다시 모니터링을 재개합니다.\n";
-                ContainerManager::monitored_containers.clear(); // 모든 컨테이너를 모니터링하도록 리스트 비우기
+                ContainerManager::monitored_containers.clear();
             }
             else
             {
@@ -232,7 +253,7 @@ int main(int argc, char **argv)
         else
         {
             std::cout << "YAML 정책 파일이 존재하지 않습니다. 정책이 파일이 감지되면 다시 모니터링을 재개합니다.\n";
-            ContainerManager::monitored_containers.clear(); // 모든 컨테이너를 모니터링하도록 리스트 비우기
+            ContainerManager::monitored_containers.clear(); 
         }
 
         init_syscall_map(skel);

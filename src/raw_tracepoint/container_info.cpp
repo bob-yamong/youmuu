@@ -64,7 +64,28 @@ int ContainerManager::getContainerPIDs() {
                     }
 
                     // 모니터링 대상이 비어있으면 모든 컨테이너 추가
-                    if (monitored_containers.empty()) {
+                    // if (monitored_containers.empty()) {
+                    //     std::string inspect_url = "http://localhost/containers/" + info.id + "/json";
+                    //     std::string inspect_response;
+                    //     curl_easy_setopt(curl, CURLOPT_URL, inspect_url.c_str());
+                    //     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &inspect_response);
+                    //     res = curl_easy_perform(curl);
+                    //     if (res == CURLE_OK) {
+                    //         json_object *inspect_jobj = json_tokener_parse(inspect_response.c_str());
+                    //         if (inspect_jobj) {
+                    //             json_object *state_obj, *pid_obj;
+                    //             if (json_object_object_get_ex(inspect_jobj, "State", &state_obj) &&
+                    //                 json_object_object_get_ex(state_obj, "Pid", &pid_obj)) {
+                    //                 info.pid = json_object_get_int(pid_obj);
+                    //                 containers.push_back(info);
+                    //             }
+                    //             json_object_put(inspect_jobj);
+                    //         }
+                    //     }
+                    // }
+                    
+                    // 모니터링 대상인지 확인
+                    if (std::find(monitored_containers.begin(), monitored_containers.end(), info.name) != monitored_containers.end()) {
                         std::string inspect_url = "http://localhost/containers/" + info.id + "/json";
                         std::string inspect_response;
                         curl_easy_setopt(curl, CURLOPT_URL, inspect_url.c_str());
@@ -83,28 +104,7 @@ int ContainerManager::getContainerPIDs() {
                             }
                         }
                     }
-                    else{
-                        // 모니터링 대상인지 확인
-                        if (std::find(monitored_containers.begin(), monitored_containers.end(), info.name) != monitored_containers.end()) {
-                            std::string inspect_url = "http://localhost/containers/" + info.id + "/json";
-                            std::string inspect_response;
-                            curl_easy_setopt(curl, CURLOPT_URL, inspect_url.c_str());
-                            curl_easy_setopt(curl, CURLOPT_WRITEDATA, &inspect_response);
-                            res = curl_easy_perform(curl);
-                            if (res == CURLE_OK) {
-                                json_object *inspect_jobj = json_tokener_parse(inspect_response.c_str());
-                                if (inspect_jobj) {
-                                    json_object *state_obj, *pid_obj;
-                                    if (json_object_object_get_ex(inspect_jobj, "State", &state_obj) &&
-                                        json_object_object_get_ex(state_obj, "Pid", &pid_obj)) {
-                                        info.pid = json_object_get_int(pid_obj);
-                                        containers.push_back(info);
-                                    }
-                                    json_object_put(inspect_jobj);
-                                }
-                            }
-                        }
-                    }
+                    
                 }
             }
             json_object_put(jobj);
