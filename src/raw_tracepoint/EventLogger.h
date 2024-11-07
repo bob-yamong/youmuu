@@ -11,6 +11,8 @@
 #include <sys/syscall.h>
 #include <linux/types.h>
 #include <zlib.h> // zlib 헤더 추가
+#include <sys/sysinfo.h>
+#include <ctime> 
 #include "event.h" // event 구조체가 정의된 헤더 파일
 
 class EventLogger {
@@ -28,7 +30,9 @@ private:
     // 로그를 파일에 기록하는 함수
     void flushThreadFunc();
     void flushToFile(const std::vector<event>& buffer);
-    
+    static time_t get_boot_time();
+    std::string format_timestamp(uint64_t timestamp_ns) const;
+
     size_t bufferSize_;
     std::string logFilePath_;
     
@@ -54,6 +58,8 @@ private:
     
     // zlib 압축 스트림
     gzFile gzFile_; // 압축된 파일 스트림 추가
+    
+    time_t boot_time_;
 };
 
 #endif // EVENTLOGGER_H

@@ -22,8 +22,13 @@ EventLogger::EventLogger(size_t bufferSize, const std::string& logFilePath)
       flushBuffers_(),
       isFlushing_(false),
       shutdown_(false),
-      gzFile_(nullptr) // 초기화
+      gzFile_(nullptr), // 초기화
+      boot_time_(get_boot_time()) // boot_time 초기화
 {
+    if (boot_time_ == 0) {
+        throw std::runtime_error("Failed to get system boot time");
+    }
+
     buffer1_.reserve(bufferSize_);
     buffer2_.reserve(bufferSize_);
     buffer3_.reserve(bufferSize_);
@@ -181,6 +186,7 @@ void EventLogger::flushToFile(const std::vector<event>& buffer)
         for (const auto& e : buffer) {
             std::ostringstream oss;
             oss << "[" << std::setw(13) << std::setfill('0') << e.cnt << "] "
+                << format_timestamp(e.timestamp) << " "
                 << "Process syscall: " << e.syscall
                 << " (nr=" << e.syscall_nr
                 << ", pid=" << e.pid
@@ -369,4 +375,27 @@ void EventLogger::flushToFile(const std::vector<event>& buffer)
     catch (...) {
         std::cerr << "Unknown exception in flushToFile\n";
     }
+}
+
+time_t EventLogger::get_boot_time() {
+    struct sysinfo s_info;
+    if (sysinfo(&s_info) != 0) {
+        return 0;
+    }
+    return time(NULL) - s_info.uptime;
+}
+
+std::string EventLogger::format_timestamp(uint64_t timestamp_ns) const {
+    time_t seconds = boot_time_ + (timestamp_ns / 1000000000);
+    struct tm tm_info;
+    localtime_r(&seconds, &tm_info);
+    
+    char buffer[32];
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &tm_info);
+    
+    uint64_t nanoseconds = timestamp_ns % 1000000000;
+    char result[48];
+    snprintf(result, sizeof(result), "%s.%09lu", buffer, nanoseconds);
+    
+    return std::string(result);
 }
