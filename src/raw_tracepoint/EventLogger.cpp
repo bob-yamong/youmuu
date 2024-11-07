@@ -187,9 +187,9 @@ void EventLogger::flushToFile(const std::vector<event>& buffer)
                 << ", tid=" << e.tid
                 << ", ppid=" << e.ppid
                 << ", uid=" << e.uid
-                << ", comm=" << std::string(e.comm)  // null 문자 제거
+                << ", comm=" << std::string(e.comm)
                 << ", cgroup_id=" << e.cgroup_id
-                << ", cgroup_name=" << std::string(e.cgroup_name) << ")\n";  // null 문자 제거
+                << ", cgroup_name=" << std::string(e.cgroup_name) << ")\n";
             
             // 시스템 콜 별 처리
             switch (e.syscall_nr)
@@ -202,9 +202,9 @@ void EventLogger::flushToFile(const std::vector<event>& buffer)
                     break;
                 case __NR_execve:
                 case __NR_execveat:
-                    oss << "Executing new program: " << std::string(e.filename) << "\n";  // null 문자 제거
+                    oss << "Executing new program: " << std::string(e.filename) << "\n";
                     for (int i = 0; i < MAX_ARGS && e.argv[i][0] != '\0'; i++) {
-                        oss << "Arg " << i << ": " << std::string(e.argv[i]) << "\n";  // null 문자 제거
+                        oss << "Arg " << i << ": " << std::string(e.argv[i]) << "\n";
                     }
                     break;
                 case __NR_exit:
@@ -252,7 +252,7 @@ void EventLogger::flushToFile(const std::vector<event>& buffer)
                 case __NR_readlink:
                 case __NR_readlinkat:
                     if (e.filename[0] != '\0') {
-                        oss << "File operation: " << e.syscall << " on file: " << std::string(e.filename) << "\n";  // null 문자 제거
+                        oss << "File operation: " << e.syscall << " on file: " << std::string(e.filename) << "\n";
                     }
                     break;
                 case __NR_close:

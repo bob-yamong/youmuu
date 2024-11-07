@@ -28,20 +28,6 @@ struct ContainerInfo {
     }
 };
 
-// 해시 함수: ContainerInfo를 pid로 해싱
-struct ContainerInfoHash {
-    std::size_t operator()(const ContainerInfo& ci) const {
-        return std::hash<int>()(ci.pid);
-    }
-};
-
-// 비교 함수: pid를 기준으로 동일 여부 판단
-struct ContainerInfoEqual {
-    bool operator()(const ContainerInfo& a, const ContainerInfo& b) const {
-        return a.pid == b.pid;
-    }
-};
-
 class ContainerManager {
 public:
     static std::vector<ContainerInfo> containers;
