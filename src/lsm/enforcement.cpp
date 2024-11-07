@@ -1,4 +1,4 @@
-#define _GNU_SOURCE
+// SPDX-License-Identifier: GPL-2.0
 #include <stdio.h>
 #include <time.h>
 #include <unistd.h>
@@ -65,10 +65,10 @@ void handle_signal(int sig) {
     exiting = true;
 }
 
-static int libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list args)
-{
-    return vfprintf(stderr, format, args);
-}
+// static int libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list args)
+// {
+//     return vfprintf(stderr, format, args);
+// }
 
 static void bump_memlock_rlimit(void)
 {
@@ -192,7 +192,7 @@ void print_policies(int map_fd) {
 
             // Print file policies
             printf("File Policies:\n");
-            for (int i = 0; i < value.num_file_policies; i++) {
+            for (__u32 i = 0; i < value.num_file_policies; i++) {
                 printf("  Path: %s\n", value.file_policies[i].path);
                 printf("  Flags: ");
                 for (const auto &flag: flags_to_string(value.file_policies[i].flags)) cout << flag << " ";
@@ -201,7 +201,7 @@ void print_policies(int map_fd) {
 
             // Print network policies
             printf("Network Policies:\n");
-            for (int i = 0; i < value.num_network_policies; i++) {
+            for (__u32 i = 0; i < value.num_network_policies; i++) {
                 char ip_str[INET_ADDRSTRLEN];
                 inet_ntop(AF_INET, &(value.network_policies[i].ip), ip_str, INET_ADDRSTRLEN);
                 int prefix_len = 32;
@@ -224,7 +224,7 @@ void print_policies(int map_fd) {
 
             // Print process policies
             printf("Process Policies:\n");
-            for (int i = 0; i < value.num_process_policies; i++) {
+            for (__u32 i = 0; i < value.num_process_policies; i++) {
                 printf("  Command: %s\n", value.process_policies[i].comm);
                 printf("  Flags: ");
                 for (const auto &flag: flags_to_string(value.process_policies[i].flags)) cout << flag << " ";
@@ -291,7 +291,6 @@ int add_policy(int map_fd) {
     getchar(); // Consume newline
 
     switch (policy_type) {
-        char input;
         case POLICY_FILE: {
             struct file_policy *fp = &value.file_policies[value.num_file_policies];
             printf("Enter file path: ");
@@ -383,7 +382,7 @@ int add_policy(int map_fd) {
     }
 
     if (bpf_map_update_elem(map_fd, &key, &value, BPF_ANY)) {
-        fprintf(stderr, "Failed to Add policy: mnt ns: %u, pid ns: %u\n", key.mnt_ns_id, key.pid_ns_id, strerror(errno));
+        fprintf(stderr, "Failed to Add policy: mnt ns: %u, pid ns: %u\n", key.mnt_ns_id, key.pid_ns_id);
     }
 
     return 0;
@@ -424,7 +423,7 @@ int update_policy_with_file(int map_fd, char* abs_file_name) {
                 strcpy(value.file_policies[value.num_file_policies].path, file.path.c_str());
                 value.file_policies[value.num_file_policies].flags = string_to_flags(file.flags);
                 
-                for (int i = 0; i < file.uid.size(); i++) {
+                for (std::vector<int>::size_type i = 0; i < file.uid.size(); i++) {
                     value.file_policies[value.num_file_policies].uid[i] = file.uid[i];
                 }
                 value.num_file_policies++;
@@ -445,7 +444,7 @@ int update_policy_with_file(int map_fd, char* abs_file_name) {
                 value.network_policies[value.num_network_policies].protocol = network.protocol;
                 value.network_policies[value.num_network_policies].flags = string_to_flags(network.flags);
                 
-                for (int i = 0; i < network.uid.size(); i++) {
+                for (std::vector<int>::size_type i = 0; i < network.uid.size(); i++) {
                     value.file_policies[value.num_network_policies].uid[i] = network.uid[i];
                 }
                 value.num_network_policies++;
@@ -459,7 +458,7 @@ int update_policy_with_file(int map_fd, char* abs_file_name) {
                 strcpy(value.process_policies[value.num_process_policies].comm, process.comm.c_str());
                 value.process_policies[value.num_process_policies].flags = string_to_flags(process.flags);
                 
-                for (int i = 0; i < process.uid.size(); i++) {
+                for (std::vector<int>::size_type i = 0; i < process.uid.size(); i++) {
                     value.process_policies[value.num_process_policies].uid[i] = process.uid[i];
                 }
                 value.num_process_policies++;
@@ -467,7 +466,7 @@ int update_policy_with_file(int map_fd, char* abs_file_name) {
         }
 
         if (bpf_map_update_elem(map_fd, &key, &value, BPF_ANY)) {
-            fprintf(stderr, "Failed to Add policy: mnt ns: %u, pid ns: %u\n", key.mnt_ns_id, key.pid_ns_id, strerror(errno));
+            fprintf(stderr, "Failed to Add policy: mnt ns: %u, pid ns: %u\n", key.mnt_ns_id, key.pid_ns_id);
         }
     }
     return 0;
@@ -508,7 +507,11 @@ void print_menu() {
     
     printf("input number to select menu\n");
 
-    for (int i = 0; i < sizeof(menu) / sizeof(menu[0]); printf("  %d. %s\n", i, menu[i++]));
+
+    __u64 i=0;
+    for (i = 0; i < sizeof(menu) / sizeof(menu[0]); i++) {
+        printf("  %lld. %s\n", i, menu[i]);
+    }
 }
 
 int get_menu(char *input) {
@@ -556,7 +559,7 @@ int main(int argc, char **argv) {
 
     /* Set up libbpf errors and debug info callback */
     // libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
-    libbpf_set_print(libbpf_print_fn);
+    // libbpf_set_print(libbpf_print_fn);
 
     /* Bump RLIMIT_MEMLOCK to allow BPF sub-system to do anything */
     bump_memlock_rlimit();

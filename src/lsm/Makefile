@@ -23,7 +23,7 @@ INCLUDES += -I../include/reflect-cpp/include/rfl/thirdparty  # yyjson.h를 위�
 INCLUDES += -I../include
 
 CFLAGS := -g -Wall
-CXXFLAGS := $(CFLAGS) -std=c++20
+CXXFLAGS := $(CFLAGS) -std=c++20 -Wno-write-strings
 CXXFLAGS += -I/usr/include/yaml-cpp
 CXXFLAGS += -I../include/reflect-cpp/include
 CXXFLAGS += -I../include/reflect-cpp/include/rfl/thirdparty  

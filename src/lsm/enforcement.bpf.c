@@ -897,7 +897,7 @@ int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
     }
 
 
-   if (bpf_d_path(old_dir, e->data.path, sizeof(e->data.path)) < 0) {   
+   if (bpf_d_path((struct path *)old_dir, e->data.path, sizeof(e->data.path)) < 0) {   
         //bpf_printk("Failed to get file path");
     }
     __u32 flags = match_policy(task, POLICY_FILE, e->data.path);
