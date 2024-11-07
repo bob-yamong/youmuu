@@ -6,6 +6,8 @@ Welcome to the **`Youmuu's Ghostblade`**! This project is an eBPF based containe
 
 ## **How to use**
 
+> **⚠️ Caution:** It is highly recommended to run this project on Linux kernel version 6.8.10 to ensure compatibility and stability.
+
 ### **1. Clone your new repository**
 
 Clone your newly created repository to your local machine:
@@ -29,7 +31,8 @@ On Ubuntu, you may run `make install` or
 ```sh
 sudo apt-get install -y --no-install-recommends \
         libelf1 libelf-dev zlib1g-dev \
-        make clang llvm
+        make clang llvm libyaml-dev libyaml-cpp-dev \
+        build-essential libcurl4-openssl-dev libjson-c-dev
 ```
 
 to install dependencies.
@@ -68,8 +71,11 @@ make build
 You can run the binary with:
 
 ```console
-sudo src/youmuu
+sudo src/lsm/enforcement
+sudo src/tracepoint/tracepoint
+sudo src/raw_tracepoint/raw_tracepoint
 ```
+You should add your policy file into /policy/policy.yaml. You can check the policy file structure in Example policy.
 
 ### **Additional**
 You can print the kernel space log created by `bpf_printk` using following command.
