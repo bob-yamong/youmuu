@@ -211,7 +211,7 @@ void sig_handler(int signum) {
 
 int main(int argc, char **argv)
 {
-    int err, parsing_err;
+    int err;
     // 시그널 핸들러 등록
     struct sigaction sa;
     sa.sa_handler = sig_handler;

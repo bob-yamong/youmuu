@@ -31,7 +31,7 @@ EventLogger::EventLogger(size_t bufferSize, const std::string& logFilePath , con
     }
 
     if (!dbConnection_.is_open()) {
-        throw std::runtime_error("Failed to open database connection: " + dbConnection_.dbname());
+        throw std::runtime_error(std::string("Failed to open database connection: ") + dbConnection_.dbname());
     }
 
     buffer1_.reserve(bufferSize_);
@@ -438,22 +438,22 @@ void EventLogger::insertEventsToDB(const std::vector<event>& buffer)
                 }
             }
 
-            txn.prepared("insert_syscall")
-                (e.syscall)
-                (container_id)
-                (e.pid)
-                (e.ppid)
-                (e.tid)
-                (e.uid)
-                (e.gid)
-                (std::string(e.comm))
-                (std::string(e.argv[0]))
-                (std::string(e.argv[1]))
-                (std::string(e.argv[2]))
-                (std::string(e.argv[3]))
-                (std::string(e.argv[4]))
-                (std::string(e.argv[5]))
-                .exec();
+            txn.exec_prepared("insert_syscall",
+            e.syscall,
+            container_id,
+            e.pid,
+            e.ppid,
+            e.tid,
+            e.uid,
+            e.gid,
+            std::string(e.comm),
+            std::string(e.argv[0]),
+            std::string(e.argv[1]),
+            std::string(e.argv[2]),
+            std::string(e.argv[3]),
+            std::string(e.argv[4]),
+            std::string(e.argv[5]));
+
         }
 
         // 트랜잭션 커밋
