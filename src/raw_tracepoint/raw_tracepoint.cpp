@@ -33,7 +33,7 @@ int rb_cnt_1 = 0;
 u_int64_t err_cnt = 0;
 
 // EventLogger 객체 생성 (전역 또는 싱글톤으로 관리 가능)
-const size_t BUFFER_SIZE = 100000; // 예: 10만 개
+const size_t BUFFER_SIZE = 100000;
 const std::string LOG_FILE_PATH = "log/general.log.gz";
 EventLogger eventLogger(BUFFER_SIZE, LOG_FILE_PATH);
 
@@ -137,7 +137,7 @@ void ringbuf_thread_func(struct ring_buffer *rb)
 {
     while (!exiting.load(std::memory_order_relaxed))
     {
-        int err = ring_buffer__poll(rb, 1); // 무한 대기
+        int err = ring_buffer__poll(rb, 1);
         if (err == -EINTR)
         {
             break;
@@ -154,7 +154,7 @@ void ringbuf_thread_func(struct ring_buffer *rb)
 void policy_reload_thread(const std::string &yaml_file_path) {
     std::unique_lock<std::mutex> lock(cv_m);
     while (!exiting.load(std::memory_order_relaxed)) {
-        if(cv.wait_for(lock, std::chrono::minutes(1), []{ return exiting.load(); }))
+        if(cv.wait_for(lock, std::chrono::minutes(1), []{ return exiting.load(); })) // 1분에 한번씩 정책을 감지 
             break;
 
         std::cout << "정책을 재로딩합니다: " << yaml_file_path << "\n";
@@ -214,14 +214,13 @@ int main(int argc, char **argv)
 
         // YAML 파일 경로 지정 (예: "policy.yaml")
         std::string yaml_file = "/policy/policy.yaml";
-        parsing_err = std::filesystem::exists(yaml_file);
-        if (parsing_err)
+        if (std::filesystem::exists(yaml_file);)
         {
             std::cout << "YAML 정책 파일을 발견했습니다. 정책을 업데이트합니다...\n";
             err = update_policy_with_file(const_cast<char*>(yaml_file.c_str()));
             if (err < 0)
             {
-                std::cerr << "YAML 정책 파일을 처리하는데 실패했습니다. 모든 컨테이너를 모니터링 합니다.\n";
+                std::cerr << "YAML 정책 파일을 처리하는데 실패했습니다. 정책이 파일이 감지되면 다시 모니터링을 재개합니다.\n";
                 ContainerManager::monitored_containers.clear(); // 모든 컨테이너를 모니터링하도록 리스트 비우기
             }
             else
@@ -229,11 +228,10 @@ int main(int argc, char **argv)
                 std::cout << "YAML 정책에 따라 컨테이너를 모니터링 합니다.\n";
             }
         }
-        if(!parsing_err || err < 0)
+        else
         {
-            std::cout << "YAML 정책 파일이 존재하지 않습니다. 모든 컨테이너를 모니터링 합니다.\n";
+            std::cout << "YAML 정책 파일이 존재하지 않습니다. 정책이 파일이 감지되면 다시 모니터링을 재개합니다.\n";
             ContainerManager::monitored_containers.clear(); // 모든 컨테이너를 모니터링하도록 리스트 비우기
-            update_monitoring_map();
         }
 
         init_syscall_map(skel);
