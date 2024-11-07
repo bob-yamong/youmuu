@@ -214,7 +214,8 @@ int main(int argc, char **argv)
 
         // YAML 파일 경로 지정 (예: "policy.yaml")
         std::string yaml_file = "/policy/policy.yaml";
-        if (std::filesystem::exists(yaml_file);)
+        parsing_err = std::filesystem::exists(yaml_file);
+        if (parsing_err)
         {
             std::cout << "YAML 정책 파일을 발견했습니다. 정책을 업데이트합니다...\n";
             err = update_policy_with_file(const_cast<char*>(yaml_file.c_str()));
