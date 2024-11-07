@@ -9,4 +9,5 @@ install:
 	sudo apt-get install -y --no-install-recommends \
         libelf1 libelf-dev zlib1g-dev \
         make clang llvm libyaml-dev libyaml-cpp-dev \
-		build-essential libcurl4-openssl-dev libjson-c-dev
+		build-essential libcurl4-openssl-dev libjson-c-dev \
+		libpq-dev libpqxx-dev
