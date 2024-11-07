@@ -6,7 +6,8 @@ Welcome to the **`Youmuu's Ghostblade`**! This project is an eBPF based containe
 
 ## **How to use**
 
-> **⚠️ Caution:** It is highly recommended to run this project on Linux kernel version 6.8.10 to ensure compatibility and stability.
+> [!CAUTION]
+> It is highly recommended to run this project on Linux kernel version 6.8.10 to ensure compatibility and stability.
 
 ### **1. Clone your new repository**
 
