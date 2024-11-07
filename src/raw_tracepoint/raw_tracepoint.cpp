@@ -1,26 +1,24 @@
 // SPDX-License-Identifier: GPL-2.0
-#include <iostream>
-#include <fstream> // 파일 스트림 포함
-#include <mutex>
-#include <thread>
-#include <vector>
-#include <signal.h>
-#include <unistd.h>
-#include <string>
-#include <iomanip>
-#include <atomic>
-#include <condition_variable>
-#include <sys/resource.h>
-#include <bpf/libbpf.h>
-#include <filesystem>
+#include <iostream>         // cout, cerr 사용
+#include <mutex>           // mutex, condition_variable 사용
+#include <thread>          // thread 생성 및 관리
+#include <vector>          // ContainerManager::containers 사용
+#include <signal.h>        // 시그널 핸들링
+#include <unistd.h>        // 시스템 콜 관련
+#include <string>          // 문자열 처리
+#include <atomic>          // atomic 변수 사용
+#include <condition_variable> // condition_variable 사용
+#include <bpf/libbpf.h>    // BPF 관련
+#include <filesystem>      // 파일 존재 확인
+#include <algorithm>       // std::find 사용
+
+// 프로젝트 관련 헤더
 #include "raw_tracepoint.skel.h"
 #include "event.h"
 #include "container_info.h"
 #include "syscall_list.h"
-#include "parser.h" // YAML 파싱 관련 헤더 포함
-#include <algorithm> // std::find 사용을 위해 추가
-
-#include "EventLogger.h" // EventLogger 클래스 헤더 추가
+#include "parser.h"
+#include "EventLogger.h"
 
 #define POLICY_FILE_PATH "/policy/policy.yaml"
 

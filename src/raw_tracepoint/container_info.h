@@ -8,8 +8,6 @@
 #include <glob.h>
 #include <sys/stat.h>
 #include <limits.h>
-#include <mutex>
-#include <unordered_set>
 
 #define DOCKER_SOCKET "/var/run/docker.sock"
 #define MAX_CONTAINERS 100

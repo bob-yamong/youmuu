@@ -8,12 +8,10 @@
 #include <string>
 #include <condition_variable>
 #include <deque>
-#include <sys/syscall.h>
-#include <linux/types.h>
-#include <zlib.h> // zlib 헤더 추가
+#include <zlib.h>
 #include <sys/sysinfo.h>
-#include <ctime> 
-#include "event.h" // event 구조체가 정의된 헤더 파일
+#include <ctime>
+#include "event.h"
 
 class EventLogger {
 public:
