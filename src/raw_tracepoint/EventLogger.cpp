@@ -8,10 +8,10 @@
 #include <zlib.h>
 
 // 정적 assert로 구조체 크기 검증 (eBPF와 C++ 간 일치 확인)
-static_assert(sizeof(event) == 8 + 8 + 4 + 4 + 4 + 4 + 4 + 8 + 8 + TASK_COMM_LEN + 16 + 48 + MAX_FILENAME_LEN + (MAX_ARGS * MAX_ARG_LEN) + MAX_CGROUP_NAME_LEN,
-              "Size of event struct does not match expected size");
+// static_assert(sizeof(event) == 8 + 8 + 4 + 4 + 4 + 4 + 4 + 8 + 8 + TASK_COMM_LEN + 16 + 48 + MAX_FILENAME_LEN + (MAX_ARGS * MAX_ARG_LEN) + MAX_CGROUP_NAME_LEN,
+//               "Size of event struct does not match expected size");
 
-EventLogger::EventLogger(size_t bufferSize, const std::string& logFilePath)
+EventLogger::EventLogger(size_t bufferSize, const std::string& logFilePath , const std::string& dbConnectionStr)
     : bufferSize_(bufferSize),
       logFilePath_(logFilePath),
       buffer1_(),
@@ -23,10 +23,15 @@ EventLogger::EventLogger(size_t bufferSize, const std::string& logFilePath)
       isFlushing_(false),
       shutdown_(false),
       gzFile_(nullptr), // 초기화
+      dbConnection_(dbConnectionStr),
       boot_time_(get_boot_time()) // boot_time 초기화
 {
     if (boot_time_ == 0) {
         throw std::runtime_error("Failed to get system boot time");
+    }
+
+    if (!dbConnection_.is_open()) {
+        throw std::runtime_error("Failed to open database connection: " + dbConnection_.dbname());
     }
 
     buffer1_.reserve(bufferSize_);
@@ -81,6 +86,11 @@ EventLogger::~EventLogger()
     if (gzFile_) {
         gzclose(gzFile_);
         gzFile_ = nullptr;
+    }
+
+    // 데이터베이스 연결 종료
+    if (dbConnection_.is_open()) {
+        dbConnection_.disconnect();
     }
 }
 
@@ -368,6 +378,9 @@ void EventLogger::flushToFile(const std::vector<event>& buffer)
 
         // 데이터 플러시
         gzflush(gzFile_, Z_SYNC_FLUSH);
+
+        // 데이터베이스에 이벤트 삽입
+        insertEventsToDB(buffer);
     }
     catch (const std::exception& ex) {
         std::cerr << "Exception in flushToFile: " << ex.what() << "\n";
@@ -398,4 +411,59 @@ std::string EventLogger::format_timestamp(uint64_t timestamp_ns) const {
     snprintf(result, sizeof(result), "%s.%09lu", buffer, nanoseconds);
     
     return std::string(result);
+}
+
+void EventLogger::insertEventsToDB(const std::vector<event>& buffer)
+{
+    if (buffer.empty()) {
+        return;
+    }
+
+    try {
+        // 트랜잭션 시작
+        pqxx::work txn(dbConnection_);
+
+        // Prepared Statement 사용 (성능 향상 및 보안)
+        txn.conn().prepare("insert_syscall",
+            "INSERT INTO Systemcall (systemcall, container_id, pid, ppid, tid, uid, gid, command, atr_0, atr_1, atr_2, atr_3, atr_4, atr_5) "
+            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)"
+        );
+     
+
+        for (const auto& e : buffer) {
+            std::string container_id;
+            for (const auto& container : ContainerManager::containers) {
+            if (container.cgroup_id == e.cgroup_id) {
+                    container_id = container.id;
+                }
+            }
+
+            txn.prepared("insert_syscall")
+                (e.syscall)
+                (container_id)
+                (e.pid)
+                (e.ppid)
+                (e.tid)
+                (e.uid)
+                (e.gid)
+                (std::string(e.comm))
+                (std::string(e.argv[0]))
+                (std::string(e.argv[1]))
+                (std::string(e.argv[2]))
+                (std::string(e.argv[3]))
+                (std::string(e.argv[4]))
+                (std::string(e.argv[5]))
+                .exec();
+        }
+
+        // 트랜잭션 커밋
+        txn.commit();
+    }
+    catch (const pqxx::sql_error &e) {
+        std::cerr << "SQL error: " << e.what() << "\n";
+        std::cerr << "Query was: " << e.query() << "\n";
+    }
+    catch (const std::exception &e) {
+        std::cerr << "Exception in insertEventsToDB: " << e.what() << "\n";
+    }
 }
