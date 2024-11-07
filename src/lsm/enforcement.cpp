@@ -65,10 +65,10 @@ void handle_signal(int sig) {
     exiting = true;
 }
 
-// static int libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list args)
-// {
-//     return vfprintf(stderr, format, args);
-// }
+static int libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list args)
+{
+    return vfprintf(stderr, format, args);
+}
 
 static void bump_memlock_rlimit(void)
 {
@@ -559,7 +559,7 @@ int main(int argc, char **argv) {
 
     /* Set up libbpf errors and debug info callback */
     // libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
-    // libbpf_set_print(libbpf_print_fn);
+    libbpf_set_print(libbpf_print_fn);
 
     /* Bump RLIMIT_MEMLOCK to allow BPF sub-system to do anything */
     bump_memlock_rlimit();
