@@ -1,5 +1,5 @@
-#ifndef STRUCTS_H
-#define STRUCTS_H
+#ifndef STRUCT_H
+#define STRUCT_H
 
 struct current_task  {
     __u64 count;

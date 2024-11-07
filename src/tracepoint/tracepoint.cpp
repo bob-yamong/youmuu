@@ -10,7 +10,7 @@
 #include <thread>
 #include <chrono>
 #include "tracepoint.skel.h"
-#include "structs.h"
+#include "struct.h"
 #include "handler.h"
 #include "parser.h"
 

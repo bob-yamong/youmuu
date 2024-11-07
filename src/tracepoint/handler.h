@@ -9,7 +9,7 @@
 #include <time.h>
 #include <sys/sysinfo.h>
 #include <asm/unistd_64.h>
-#include "structs.h"
+#include "struct.h"
 
 extern time_t boot_time;
 
