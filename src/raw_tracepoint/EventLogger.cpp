@@ -380,7 +380,7 @@ void EventLogger::flushToFile(const std::vector<event>& buffer)
         gzflush(gzFile_, Z_SYNC_FLUSH);
 
         // 데이터베이스에 이벤트 삽입
-        insertEventsToDB(buffer);
+        // insertEventsToDB(buffer);
     }
     catch (const std::exception& ex) {
         std::cerr << "Exception in flushToFile: " << ex.what() << "\n";
