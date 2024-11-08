@@ -225,11 +225,11 @@ int main(int argc, char **argv)
         system("mkdir -p log");
 
         // 환경 변수 읽기
-        std::string host = get_env_var("POSTGRESQL_HOST");
-        std::string dbname = get_env_var("POSTGRESQL_DB");
-        std::string user = get_env_var("POSTGRESQL_USERNAME");
-        std::string password = get_env_var("POSTGRESQL_PASSWORD");
-        std::string port = get_env_var("POSTGRESQL_PORT");
+        std::string host = get_env_var("POSTGRES_HOST");
+        std::string dbname = get_env_var("POSTGRES_DB");
+        std::string user = get_env_var("POSTGRES_USER");
+        std::string password = get_env_var("POSTGRES_PASSWORD");
+        std::string port = get_env_var("POSTGRES_PORT");
 
         // 연결 문자열 구성
         std::string dbConnectionStr = "dbname=" + dbname +
