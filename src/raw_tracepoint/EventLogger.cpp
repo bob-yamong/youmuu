@@ -425,22 +425,22 @@ void EventLogger::insertEventsToDB(const std::vector<event>& buffer)
 
         // Prepared Statement 사용 (성능 향상 및 보안)
         txn.conn().prepare("insert_syscall",
-            "INSERT INTO Systemcall (systemcall, container_id, pid, ppid, tid, uid, gid, command, atr_0, atr_1, atr_2, atr_3, atr_4, atr_5) "
+            "INSERT INTO \"ContainerLog\" (systemcall, container_name, pid, ppid, tid, uid, gid, command, atr_0, atr_1, atr_2, atr_3, atr_4, atr_5) "
             "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)"
         );
      
 
         for (const auto& e : buffer) {
-            std::string container_id;
+            std::string container_name;
             for (const auto& container : ContainerManager::containers) {
             if (container.cgroup_id == e.cgroup_id) {
-                    container_id = container.id;
+                    container_name = container.name;
                 }
             }
 
             txn.exec_prepared("insert_syscall",
             e.syscall,
-            container_id,
+            container_name,
             e.pid,
             e.ppid,
             e.tid,
@@ -467,3 +467,57 @@ void EventLogger::insertEventsToDB(const std::vector<event>& buffer)
         std::cerr << "Exception in insertEventsToDB: " << e.what() << "\n";
     }
 }
+
+// void EventLogger::insertEventsToDB(const std::vector<event>& buffer)
+// {
+//     if (buffer.empty()) {
+//         return;
+//     }
+
+//     try {
+//         // 트랜잭션 시작
+//         pqxx::work txn(dbConnection_);
+
+//         // stream_to 사용하여 COPY 명령어 수행
+//         pqxx::stream_to stream(txn, "ContainerLog");
+
+//         for (const auto& e : buffer) {
+//             std::string container_name;
+//             for (const auto& container : ContainerManager::containers) {
+//                 if (container.cgroup_id == e.cgroup_id) {
+//                     container_name = container.name;
+//                     break;
+//                 }
+//             }
+
+//             // stream_to에 데이터 삽입
+//             stream << pqxx::row{
+//                 e.syscall,
+//                 container_name,
+//                 e.pid,
+//                 e.ppid,
+//                 e.tid,
+//                 e.uid,
+//                 e.gid,
+//                 std::string(e.comm),
+//                 std::string(e.argv[0]),
+//                 std::string(e.argv[1]),
+//                 std::string(e.argv[2]),
+//                 std::string(e.argv[3]),
+//                 std::string(e.argv[4]),
+//                 std::string(e.argv[5])
+//             };
+//         }
+
+//         // stream 닫기 (자동으로 트랜잭션 커밋)
+//         stream.complete();
+
+//     }
+//     catch (const pqxx::sql_error &e) {
+//         std::cerr << "SQL error: " << e.what() << "\n";
+//         std::cerr << "Query was: " << e.query() << "\n";
+//     }
+//     catch (const std::exception &e) {
+//         std::cerr << "Exception in insertEventsToDB: " << e.what() << "\n";
+//     }
+// }
