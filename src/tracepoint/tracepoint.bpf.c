@@ -139,7 +139,6 @@ static inline bool read_sockaddr(struct event_t *e, void *addr_ptr) {
     return false;
 }
 
-// 네트워크 관련 이벤트
 SEC("tracepoint/syscalls/sys_enter_socket")
 int trace_sys_enter_socket(struct trace_event_raw_sys_enter *ctx) {
     struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));

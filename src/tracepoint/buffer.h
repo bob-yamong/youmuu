@@ -25,6 +25,7 @@ public:
 private:
     static const size_t MAX_EVENTS = 100000;
     static const size_t BUFFER_COUNT = 4;
+    static const size_t FLUSH_THREAD_COUNT = 4;
 
     // 버퍼에 이벤트 목록을 저장하는 구조체
     struct Buffer {
@@ -48,7 +49,7 @@ private:
     // stop() 호출 시 true로 flush 쓰레드 종료
     bool should_stop;
     // 이벤트 정보를 DB에 flush 하는 쓰레드
-    std::thread flush_thread;
+    std::vector<std::thread> flush_threads;
     DBConnection db_conn;
 
     // 현재 기록가능한 버퍼 return 
