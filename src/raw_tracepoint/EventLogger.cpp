@@ -6,6 +6,7 @@
 #include <cstring>
 #include <sstream>
 #include <zlib.h>
+#include <string_view> 
 
 // 정적 assert로 구조체 크기 검증 (eBPF와 C++ 간 일치 확인)
 // static_assert(sizeof(event) == 8 + 8 + 4 + 4 + 4 + 4 + 4 + 8 + 8 + TASK_COMM_LEN + 16 + 48 + MAX_FILENAME_LEN + (MAX_ARGS * MAX_ARG_LEN) + MAX_CGROUP_NAME_LEN,
@@ -89,9 +90,9 @@ EventLogger::~EventLogger()
     }
 
     // 데이터베이스 연결 종료
-    if (dbConnection_.is_open()) {
-        dbConnection_.disconnect();
-    }
+    // if (dbConnection_.is_open()) {
+    //     dbConnection_.disconnect();
+    // }
 }
 
 void EventLogger::addEvent(const event& e)
@@ -413,50 +414,150 @@ std::string EventLogger::format_timestamp(uint64_t timestamp_ns) const {
     return std::string(result);
 }
 
-void EventLogger::insertEventsToDB(const std::vector<event>& buffer)
-{
-    if (buffer.empty()) {
-        return;
-    }
+// void EventLogger::insertEventsToDB(const std::vector<event>& buffer)
+// {
+//     if (buffer.empty()) {
+//         return;
+//     }
+
+//     try {
+//         // 트랜잭션 시작
+//         pqxx::work txn(dbConnection_);
+
+//         // Prepared Statement 사용 (성능 향상 및 보안)
+//         txn.conn().prepare("insert_syscall",
+//             "INSERT INTO \"ContainerLog\" (systemcall, container_name, pid, ppid, tid, uid, gid, command, atr_0, atr_1, atr_2, atr_3, atr_4, atr_5) "
+//             "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)"
+//         );
+     
+
+//         for (const auto& e : buffer) {
+//             std::string container_name;
+//             for (const auto& container : ContainerManager::containers) {
+//             if (container.cgroup_id == e.cgroup_id) {
+//                     container_name = container.name;
+//                 }
+//             }
+
+//             txn.exec_prepared("insert_syscall",
+//             e.syscall,
+//             container_name,
+//             e.pid,
+//             e.ppid,
+//             e.tid,
+//             e.uid,
+//             e.gid,
+//             std::string(e.comm),
+//             std::string(e.argv[0]),
+//             std::string(e.argv[1]),
+//             std::string(e.argv[2]),
+//             std::string(e.argv[3]),
+//             std::string(e.argv[4]),
+//             std::string(e.argv[5]));
+
+//         }
+
+//         // 트랜잭션 커밋
+//         txn.commit();
+//     }
+//     catch (const pqxx::sql_error &e) {
+//         std::cerr << "SQL error: " << e.what() << "\n";
+//         std::cerr << "Query was: " << e.query() << "\n";
+//     }
+//     catch (const std::exception &e) {
+//         std::cerr << "Exception in insertEventsToDB: " << e.what() << "\n";
+//     }
+// }
+
+using namespace std::string_view_literals;
+
+void EventLogger::insertEventsToDB(const std::vector<event>& buffer) {
+    if (buffer.empty()) return;
 
     try {
-        // 트랜잭션 시작
         pqxx::work txn(dbConnection_);
+        auto stream = pqxx::stream_to::table(txn, {"ContainerLog"sv}, {
+            "systemcall",
+            "container_name",
+            "pid",
+            "ppid",
+            "tid",
+            "uid",
+            "gid",
+            "command",
+            "atr_0",
+            "atr_1",
+            "atr_2",
+            "atr_3",
+            "atr_4",
+            "atr_5"
+        });
 
-        // Prepared Statement 사용 (성능 향상 및 보안)
-        txn.conn().prepare("insert_syscall",
-            "INSERT INTO \"ContainerLog\" (systemcall, container_name, pid, ppid, tid, uid, gid, command, atr_0, atr_1, atr_2, atr_3, atr_4, atr_5) "
-            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)"
-        );
-     
+        // 개선된 문자열 정제 함수
+        auto sanitizeString = [](const char* str) -> std::string {
+            std::string result;
+            const unsigned char* p = reinterpret_cast<const unsigned char*>(str);
+            
+            while (*p && result.length() < MAX_ARG_LEN) {
+                // UTF-8 유효성 검사 및 필터링
+                if (*p < 0x80) { // ASCII 문자
+                    if (*p >= 0x20 && *p != 0x7F) { // 출력 가능한 ASCII
+                        result += static_cast<char>(*p);
+                    }
+                    p++;
+                } else if ((*p & 0xE0) == 0xC0) { // 2바이트 UTF-8
+                    if (p[1] && (p[1] & 0xC0) == 0x80) {
+                        result += static_cast<char>(p[0]);
+                        result += static_cast<char>(p[1]);
+                        p += 2;
+                    } else {
+                        p++;
+                    }
+                } else if ((*p & 0xF0) == 0xE0) { // 3바이트 UTF-8
+                    if (p[1] && p[2] && 
+                        (p[1] & 0xC0) == 0x80 && 
+                        (p[2] & 0xC0) == 0x80) {
+                        result += static_cast<char>(p[0]);
+                        result += static_cast<char>(p[1]);
+                        result += static_cast<char>(p[2]);
+                        p += 3;
+                    } else {
+                        p++;
+                    }
+                } else {
+                    p++; // 유효하지 않은 바이트는 건너뛰기
+                }
+            }
+            return result;
+        };
 
         for (const auto& e : buffer) {
             std::string container_name;
             for (const auto& container : ContainerManager::containers) {
-            if (container.cgroup_id == e.cgroup_id) {
+                if (container.cgroup_id == e.cgroup_id) {
                     container_name = container.name;
+                    break;
                 }
             }
 
-            txn.exec_prepared("insert_syscall",
-            e.syscall,
-            container_name,
-            e.pid,
-            e.ppid,
-            e.tid,
-            e.uid,
-            e.gid,
-            std::string(e.comm),
-            std::string(e.argv[0]),
-            std::string(e.argv[1]),
-            std::string(e.argv[2]),
-            std::string(e.argv[3]),
-            std::string(e.argv[4]),
-            std::string(e.argv[5]));
-
+            stream.write_values(
+                sanitizeString(e.syscall),
+                container_name,
+                e.pid,
+                e.ppid,
+                e.tid,
+                e.uid,
+                e.gid,
+                sanitizeString(e.comm),
+                sanitizeString(e.argv[0]),
+                sanitizeString(e.argv[1]),
+                sanitizeString(e.argv[2]),
+                sanitizeString(e.argv[3]),
+                sanitizeString(e.argv[4]),
+                sanitizeString(e.argv[5])
+            );
         }
-
-        // 트랜잭션 커밋
+        stream.complete();
         txn.commit();
     }
     catch (const pqxx::sql_error &e) {
@@ -478,8 +579,23 @@ void EventLogger::insertEventsToDB(const std::vector<event>& buffer)
 //         // 트랜잭션 시작
 //         pqxx::work txn(dbConnection_);
 
-//         // stream_to 사용하여 COPY 명령어 수행
-//         pqxx::stream_to stream(txn, "ContainerLog");
+//         // stream_to 객체 생성 시 std::initializer_list<std::string_view>로 테이블 및 컬럼 지정
+//         auto stream = pqxx::stream_to::table(txn, {"ContainerLog"sv}, {
+//             "systemcall",
+//             "container_name",
+//             "pid",
+//             "ppid",
+//             "tid",
+//             "uid",
+//             "gid",
+//             "command",
+//             "atr_0",
+//             "atr_1",
+//             "atr_2",
+//             "atr_3",
+//             "atr_4",
+//             "atr_5"
+//         });
 
 //         for (const auto& e : buffer) {
 //             std::string container_name;
@@ -490,8 +606,8 @@ void EventLogger::insertEventsToDB(const std::vector<event>& buffer)
 //                 }
 //             }
 
-//             // stream_to에 데이터 삽입
-//             stream << pqxx::row{
+//             // stream_to에 데이터 삽입 (write_values 사용)
+//             stream.write_values(
 //                 e.syscall,
 //                 container_name,
 //                 e.pid,
@@ -506,7 +622,7 @@ void EventLogger::insertEventsToDB(const std::vector<event>& buffer)
 //                 std::string(e.argv[3]),
 //                 std::string(e.argv[4]),
 //                 std::string(e.argv[5])
-//             };
+//             );
 //         }
 
 //         // stream 닫기 (자동으로 트랜잭션 커밋)
