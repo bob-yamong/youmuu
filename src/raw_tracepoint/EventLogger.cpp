@@ -6,7 +6,6 @@
 #include <cstring>
 #include <sstream>
 #include <zlib.h>
-#include <string_view> 
 
 // 정적 assert로 구조체 크기 검증 (eBPF와 C++ 간 일치 확인)
 // static_assert(sizeof(event) == 8 + 8 + 4 + 4 + 4 + 4 + 4 + 8 + 8 + TASK_COMM_LEN + 16 + 48 + MAX_FILENAME_LEN + (MAX_ARGS * MAX_ARG_LEN) + MAX_CGROUP_NAME_LEN,
@@ -414,69 +413,12 @@ std::string EventLogger::format_timestamp(uint64_t timestamp_ns) const {
     return std::string(result);
 }
 
-// void EventLogger::insertEventsToDB(const std::vector<event>& buffer)
-// {
-//     if (buffer.empty()) {
-//         return;
-//     }
-
-//     try {
-//         // 트랜잭션 시작
-//         pqxx::work txn(dbConnection_);
-
-//         // Prepared Statement 사용 (성능 향상 및 보안)
-//         txn.conn().prepare("insert_syscall",
-//             "INSERT INTO \"ContainerLog\" (systemcall, container_name, pid, ppid, tid, uid, gid, command, atr_0, atr_1, atr_2, atr_3, atr_4, atr_5) "
-//             "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)"
-//         );
-     
-
-//         for (const auto& e : buffer) {
-//             std::string container_name;
-//             for (const auto& container : ContainerManager::containers) {
-//             if (container.cgroup_id == e.cgroup_id) {
-//                     container_name = container.name;
-//                 }
-//             }
-
-//             txn.exec_prepared("insert_syscall",
-//             e.syscall,
-//             container_name,
-//             e.pid,
-//             e.ppid,
-//             e.tid,
-//             e.uid,
-//             e.gid,
-//             std::string(e.comm),
-//             std::string(e.argv[0]),
-//             std::string(e.argv[1]),
-//             std::string(e.argv[2]),
-//             std::string(e.argv[3]),
-//             std::string(e.argv[4]),
-//             std::string(e.argv[5]));
-
-//         }
-
-//         // 트랜잭션 커밋
-//         txn.commit();
-//     }
-//     catch (const pqxx::sql_error &e) {
-//         std::cerr << "SQL error: " << e.what() << "\n";
-//         std::cerr << "Query was: " << e.query() << "\n";
-//     }
-//     catch (const std::exception &e) {
-//         std::cerr << "Exception in insertEventsToDB: " << e.what() << "\n";
-//     }
-// }
-
-using namespace std::string_view_literals;
-
 void EventLogger::insertEventsToDB(const std::vector<event>& buffer) {
     if (buffer.empty()) return;
 
     try {
         pqxx::work txn(dbConnection_);
-        auto stream = pqxx::stream_to::table(txn, {"ContainerLog"sv}, {
+        auto stream = pqxx::stream_to::table(txn, "ContainerLog", {
             "systemcall",
             "container_name",
             "pid",
@@ -568,72 +510,3 @@ void EventLogger::insertEventsToDB(const std::vector<event>& buffer) {
         std::cerr << "Exception in insertEventsToDB: " << e.what() << "\n";
     }
 }
-
-// void EventLogger::insertEventsToDB(const std::vector<event>& buffer)
-// {
-//     if (buffer.empty()) {
-//         return;
-//     }
-
-//     try {
-//         // 트랜잭션 시작
-//         pqxx::work txn(dbConnection_);
-
-//         // stream_to 객체 생성 시 std::initializer_list<std::string_view>로 테이블 및 컬럼 지정
-//         auto stream = pqxx::stream_to::table(txn, {"ContainerLog"sv}, {
-//             "systemcall",
-//             "container_name",
-//             "pid",
-//             "ppid",
-//             "tid",
-//             "uid",
-//             "gid",
-//             "command",
-//             "atr_0",
-//             "atr_1",
-//             "atr_2",
-//             "atr_3",
-//             "atr_4",
-//             "atr_5"
-//         });
-
-//         for (const auto& e : buffer) {
-//             std::string container_name;
-//             for (const auto& container : ContainerManager::containers) {
-//                 if (container.cgroup_id == e.cgroup_id) {
-//                     container_name = container.name;
-//                     break;
-//                 }
-//             }
-
-//             // stream_to에 데이터 삽입 (write_values 사용)
-//             stream.write_values(
-//                 e.syscall,
-//                 container_name,
-//                 e.pid,
-//                 e.ppid,
-//                 e.tid,
-//                 e.uid,
-//                 e.gid,
-//                 std::string(e.comm),
-//                 std::string(e.argv[0]),
-//                 std::string(e.argv[1]),
-//                 std::string(e.argv[2]),
-//                 std::string(e.argv[3]),
-//                 std::string(e.argv[4]),
-//                 std::string(e.argv[5])
-//             );
-//         }
-
-//         // stream 닫기 (자동으로 트랜잭션 커밋)
-//         stream.complete();
-
-//     }
-//     catch (const pqxx::sql_error &e) {
-//         std::cerr << "SQL error: " << e.what() << "\n";
-//         std::cerr << "Query was: " << e.query() << "\n";
-//     }
-//     catch (const std::exception &e) {
-//         std::cerr << "Exception in insertEventsToDB: " << e.what() << "\n";
-//     }
-// }
