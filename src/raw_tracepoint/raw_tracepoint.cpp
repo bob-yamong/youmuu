@@ -225,16 +225,16 @@ int main(int argc, char **argv)
         system("mkdir -p log");
 
         // 환경 변수 읽기
-        // std::string host = get_env_var("POSTGRES_HOST");
-        // std::string dbname = get_env_var("POSTGRES_DB");
-        // std::string user = get_env_var("POSTGRES_USER");
-        // std::string password = get_env_var("POSTGRES_PASSWORD");
-        // std::string port = get_env_var("POSTGRES_PORT");
-        std::string host = "34.64.34.211";
-        std::string dbname = "yamong";
-        std::string user = "yamong";
-        std::string password = "yamong";
-        std::string port = "5432";
+        std::string host = get_env_var("POSTGRES_HOST");
+        std::string dbname = get_env_var("POSTGRES_DB");
+        std::string user = get_env_var("POSTGRES_USER");
+        std::string password = get_env_var("POSTGRES_PASSWORD");
+        std::string port = get_env_var("POSTGRES_PORT");
+        // std::string host = "34.64.34.211";
+        // std::string dbname = "yamong";
+        // std::string user = "yamong";
+        // std::string password = "yamong";
+        // std::string port = "5432";
 
         // 연결 문자열 구성
         std::string dbConnectionStr = "dbname=" + dbname +

@@ -6,6 +6,7 @@
 #include <cstring>
 #include <sstream>
 #include <zlib.h>
+#include <string_view> 
 
 // 정적 assert로 구조체 크기 검증 (eBPF와 C++ 간 일치 확인)
 // static_assert(sizeof(event) == 8 + 8 + 4 + 4 + 4 + 4 + 4 + 8 + 8 + TASK_COMM_LEN + 16 + 48 + MAX_FILENAME_LEN + (MAX_ARGS * MAX_ARG_LEN) + MAX_CGROUP_NAME_LEN,
@@ -413,12 +414,14 @@ std::string EventLogger::format_timestamp(uint64_t timestamp_ns) const {
     return std::string(result);
 }
 
+using namespace std::string_view_literals;
+
 void EventLogger::insertEventsToDB(const std::vector<event>& buffer) {
     if (buffer.empty()) return;
 
     try {
         pqxx::work txn(dbConnection_);
-        auto stream = pqxx::stream_to::table(txn, "ContainerLog", {
+        auto stream = pqxx::stream_to::table(txn, {"ContainerLog"sv}, {
             "systemcall",
             "container_name",
             "pid",
