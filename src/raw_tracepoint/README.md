@@ -17,7 +17,7 @@ export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
 ```
 
 ```
-UN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y \
     g++ \
     make \
     clang \
