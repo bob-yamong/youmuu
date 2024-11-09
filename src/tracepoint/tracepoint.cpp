@@ -14,6 +14,8 @@
 #include "handler.h"
 #include "parser.h"
 
+#include <syslog.h>
+
 #define MAX_CMD_LEN 1024
 #define MAX_OUTPUT_LEN 256
 #define MAX_PATH 256
@@ -248,6 +250,9 @@ int main(int argc, char **argv) {
     struct ring_buffer *rb;
     int err;
 
+    // Syslog 초기화
+    openlog("tracepoint", LOG_PID | LOG_CONS, LOG_USER);
+
     boot_time = get_boot_time();
     if (boot_time == -1) {
         fprintf(stderr, "Failed to get boot time\n");
@@ -310,6 +315,7 @@ int main(int argc, char **argv) {
     }
     
 cleanup:
+    closelog();
     running = false;
     tracepoint_bpf__destroy(skel);
     return err != 0;
