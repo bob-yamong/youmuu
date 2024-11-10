@@ -24,7 +24,7 @@ public:
 
     // 정보를 버퍼에 추가하는 함수
     void add_event(const event_t& event);
-    // EventBuffer 정지하고
+    // EventBuffer 정지하는 함수
     void stop();
     // 현재 버퍼 상태 확인
     size_t get_pending_events() const;

@@ -22,26 +22,49 @@ EventBuffer::~EventBuffer() {
     }
 }
 
+// 이벤트를 버퍼에 추가하는 함수
 void EventBuffer::add_event(const event_t& event) {
+    // true일 때 버퍼가 중지된 상태 이므로 예외 발생
     if (should_stop) {
         throw std::runtime_error("EventBuffer is stopped");
     }
 
+    // 쓰기 가능한 버퍼를 가져옴
     Buffer* buffer = get_write_buffer();
+    // 버퍼가 없을 경우 처리
     if (!buffer) {
         handle_buffer_full();
         buffer = get_write_buffer();  // 재시도
     }
 
+    // mutex lock 사용, 한 버퍼에 한 쓰레드만 접근 가능
     {
         std::lock_guard<std::mutex> lock(buffer_mutex);
+        // 버퍼에 이벤트 추가
         buffer->events.push_back(event);
+        // 마지막 업데이트 시간
         buffer->last_update = std::chrono::steady_clock::now();
+        // 대기 중인 이벤트 수 증가
         total_pending_events++;
         
+        // 버퍼가 가득 찼을 때 상태 변경
         if (buffer->events.size() >= MAX_EVENTS) {
             buffer->state.store(BufferState::FULL);
-            buffer_cv.notify_one();
+            buffer_cv.notify_one(); // 대기 중인 flush 쓰레드 깨움
+        }
+    }
+}
+
+// 엔진이 종료될 대 버퍼 정리
+void EventBuffer::stop() {
+    should_stop = true;
+    buffer_cv.notify_all();
+    
+    // 남은 이벤트들 처리
+    for (auto& buffer : buffers) {
+        if (!buffer.events.empty() && 
+            buffer.state.load() != BufferState::PROCESSING) {
+            flush_to_db(buffer.events);
         }
     }
 }
