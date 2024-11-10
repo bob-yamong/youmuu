@@ -12,7 +12,7 @@
 // static_assert(sizeof(event) == 8 + 8 + 4 + 4 + 4 + 4 + 4 + 8 + 8 + TASK_COMM_LEN + 16 + 48 + MAX_FILENAME_LEN + (MAX_ARGS * MAX_ARG_LEN) + MAX_CGROUP_NAME_LEN,
 //               "Size of event struct does not match expected size");
 
-EventLogger::EventLogger(size_t bufferSize, const std::string& logFilePath , const std::string& dbConnectionStr)
+EventLogger::EventLogger(size_t bufferSize, const std::string& logFilePath, const std::string& dbConnectionStr)
     : bufferSize_(bufferSize),
       logFilePath_(logFilePath),
       buffer1_(),
@@ -23,29 +23,32 @@ EventLogger::EventLogger(size_t bufferSize, const std::string& logFilePath , con
       flushBuffers_(),
       isFlushing_(false),
       shutdown_(false),
-      gzFile_(nullptr), // 초기화
-      dbConnection_(dbConnectionStr),
-      boot_time_(get_boot_time()) // boot_time 초기화
+      gzFile_(nullptr),
+    //   dbConnection_(dbConnectionStr),
+      boot_time_(get_boot_time())
 {
     if (boot_time_ == 0) {
         throw std::runtime_error("Failed to get system boot time");
     }
 
-    if (!dbConnection_.is_open()) {
-        throw std::runtime_error(std::string("Failed to open database connection: ") + dbConnection_.dbname());
-    }
+    // if (!dbConnection_.is_open()) {
+    //     throw std::runtime_error(std::string("Failed to open database connection: ") + dbConnection_.dbname());
+    // }
 
     buffer1_.reserve(bufferSize_);
     buffer2_.reserve(bufferSize_);
     buffer3_.reserve(bufferSize_);
     buffer4_.reserve(bufferSize_);
-    
+
     // 압축된 파일 열기 (쓰기 모드, 압축 레벨 6)
     gzFile_ = gzopen(logFilePath_.c_str(), "wb6");
     if (!gzFile_) {
         throw std::runtime_error("Failed to open compressed log file: " + logFilePath_);
     }
-    
+
+    // 초기 버퍼 활성화 시간 설정
+    current_buffer_time_ = std::chrono::steady_clock::now();
+
     // 플러시 쓰레드 시작
     flushThread_ = std::thread(&EventLogger::flushThreadFunc, this);
 }
@@ -55,26 +58,19 @@ EventLogger::~EventLogger()
     // 종료 플래그 설정
     shutdown_.store(true);
     cv_.notify_all();
-    
+
     if (flushThread_.joinable()) {
         flushThread_.join();
     }
-    
+
     // 모든 버퍼 플러시
     std::lock_guard<std::mutex> lock(mtx_);
-    
+
     // 현재 버퍼가 비어있지 않다면 플러시 버퍼 대기열에 추가
     if (!currentBuffer_->empty()) {
         flushBuffers_.push_back(currentBuffer_);
     }
-    
-    // 다른 버퍼들도 비어있지 않다면 플러시 버퍼 대기열에 추가
-    for(auto buffer_ptr : {&buffer1_, &buffer2_, &buffer3_, &buffer4_}) {
-        if(buffer_ptr != currentBuffer_ && !buffer_ptr->empty()) {
-            flushBuffers_.push_back(buffer_ptr);
-        }
-    }
-    
+
     // 모든 플러시 버퍼 플러시
     while(!flushBuffers_.empty()) {
         std::vector<event>* bufferToFlush = flushBuffers_.front();
@@ -89,7 +85,7 @@ EventLogger::~EventLogger()
         gzFile_ = nullptr;
     }
 
-    // 데이터베이스 연결 종료
+    // 데이터베이스 연결 종료 (필요 시 활성화)
     // if (dbConnection_.is_open()) {
     //     dbConnection_.disconnect();
     // }
@@ -99,11 +95,11 @@ void EventLogger::addEvent(const event& e)
 {
     std::unique_lock<std::mutex> lock(mtx_);
     currentBuffer_->push_back(e);
-    
+
     if (currentBuffer_->size() >= bufferSize_) {
         // 현재 버퍼를 플러시 버퍼 대기열에 추가
         flushBuffers_.push_back(currentBuffer_);
-        
+
         // 다음 사용 가능한 버퍼를 찾음
         if (&buffer1_ != currentBuffer_ && buffer1_.size() < bufferSize_) {
             currentBuffer_ = &buffer1_;
@@ -139,10 +135,13 @@ void EventLogger::addEvent(const event& e)
                 return;
             }
         }
-        
+
         // 플러시 플래그 설정
         isFlushing_.store(true);
         cv_.notify_one();
+
+        // current_buffer_time_ 업데이트
+        current_buffer_time_ = std::chrono::steady_clock::now();
     }
 }
 
@@ -151,30 +150,76 @@ void EventLogger::flushThreadFunc()
     try {
         while (!shutdown_.load()) {
             std::unique_lock<std::mutex> lock(mtx_);
-            cv_.wait(lock, [this]() { return !flushBuffers_.empty() || shutdown_.load(); });
-            
-            if (shutdown_.load() && flushBuffers_.empty()) {
-                break;
-            }
-            
-            if (!flushBuffers_.empty()) {
-                // 플러시할 버퍼를 가져옴
-                std::vector<event>* bufferToFlush = flushBuffers_.front();
-                flushBuffers_.pop_front();
-                
-                // 플러시 플래그 해제 (대기열이 비었을 때)
-                if(flushBuffers_.empty()) {
-                    isFlushing_.store(false);
+
+            // 대기 시간 1초로 설정하여 주기적으로 타임아웃을 체크
+            if (cv_.wait_for(lock, std::chrono::seconds(1), [this]() { return !flushBuffers_.empty() || shutdown_.load(); })) {
+                // 신호가 들어오거나 shutdown이 설정된 경우
+                if (shutdown_.load() && flushBuffers_.empty()) {
+                    break;
                 }
-                
-                // 잠금 해제
-                lock.unlock();
-                
-                // 파일에 기록 (압축된 형태로)
-                flushToFile(*bufferToFlush);
-                
-                // 버퍼 클리어
-                bufferToFlush->clear();
+
+                while (!flushBuffers_.empty()) {
+                    // 플러시할 버퍼를 가져옴
+                    std::vector<event>* bufferToFlush = flushBuffers_.front();
+                    flushBuffers_.pop_front();
+
+                    // 플러시 플래그 해제 (대기열이 비었을 때)
+                    if(flushBuffers_.empty()) {
+                        isFlushing_.store(false);
+                    }
+
+                    // 잠금 해제
+                    lock.unlock();
+
+                    // 로그 플러시 시작 로그
+                    std::cerr << "Flushing buffer..." << std::endl;
+
+                    // 파일에 기록 (압축된 형태로)
+                    flushToFile(*bufferToFlush);
+
+                    // 버퍼 클리어
+                    bufferToFlush->clear();
+
+                    // 로그 플러시 완료 로그
+                    std::cerr << "Buffer flushed." << std::endl;
+
+                    // 잠금 재획득
+                    lock.lock();
+                }
+            }
+
+            // 타임아웃 체크: 10초 이상 지난 currentBuffer_이 있는지 확인
+            auto now = std::chrono::steady_clock::now();
+
+            if (std::chrono::duration_cast<std::chrono::seconds>(now - current_buffer_time_) >= FLUSH_TIMEOUT && !currentBuffer_->empty()) {
+                // currentBuffer_를 플러시 대기열에 추가
+                flushBuffers_.push_back(currentBuffer_);
+                isFlushing_.store(true);
+                cv_.notify_one();
+
+                // 플러시 로그
+                std::cerr << "Timeout reached for currentBuffer_. Flushing buffer." << std::endl;
+
+                // 다음 사용 가능한 버퍼를 찾음
+                if (&buffer1_ != currentBuffer_ && buffer1_.size() < bufferSize_) {
+                    currentBuffer_ = &buffer1_;
+                }
+                else if (&buffer2_ != currentBuffer_ && buffer2_.size() < bufferSize_) {
+                    currentBuffer_ = &buffer2_;
+                }
+                else if (&buffer3_ != currentBuffer_ && buffer3_.size() < bufferSize_) {
+                    currentBuffer_ = &buffer3_;
+                }
+                else if (&buffer4_ != currentBuffer_ && buffer4_.size() < bufferSize_) {
+                    currentBuffer_ = &buffer4_;
+                }
+                else {
+                    // 모든 버퍼가 꽉 찼다면, 현재 버퍼를 플러시 대기열에 추가할 수 없음
+                    std::cerr << "Error: All buffers are full. Dropping buffer due to timeout." << std::endl;
+                }
+
+                // current_buffer_time_ 업데이트
+                current_buffer_time_ = std::chrono::steady_clock::now();
             }
         }
     }
@@ -185,6 +230,7 @@ void EventLogger::flushThreadFunc()
         std::cerr << "Unknown exception in flushThreadFunc\n";
     }
 }
+
 
 void EventLogger::flushToFile(const std::vector<event>& buffer)
 {
@@ -414,102 +460,102 @@ std::string EventLogger::format_timestamp(uint64_t timestamp_ns) const {
     return std::string(result);
 }
 
-using namespace std::string_view_literals;
+// using namespace std::string_view_literals;
 
-void EventLogger::insertEventsToDB(const std::vector<event>& buffer) {
-    if (buffer.empty()) return;
+// void EventLogger::insertEventsToDB(const std::vector<event>& buffer) {
+//     if (buffer.empty()) return;
 
-    try {
-        pqxx::work txn(dbConnection_);
-        auto stream = pqxx::stream_to::table(txn, {"ContainerLog"sv}, {
-            "systemcall",
-            "container_name",
-            "pid",
-            "ppid",
-            "tid",
-            "uid",
-            "gid",
-            "command",
-            "atr_0",
-            "atr_1",
-            "atr_2",
-            "atr_3",
-            "atr_4",
-            "atr_5"
-        });
+//     try {
+//         pqxx::work txn(dbConnection_);
+//         auto stream = pqxx::stream_to::table(txn, {"ContainerLog"sv}, {
+//             "systemcall",
+//             "container_name",
+//             "pid",
+//             "ppid",
+//             "tid",
+//             "uid",
+//             "gid",
+//             "command",
+//             "atr_0",
+//             "atr_1",
+//             "atr_2",
+//             "atr_3",
+//             "atr_4",
+//             "atr_5"
+//         });
 
-        // 개선된 문자열 정제 함수
-        auto sanitizeString = [](const char* str) -> std::string {
-            std::string result;
-            const unsigned char* p = reinterpret_cast<const unsigned char*>(str);
+//         // 개선된 문자열 정제 함수
+//         auto sanitizeString = [](const char* str) -> std::string {
+//             std::string result;
+//             const unsigned char* p = reinterpret_cast<const unsigned char*>(str);
             
-            while (*p && result.length() < MAX_ARG_LEN) {
-                // UTF-8 유효성 검사 및 필터링
-                if (*p < 0x80) { // ASCII 문자
-                    if (*p >= 0x20 && *p != 0x7F) { // 출력 가능한 ASCII
-                        result += static_cast<char>(*p);
-                    }
-                    p++;
-                } else if ((*p & 0xE0) == 0xC0) { // 2바이트 UTF-8
-                    if (p[1] && (p[1] & 0xC0) == 0x80) {
-                        result += static_cast<char>(p[0]);
-                        result += static_cast<char>(p[1]);
-                        p += 2;
-                    } else {
-                        p++;
-                    }
-                } else if ((*p & 0xF0) == 0xE0) { // 3바이트 UTF-8
-                    if (p[1] && p[2] && 
-                        (p[1] & 0xC0) == 0x80 && 
-                        (p[2] & 0xC0) == 0x80) {
-                        result += static_cast<char>(p[0]);
-                        result += static_cast<char>(p[1]);
-                        result += static_cast<char>(p[2]);
-                        p += 3;
-                    } else {
-                        p++;
-                    }
-                } else {
-                    p++; // 유효하지 않은 바이트는 건너뛰기
-                }
-            }
-            return result;
-        };
+//             while (*p && result.length() < MAX_ARG_LEN) {
+//                 // UTF-8 유효성 검사 및 필터링
+//                 if (*p < 0x80) { // ASCII 문자
+//                     if (*p >= 0x20 && *p != 0x7F) { // 출력 가능한 ASCII
+//                         result += static_cast<char>(*p);
+//                     }
+//                     p++;
+//                 } else if ((*p & 0xE0) == 0xC0) { // 2바이트 UTF-8
+//                     if (p[1] && (p[1] & 0xC0) == 0x80) {
+//                         result += static_cast<char>(p[0]);
+//                         result += static_cast<char>(p[1]);
+//                         p += 2;
+//                     } else {
+//                         p++;
+//                     }
+//                 } else if ((*p & 0xF0) == 0xE0) { // 3바이트 UTF-8
+//                     if (p[1] && p[2] && 
+//                         (p[1] & 0xC0) == 0x80 && 
+//                         (p[2] & 0xC0) == 0x80) {
+//                         result += static_cast<char>(p[0]);
+//                         result += static_cast<char>(p[1]);
+//                         result += static_cast<char>(p[2]);
+//                         p += 3;
+//                     } else {
+//                         p++;
+//                     }
+//                 } else {
+//                     p++; // 유효하지 않은 바이트는 건너뛰기
+//                 }
+//             }
+//             return result;
+//         };
 
-        for (const auto& e : buffer) {
-            std::string container_name;
-            for (const auto& container : ContainerManager::containers) {
-                if (container.cgroup_id == e.cgroup_id) {
-                    container_name = container.name;
-                    break;
-                }
-            }
+//         for (const auto& e : buffer) {
+//             std::string container_name;
+//             for (const auto& container : ContainerManager::containers) {
+//                 if (container.cgroup_id == e.cgroup_id) {
+//                     container_name = container.name;
+//                     break;
+//                 }
+//             }
 
-            stream.write_values(
-                sanitizeString(e.syscall),
-                container_name,
-                e.pid,
-                e.ppid,
-                e.tid,
-                e.uid,
-                e.gid,
-                sanitizeString(e.comm),
-                sanitizeString(e.argv[0]),
-                sanitizeString(e.argv[1]),
-                sanitizeString(e.argv[2]),
-                sanitizeString(e.argv[3]),
-                sanitizeString(e.argv[4]),
-                sanitizeString(e.argv[5])
-            );
-        }
-        stream.complete();
-        txn.commit();
-    }
-    catch (const pqxx::sql_error &e) {
-        std::cerr << "SQL error: " << e.what() << "\n";
-        std::cerr << "Query was: " << e.query() << "\n";
-    }
-    catch (const std::exception &e) {
-        std::cerr << "Exception in insertEventsToDB: " << e.what() << "\n";
-    }
-}
+//             stream.write_values(
+//                 sanitizeString(e.syscall),
+//                 container_name,
+//                 e.pid,
+//                 e.ppid,
+//                 e.tid,
+//                 e.uid,
+//                 e.gid,
+//                 sanitizeString(e.comm),
+//                 sanitizeString(e.argv[0]),
+//                 sanitizeString(e.argv[1]),
+//                 sanitizeString(e.argv[2]),
+//                 sanitizeString(e.argv[3]),
+//                 sanitizeString(e.argv[4]),
+//                 sanitizeString(e.argv[5])
+//             );
+//         }
+//         stream.complete();
+//         txn.commit();
+//     }
+//     catch (const pqxx::sql_error &e) {
+//         std::cerr << "SQL error: " << e.what() << "\n";
+//         std::cerr << "Query was: " << e.query() << "\n";
+//     }
+//     catch (const std::exception &e) {
+//         std::cerr << "Exception in insertEventsToDB: " << e.what() << "\n";
+//     }
+// }

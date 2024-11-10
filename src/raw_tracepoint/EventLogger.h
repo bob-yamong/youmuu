@@ -13,6 +13,7 @@
 #include <ctime>
 #include <pqxx/pqxx>
 #include <syscall.h>
+#include <chrono>
 #include "event.h"
 #include "container_info.h"
 
@@ -33,7 +34,7 @@ private:
     void flushToFile(const std::vector<event>& buffer);
     
     // 데이터베이스에 이벤트 삽입
-    void insertEventsToDB(const std::vector<event>& buffer);
+    //void insertEventsToDB(const std::vector<event>& buffer);
 
     static time_t get_boot_time();
     std::string format_timestamp(uint64_t timestamp_ns) const;
@@ -46,6 +47,12 @@ private:
     std::vector<event> buffer2_;
     std::vector<event> buffer3_;
     std::vector<event> buffer4_;
+
+    // 버퍼의 마지막 활성화 시간
+    std::chrono::steady_clock::time_point current_buffer_time_;
+
+    // 플러시 타임아웃 설정 (10초)
+    const std::chrono::seconds FLUSH_TIMEOUT = std::chrono::seconds(10);
     
     // 현재 버퍼와 플러시 버퍼 대기열
     std::vector<event>* currentBuffer_;
@@ -65,7 +72,7 @@ private:
     gzFile gzFile_; // 압축된 파일 스트림 추가
 
     // 데이터베이스 연결 객체
-    pqxx::connection dbConnection_;
+    // pqxx::connection dbConnection_;
     
     time_t boot_time_;
 };
