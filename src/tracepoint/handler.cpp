@@ -44,7 +44,7 @@ struct socket_handlers {
 static int handle_enter_socket(const struct event_t *e, const char *task_info) {
     printf("Enter socket: %s, domain=%#x, type=%#x, protocol=%#x\n",
             task_info, e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
-    // event_buffer.add_event(*e, task_info);
+    // event_buffer.add_event(*e);
     return 0;
 }
 

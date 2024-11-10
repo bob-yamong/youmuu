@@ -1,17 +1,47 @@
 #include "buffer.h"
 
-EventBuffer::EventBuffer() : current_buffer(0), should_stop(false) {
-    // 여러 개의 플러시 스레드 생성
-    for (int i = 0; i < FLUSH_THREAD_COUNT; i++) {
-        flush_threads.emplace_back(&EventBuffer::flush_routine, this);
-    }
+// 생성자
+EventBuffer::EventBuffer(size_t flush_interval_ms) 
+    : current_buffer(0)
+    , should_stop(false)
+    , flush_interval(std::chrono::milliseconds(flush_interval_ms))
+    , total_pending_events(0) {
+    
+    // 플러시 스레드 시작
+    flush_threads.emplace_back(&EventBuffer::flush_routine, this);
 }
 
+// 소멸자
 EventBuffer::~EventBuffer() {
     stop();
+    
     for (auto& thread : flush_threads) {
         if (thread.joinable()) {
             thread.join();
+        }
+    }
+}
+
+void EventBuffer::add_event(const event_t& event) {
+    if (should_stop) {
+        throw std::runtime_error("EventBuffer is stopped");
+    }
+
+    Buffer* buffer = get_write_buffer();
+    if (!buffer) {
+        handle_buffer_full();
+        buffer = get_write_buffer();  // 재시도
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(buffer_mutex);
+        buffer->events.push_back(event);
+        buffer->last_update = std::chrono::steady_clock::now();
+        total_pending_events++;
+        
+        if (buffer->events.size() >= MAX_EVENTS) {
+            buffer->state.store(BufferState::FULL);
+            buffer_cv.notify_one();
         }
     }
 }

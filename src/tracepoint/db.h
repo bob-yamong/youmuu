@@ -18,6 +18,4 @@ private:
     std::unique_ptr<pqxx::connection> conn;
     // DB 연결을 확인하고 없으면 연결하는 함수
     void ensure_connection();
-    // insert 쿼리를 생성하는 함수
-    std::string create_batch_insert_query(const std::vector<event_t>& events);
 };
