@@ -20,7 +20,7 @@
 #include "parser.h"
 
 #define BPF_FS_PATH "/sys/fs/bpf"
-#define MAP_PIN_PATH "/sys/fs/bpf/policy_map"
+// #define MAP_PIN_PATH "/sys/fs/bpf/policy_map"
 #define POLICY_FILE_PATH "/policy/policy.yaml"
 #define POLICY_UPDATE_INTERVAL 60
 
@@ -584,33 +584,33 @@ int main(int argc, char **argv) {
         goto cleanup;
     }
 
-    map_fd = bpf_map__fd(skel->maps.policy_map);
-    // check if the map already exists
-    if (map_fd < 0) {
-        fprintf(stderr, "No existing map found, creating a new one.\n");
+    // map_fd = bpf_map__fd(skel->maps.policy_map);
+    // // check if the map already exists
+    // if (map_fd < 0) {
+    //     fprintf(stderr, "No existing map found, creating a new one.\n");
 
-        err = bpf_object__pin_maps(skel->obj, BPF_FS_PATH);
-        if (err) {
-            fprintf(stderr, "Failed to pin maps: %d\n", err);
-            goto cleanup;
-        }
+    //     err = bpf_object__pin_maps(skel->obj, BPF_FS_PATH);
+    //     if (err) {
+    //         fprintf(stderr, "Failed to pin maps: %d\n", err);
+    //         goto cleanup;
+    //     }
 
-        map_fd = bpf_obj_get(MAP_PIN_PATH);
-        if (map_fd < 0) {
-            fprintf(stderr, "Failed to open pinned map: %s\n", strerror(errno));
-            goto cleanup;
-        }
-    }
-    else {
-        fprintf(stdout, "Found existing map, reusing it.\n");
+    //     map_fd = bpf_obj_get(MAP_PIN_PATH);
+    //     if (map_fd < 0) {
+    //         fprintf(stderr, "Failed to open pinned map: %s\n", strerror(errno));
+    //         goto cleanup;
+    //     }
+    // }
+    // else {
+    //     fprintf(stdout, "Found existing map, reusing it.\n");
 
-        bpf_map__set_pin_path(skel->maps.policy_map, MAP_PIN_PATH);
-        err = bpf_map__reuse_fd(skel->maps.policy_map, map_fd);
-        if (err) {
-            fprintf(stderr, "Failed to reuse existing map: %d\n", err);
-            goto cleanup;
-        }
-    }
+    //     bpf_map__set_pin_path(skel->maps.policy_map, MAP_PIN_PATH);
+    //     err = bpf_map__reuse_fd(skel->maps.policy_map, map_fd);
+    //     if (err) {
+    //         fprintf(stderr, "Failed to reuse existing map: %d\n", err);
+    //         goto cleanup;
+    //     }
+    // }
 
     {
         std::cout << "컨테이너 PID 자동 감지 중...\n";

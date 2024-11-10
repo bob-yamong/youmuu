@@ -21,7 +21,7 @@ struct {
     __uint(max_entries, MAX_CONTAINERS);
     __type(key, struct policy_key);
     __type(value, struct policy_value);
-    __uint(pinning, LIBBPF_PIN_BY_NAME);
+    // __uint(pinning, LIBBPF_PIN_BY_NAME);
 } policy_map SEC(".maps");
 
 struct {
