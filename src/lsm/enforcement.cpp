@@ -128,36 +128,16 @@ static void bump_memlock_rlimit(void)
 //     return atoi(output);
 // }
 
-std::string remove_chunked_encoding(const std::string& response) {
-    std::string json_body;
-    size_t pos = 0;
+unsigned long get_pid_ns_id(pid_t container_pid) {
+    char path[MAX_PATH_LENGTH];
+
+    std::string full_path = env::proc_path + "/" + std::to_string(container_pid) + "/ns/pid";
+    snprintf(path, sizeof(path), "%s", full_path.c_str());
+
     
-    while (pos < response.size()) {
-        // Find the position of the newline after the chunk size
-        size_t chunk_size_end = response.find("\r\n", pos);
-        if (chunk_size_end == std::string::npos) break;
-
-        // Convert the chunk size from hexadecimal to decimal
-        std::string chunk_size_hex = response.substr(pos, chunk_size_end - pos);
-        size_t chunk_size = std::stoul(chunk_size_hex, nullptr, 16);
-        
-        // Move to the start of the actual data
-        pos = chunk_size_end + 2;
-
-        // Add the chunk to the JSON body and move to the next chunk
-        json_body += response.substr(pos, chunk_size);
-        pos += chunk_size + 2;  // Skip over the data and the trailing \r\n
-    }
-
-    return json_body;
-}
-
-int get_docker_pid(const char* container_name) {
-    const char* socket_path = "/var/run/docker.sock";
-    int sock = socket(AF_UNIX, SOCK_STREAM, 0);
-    
-    if (sock < 0) {
-        perror("Socket creation failed");
+    int fd = open(path, O_RDONLY);
+    if (fd < 0) {
+        perror("Failed to open namespace file");
         return 0;
     }
 
@@ -222,7 +202,8 @@ unsigned long get_mnt_ns_id(pid_t container_pid) {
     unsigned long mnt_ns_id = 0;
 
     // Create mnt ns path
-    snprintf(path, sizeof(path), "/proc/%d/ns/mnt", container_pid);
+    std::string full_path = env::proc_path + "/" + std::to_string(container_pid) + "/ns/mnt";
+    snprintf(path, sizeof(path), "%s", full_path.c_str());
 
     // Open namespace File
     fd = open(path, O_RDONLY);

@@ -325,60 +325,60 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
 	return 0;
 }
 
-SEC("lsm/socket_recvmsg")
-int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, int flags) {
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+// SEC("lsm/socket_recvmsg")
+// int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, int flags) {
+//     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
     
-    __u64 cgroup_id = bpf_get_current_cgroup_id();
+//     __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    if (!should_monitor(ppid, cgroup_id)) {
-        return 0;
-    }
+//     if (!should_monitor(ppid, cgroup_id)) {
+//         return 0;
+//     }
 
-    event *e;
-    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }    
+//     event *e;
+//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+//     if (!e) {
+//         bpf_printk("Failed ringbuf_reserve");
+//         return 0;
+//     }    
     
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
+//     int ret = init_context(e);
+//     if (ret < 0) {
+//         bpf_ringbuf_discard(e, 0);
+//         return 0;
+//     }
     
-    get_process_path(e->data.source, sizeof(e->data.source));
+//     get_process_path(e->data.source, sizeof(e->data.source));
     
-    e->event_id = SECID_SOCKET_RECVMSG;
+//     e->event_id = SECID_SOCKET_RECVMSG;
 
-    struct network_policy net = {};
-    struct sock *sk;
+//     struct network_policy net = {};
+//     struct sock *sk;
 
-    // Get the socket from the socket structure
-    bpf_probe_read(&sk, sizeof(sk), &sock->sk);
+//     // Get the socket from the socket structure
+//     bpf_probe_read(&sk, sizeof(sk), &sock->sk);
 
-    // Assuming we are using sk_protocol for family detection
-    u16 protocol = BPF_CORE_READ(sk, sk_protocol);
+//     // Assuming we are using sk_protocol for family detection
+//     u16 protocol = BPF_CORE_READ(sk, sk_protocol);
     
-    // Get source IP and port
-    net.ip = BPF_CORE_READ(sk, __sk_common.skc_daddr);  // Source IP address
-    net.port = BPF_CORE_READ(sk, __sk_common.skc_num);       // Source port
+//     // Get source IP and port
+//     net.ip = BPF_CORE_READ(sk, __sk_common.skc_daddr);  // Source IP address
+//     net.port = BPF_CORE_READ(sk, __sk_common.skc_num);       // Source port
 
-    net.flags = POLICY_NET_CONNECT;
+//     net.flags = POLICY_NET_CONNECT;
 
-    __u32 eperm = match_policy(task, POLICY_NETWORK, &net);
+//     __u32 eperm = match_policy(task, POLICY_NETWORK, &net);
     
-    if ((eperm & 0x00C0) == (POLICY_NET_CONNECT | POLICY_NET_SRC)) {
-        e->retval = -1;   
-        bpf_ringbuf_submit(e, 0);
-        return -1;
-    }
+//     if ((eperm & 0x00C0) == (POLICY_NET_CONNECT | POLICY_NET_SRC)) {
+//         e->retval = -1;   
+//         bpf_ringbuf_submit(e, 0);
+//         return -1;
+//     }
 
-    bpf_ringbuf_discard(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_discard(e, 0);
+//     return 0;
+// }
 
 // SEC("lsm/task_fix_setuid")
 // int BPF_PROG(task_fix_setuid, struct cred *new, const struct cred *old,
