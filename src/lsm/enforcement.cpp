@@ -50,6 +50,9 @@ bool file_exists(const char *path) {
 }
 
 static int print_event(void *ctx, void *data, size_t data_sz) {
+    const int MAX_RETRIES = 2;  // 최초 시도 + 1회 재시도
+    const int RETRY_DELAY_MS = 100;  // 재시도 전 100ms 대기
+    
     event *e = (event *)data;
     char timestamp[32];
     time_t event_time = e->ts / 1000000000;
@@ -68,23 +71,32 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
                << "\"command\":\"" << e->comm << "\","
                << "\"data\":{\"path\":\"" << e->data.path << "\",\"source\":\"" << e->data.source << "\"}}";
 
-    try {
-        pqxx::work txn(*conn);
-        
-        // JSON 문자열을 단일 따옴표로 감싸고 quote로 이스케이프
-        std::string escaped_json = txn.quote(event_data.str());
-        std::string query = "SELECT * FROM pgmq.send('lsm', " + escaped_json + ");";
-        
-        txn.exec(query);
-        txn.commit();
+    for (int retry = 0; retry < MAX_RETRIES; retry++) {
+        try {
+            pqxx::work txn(*conn);
+            std::string escaped_json = txn.quote(event_data.str());
+            std::string query = "SELECT * FROM pgmq.send('lsm', " + escaped_json + ");";
+            
+            txn.exec(query);
+            txn.commit();
 
-        printf("Event successfully sent to queue\n");
-    } catch (const std::exception &e) {
-        fprintf(stderr, "Failed to send event to queue: %s\n", e.what());
-        return -1;
+            printf("Event successfully sent to queue\n");
+            return 0;  // 성공시 즉시 반환
+
+        } catch (const std::exception &e) {
+            fprintf(stderr, "Attempt %d failed to send event to queue: %s\n", 
+                    retry + 1, e.what());
+            
+            if (retry < MAX_RETRIES - 1) {
+                // 마지막 시도가 아닌 경우에만 대기
+                std::this_thread::sleep_for(std::chrono::milliseconds(RETRY_DELAY_MS));
+            }
+        }
     }
 
-    return 0;
+    // 모든 재시도 실패 후
+    fprintf(stderr, "Dropping event after %d failed attempts\n", MAX_RETRIES);
+    return 0;  // 프로그램은 계속 실행
 }
 
 void handle_signal(int sig) {
