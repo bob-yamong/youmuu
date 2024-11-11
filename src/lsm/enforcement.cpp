@@ -14,12 +14,12 @@
 #include <chrono>
 #include <pqxx/pqxx>
 #include <sstream>
-#include <cstring>
+#include <cstring>  // 추가: strerror 사용
+#include <sys/stat.h>  // 추가: stat 사용
+#include <errno.h>  // 추가: errno 사용
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <nlohmann/json.hpp>
-
-using json = nlohmann::json;
  
 #include "enforcement.skel.h"
 
@@ -38,7 +38,9 @@ using json = nlohmann::json;
 
 static volatile bool exiting = false;
 
-pqxx::connection conn;
+std::unique_ptr<pqxx::connection> conn;
+
+using json = nlohmann::json;
 
 void clear_bpf_map(int map_fd);
 
@@ -67,10 +69,12 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
                << "\"data\":{\"path\":\"" << e->data.path << "\",\"source\":\"" << e->data.source << "\"}}";
 
     try {
-        pqxx::work txn(conn);
-
-        // PGMQ `send` 호출
-        std::string query = "SELECT * FROM pgmq.send('lsm_msg_queue', '" + txn.quote(event_data.str()) + "');";
+        pqxx::work txn(*conn);
+        
+        // JSON 문자열을 단일 따옴표로 감싸고 quote로 이스케이프
+        std::string escaped_json = txn.quote(event_data.str());
+        std::string query = "SELECT * FROM pgmq.send('lsm_msg_queue', " + escaped_json + ");";
+        
         txn.exec(query);
         txn.commit();
 
@@ -137,17 +141,6 @@ int get_docker_pid(const char* container_name) {
         perror("Socket creation failed");
         return 0;
     }
-// int get_docker_pid(const char* container_name) {
-//     char cmd[MAX_CMD_LEN];
-//     char output[MAX_OUTPUT_LEN];
-//     FILE *fp;
-
-//     snprintf(cmd, sizeof(cmd), "docker inspect -f '{{.State.Pid}}' %s", container_name);
-//     fp = popen(cmd, "r");
-//     if (fp == NULL) {
-//         perror("Failed to run docker command");
-//         return 0;
-//     }
 
     struct sockaddr_un addr{};
     addr.sun_family = AF_UNIX;
@@ -201,14 +194,6 @@ int get_docker_pid(const char* container_name) {
         return 0;
     }
 }
-//     if (fgets(output, sizeof(output), fp) == NULL) {
-//         pclose(fp);
-//         return 0;
-//     }
-//     pclose(fp);
-
-//     return atoi(output);
-// }
 
 unsigned long get_pid_ns_id(pid_t container_pid) {
     char path[MAX_PATH_LENGTH];
@@ -223,57 +208,24 @@ unsigned long get_pid_ns_id(pid_t container_pid) {
         return 0;
     }
 
-    struct sockaddr_un addr{};
-    addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
+    char link_target[MAX_PATH_LENGTH];
+    ssize_t len = readlink(path, link_target, sizeof(link_target)-1);
+    if (len < 0) {
+        perror("Failed to read link");
+        close(fd);
+        return 0;
+    }
+    link_target[len] = '\0';
 
-    if (connect(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-        perror("Connection to Docker socket failed");
-        close(sock);
+    unsigned int ns_id;
+    if (sscanf(link_target, "pid:[%u]", &ns_id) != 1) {
+        fprintf(stderr, "Failed to parse namespace ID\n");
+        close(fd);
         return 0;
     }
 
-    // Formulate HTTP request to get container info
-    std::string request = "GET /containers/" + std::string(container_name) + "/json HTTP/1.1\r\n"
-                          "Host: localhost\r\n"
-                          "Connection: close\r\n\r\n";
-    
-    // Send request
-    if (send(sock, request.c_str(), request.size(), 0) < 0) {
-        perror("Send request failed");
-        close(sock);
-        return 0;
-    }
-
-    // Receive response
-    std::string response;
-    char buffer[4096];
-    int bytes_received;
-    while ((bytes_received = recv(sock, buffer, sizeof(buffer), 0)) > 0) {
-        response.append(buffer, bytes_received);
-    }
-    close(sock);
-
-    // Find the start of JSON data after HTTP headers
-    auto pos = response.find("\r\n\r\n");
-    if (pos == std::string::npos) {
-        std::cerr << "Invalid response format" << std::endl;
-        return 0;
-    }
-
-    // Extract the JSON body
-    std::string json_str = remove_chunked_encoding(response.substr(pos + 4));
-
-    try {
-        json container_info = json::parse(json_str);
-        return container_info["State"]["Pid"].get<int>();
-    } catch (const json::parse_error& e) {
-        std::cerr << "JSON parse error: " << e.what() << std::endl;
-        return 0;
-    } catch (const json::type_error& e) {
-        std::cerr << "JSON type error: " << e.what() << std::endl;
-        return 0;
-    }
+    close(fd);
+    return ns_id;
 }
 
 unsigned long get_mnt_ns_id(pid_t container_pid) {
@@ -703,7 +655,7 @@ int main(int argc, char **argv) {
     env::getEnv();
 
     // DB 연결
-    conn = pqxx::connection("dbname=" + env::dbname + " user=" + env::user + " password=" + env::password + " host=" + env::host + " port=" + env::port);
+    conn = std::make_unique<pqxx::connection>("dbname=" + env::dbname + " user=" + env::user + " password=" + env::password + " host=" + env::host + " port=" + env::port);
 
     /* Set up libbpf errors and debug info callback */
     // libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
