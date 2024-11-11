@@ -1,5 +1,3 @@
-#include <sstream>
-#include <cstdlib>
 #include "db.h"
 
 // 환경 변수에서 값을 가져오는 헬퍼 함수
@@ -38,16 +36,6 @@ DBConnection::DBConnection() {
     }
 }
 
-DBConnection::~DBConnection() {
-    try {
-        if (conn && conn->is_open()) {
-            conn->close();
-        }
-    } catch (...) {
-        // 소멸자에서는 예외를 무시
-    }
-}
-
 void DBConnection::ensure_connection() {
     try {
         if (!conn || !conn->is_open()) {
@@ -73,36 +61,36 @@ void DBConnection::ensure_connection() {
 }
 
 void DBConnection::insert_events(const std::vector<event_t>& events) {    
-    if (events.empty()) return;
+    // if (events.empty()) return;
 
-    try {
-        pqxx::work txn(*conn);
+    // try {
+    //     pqxx::work txn(*conn);
         
-        // stream_to 사용법 변경
-        std::vector<std::string> columns = {
-            "timestamp", "pid", "tid", "syscall_id", "ret", 
-            "arg1", "arg2", "arg3"
-        };
+    //     // stream_to 사용법 변경
+    //     std::vector<std::string> columns = {
+    //         "timestamp", "pid", "tid", "syscall_id", "ret", 
+    //         "arg1", "arg2", "arg3"
+    //     };
         
-        pqxx::stream_to stream{txn, "syscall_events", columns.begin(), columns.end()};
+    //     pqxx::stream_to stream{txn, "syscall_events", columns.begin(), columns.end()};
         
-        for (const auto& event : events) {
-            stream.write_values(
-                event.task.timestamp,
-                event.task.cgroup_id,
-                event.task.pid,
-                event.task.tid,
-                event.event_id,
-                event.ret,
-                event.arg_s32[0],
-                event.arg_s32[1],
-                event.arg_s32[2]
-            );
-        }
+    //     for (const auto& event : events) {
+    //         stream.write_values(
+    //             event.task.timestamp,
+    //             event.task.cgroup_id,
+    //             event.task.pid,
+    //             event.task.tid,
+    //             event.event_id,
+    //             event.ret,
+    //             event.arg_s32[0],
+    //             event.arg_s32[1],
+    //             event.arg_s32[2]
+    //         );
+    //     }
 
-        stream.complete();
-        txn.commit();
-    } catch (const std::exception& e) {
-        throw std::runtime_error("Failed to insert events: " + std::string(e.what()));
-    }
+    //     stream.complete();
+    //     txn.commit();
+    // } catch (const std::exception& e) {
+    //     throw std::runtime_error("Failed to insert events: " + std::string(e.what()));
+    // }
 }
