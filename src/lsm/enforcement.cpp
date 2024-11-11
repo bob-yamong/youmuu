@@ -14,6 +14,12 @@
 #include <chrono>
 #include <pqxx/pqxx>
 #include <sstream>
+#include <cstring>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
  
 #include "enforcement.skel.h"
 
@@ -122,34 +128,90 @@ int get_docker_pid(const char* container_name) {
     return atoi(output);
 }
 
-unsigned long get_pid_ns_id(pid_t container_pid) {
-    char path[MAX_PATH_LENGTH];
-    snprintf(path, sizeof(path), "/proc/%d/ns/pid", container_pid);
+std::string remove_chunked_encoding(const std::string& response) {
+    std::string json_body;
+    size_t pos = 0;
     
-    int fd = open(path, O_RDONLY);
-    if (fd < 0) {
-        perror("Failed to open namespace file");
+    while (pos < response.size()) {
+        // Find the position of the newline after the chunk size
+        size_t chunk_size_end = response.find("\r\n", pos);
+        if (chunk_size_end == std::string::npos) break;
+
+        // Convert the chunk size from hexadecimal to decimal
+        std::string chunk_size_hex = response.substr(pos, chunk_size_end - pos);
+        size_t chunk_size = std::stoul(chunk_size_hex, nullptr, 16);
+        
+        // Move to the start of the actual data
+        pos = chunk_size_end + 2;
+
+        // Add the chunk to the JSON body and move to the next chunk
+        json_body += response.substr(pos, chunk_size);
+        pos += chunk_size + 2;  // Skip over the data and the trailing \r\n
+    }
+
+    return json_body;
+}
+
+int get_docker_pid(const char* container_name) {
+    const char* socket_path = "/var/run/docker.sock";
+    int sock = socket(AF_UNIX, SOCK_STREAM, 0);
+    
+    if (sock < 0) {
+        perror("Socket creation failed");
         return 0;
     }
 
-    char link_target[MAX_PATH_LENGTH];
-    ssize_t len = readlink(path, link_target, sizeof(link_target)-1);
-    if (len < 0) {
-        perror("Failed to read link");
-        close(fd);
-        return 0;
-    }
-    link_target[len] = '\0';
+    struct sockaddr_un addr{};
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
 
-    unsigned int ns_id;
-    if (sscanf(link_target, "pid:[%u]", &ns_id) != 1) {
-        fprintf(stderr, "Failed to parse namespace ID\n");
-        close(fd);
+    if (connect(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        perror("Connection to Docker socket failed");
+        close(sock);
         return 0;
     }
 
-    close(fd);
-    return ns_id;
+    // Formulate HTTP request to get container info
+    std::string request = "GET /containers/" + std::string(container_name) + "/json HTTP/1.1\r\n"
+                          "Host: localhost\r\n"
+                          "Connection: close\r\n\r\n";
+    
+    // Send request
+    if (send(sock, request.c_str(), request.size(), 0) < 0) {
+        perror("Send request failed");
+        close(sock);
+        return 0;
+    }
+
+    // Receive response
+    std::string response;
+    char buffer[4096];
+    int bytes_received;
+    while ((bytes_received = recv(sock, buffer, sizeof(buffer), 0)) > 0) {
+        response.append(buffer, bytes_received);
+    }
+    close(sock);
+
+    // Find the start of JSON data after HTTP headers
+    auto pos = response.find("\r\n\r\n");
+    if (pos == std::string::npos) {
+        std::cerr << "Invalid response format" << std::endl;
+        return 0;
+    }
+
+    // Extract the JSON body
+    std::string json_str = remove_chunked_encoding(response.substr(pos + 4));
+
+    try {
+        json container_info = json::parse(json_str);
+        return container_info["State"]["Pid"].get<int>();
+    } catch (const json::parse_error& e) {
+        std::cerr << "JSON parse error: " << e.what() << std::endl;
+        return 0;
+    } catch (const json::type_error& e) {
+        std::cerr << "JSON type error: " << e.what() << std::endl;
+        return 0;
+    }
 }
 
 unsigned long get_mnt_ns_id(pid_t container_pid) {
