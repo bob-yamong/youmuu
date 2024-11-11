@@ -1,6 +1,9 @@
 #ifndef STRUCT_H
 #define STRUCT_H
 
+#include <string>
+#include <chrono>
+
 struct current_task  {
     __u64 count;
     __u64 timestamp;
@@ -35,6 +38,25 @@ struct event_t {
     __u16 port;
     __u16 addr_family;
     __u8 ipv6_addr[16];
+};
+
+struct db_event_t {
+    std::chrono::system_clock::time_point timestamp;
+    __u64 cgroup_id;
+    __u32 ns_id;
+    __u32 ppid;
+    __u32 pid;
+    __u32 tid;
+    __u32 uid;
+    __u32 gid;
+    __s64 ret;
+    std::string comm;
+    std::string arg0;
+    std::string arg1;
+    std::string arg2;
+    std::string arg3;
+    std::string arg4;
+    std::string arg5;
 };
 
 struct event_key {

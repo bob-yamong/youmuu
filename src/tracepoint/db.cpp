@@ -60,7 +60,7 @@ void DBConnection::ensure_connection() {
     }
 }
 
-void DBConnection::insert_events(const std::vector<event_t>& events) {    
+void DBConnection::insert_events(const std::vector<db_event_t>& events) {    
     // if (events.empty()) return;
 
     // try {

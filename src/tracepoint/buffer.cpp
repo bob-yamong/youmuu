@@ -23,7 +23,7 @@ EventBuffer::~EventBuffer() {
 }
 
 // 이벤트를 버퍼에 추가하는 함수
-void EventBuffer::add_event(const event_t& event) {
+void EventBuffer::add_event(const db_event_t& event) {
     // true일 때 버퍼가 중지된 상태 이므로 예외 발생
     if (should_stop) {
         throw std::runtime_error("EventBuffer is stopped");
@@ -115,7 +115,7 @@ void EventBuffer::flush_routine() {
                 buffer.state.load() != BufferState::PROCESSING) {
                 buffer.state.store(BufferState::PROCESSING);
                 // 버퍼 복사 후 비우기 시작
-                std::vector<event_t> events_copy = buffer.events;
+                std::vector<db_event_t> events_copy = buffer.events;
                 lock.unlock();
                 
                 // flush 성공 시
@@ -133,7 +133,7 @@ void EventBuffer::flush_routine() {
     }
 }
 
-bool EventBuffer::flush_to_db(const std::vector<event_t>& events, size_t retry_count) {
+bool EventBuffer::flush_to_db(const std::vector<db_event_t>& events, size_t retry_count) {
     try {
         db_conn.insert_events(events);
         return true;
