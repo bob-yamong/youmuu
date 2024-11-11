@@ -1,5 +1,6 @@
 #pragma once
 
+#include <linux/types.h>
 #include <vector>
 #include <mutex>
 #include <condition_variable>
@@ -7,6 +8,7 @@
 #include <array>
 #include <chrono>
 #include <atomic>
+#include <iostream>
 #include "struct.h"
 #include "db.h"
 
@@ -67,7 +69,6 @@ private:
     Buffer* get_write_buffer(); // 현재 기록가능한 버퍼 return 
     void flush_routine();   // 버퍼를 DB에 flush하는 함수, flush thread에서 실행되고 should stop이 true일 때 종료
     bool flush_to_db(const std::vector<event_t>& events, size_t retry_count = 0);   // DB에 이벤트 정보를 삽입하는 함수
-    void rotate_buffer();   // 버퍼를 교체하는 함수
     bool should_flush(const Buffer& buffer) const;  // 버퍼를 flush해야 하는지 확인하는 함수
     void handle_buffer_full();  // 버퍼가 가득 찼을 때 처리하는 함수
 };
