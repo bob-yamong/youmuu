@@ -66,7 +66,7 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
         pqxx::work txn(conn);
 
         // PGMQ `send` 호출
-        std::string query = "SELECT * FROM pgmq.send('my_queue', '" + txn.quote(event_data.str()) + "');";
+        std::string query = "SELECT * FROM pgmq.send('lsm_msg_queue', '" + txn.quote(event_data.str()) + "');";
         txn.exec(query);
         txn.commit();
 
