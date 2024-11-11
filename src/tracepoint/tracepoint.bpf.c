@@ -30,7 +30,8 @@ static __always_inline struct current_task get_task_struct() {
     __u64 uid_gid = bpf_get_current_uid_gid();
     
     ct.cgroup_id = bpf_get_current_cgroup_id();
-    ct.ns_id = BPF_CORE_READ(cur_task, nsproxy, pid_ns_for_children, ns.inum);
+    ct.pid_namespace = BPF_CORE_READ(cur_task, nsproxy, pid_ns_for_children, ns.inum);
+    ct.mnt_namespace = BPF_CORE_READ(cur_task, nsproxy, mnt_ns, ns.inum);
     ct.ppid = BPF_CORE_READ(cur_task, real_parent, tgid);
     ct.pid = pid_tgid >> 32;
     ct.tid = (__u32)pid_tgid;
@@ -59,14 +60,14 @@ static __always_inline struct map_key get_map_key(struct current_task *ct) {
     struct map_key key = {
         .pid = ct->pid,
         .tid = ct->tid,
-        .ns_id = ct->ns_id
+        .pid_namespace = ct->pid_namespace
     };
     return key;
 }
 
-static __always_inline bool should_log_event(__u32 ns_id, __s64 event_id) {
+static __always_inline bool should_log_event(__u32 pid_namespace, __s64 event_id) {
     struct event_key event_key = {
-        .ns_id = ns_id,
+        .pid_namespace = pid_namespace,
         .event_id = event_id,
     };
 
@@ -76,7 +77,7 @@ static __always_inline bool should_log_event(__u32 ns_id, __s64 event_id) {
 
 static __always_inline struct event_t* handle_enter_event(__s64 event_id) {
     struct current_task ct = get_task_struct();
-    if (!should_log_event(ct.ns_id, event_id)) 
+    if (!should_log_event(ct.pid_namespace, event_id)) 
         return NULL;
 
     struct event_t *e = ring_buffer(event_id, ct);
@@ -90,7 +91,7 @@ static __always_inline struct event_t* handle_enter_event(__s64 event_id) {
 static __always_inline struct event_t* handle_exit_event(__s64 event_id) {
     struct current_task ct = get_task_struct();
 
-    if (!should_log_event(ct.ns_id, event_id)) 
+    if (!should_log_event(ct.pid_namespace, event_id)) 
         return NULL;
 
     struct event_t *e = ring_buffer(event_id, ct);

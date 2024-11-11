@@ -7,8 +7,10 @@
 
 struct db_event_t {
     std::chrono::system_clock::time_point timestamp;
-    __u64 cgroup_id;
-    __u32 ns_id;
+    std::string container_name;
+    std::string syscall;
+    __u32 pid_namespace;
+    __u32 mnt_namespace;
     __u32 ppid;
     __u32 pid;
     __u32 tid;
@@ -22,6 +24,7 @@ struct db_event_t {
     std::string arg3;
     std::string arg4;
     std::string arg5;
+    std::string additional_info;
 };
 
 #endif

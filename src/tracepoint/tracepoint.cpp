@@ -204,10 +204,10 @@ int update_policy_with_file(struct bpf_map *event_policy_map, char* abs_file_nam
             fprintf(stderr, "Failed to get container pid: %s\n", container.container_name.c_str());
             continue;
         }
-        __u32 ns_id = get_namespace_id(container_pid);
+        __u32 pid_namespace = get_namespace_id(container_pid);
 
         for (size_t i = 0; i < syscall_list.size(); i++) {
-            key.ns_id = ns_id;
+            key.pid_namespace = pid_namespace;
             key.event_id = syscall_list[i];
             
             err = bpf_map__update_elem(event_policy_map, &key, sizeof(key), &action, sizeof(action), BPF_ANY);

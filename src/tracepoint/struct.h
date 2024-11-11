@@ -5,7 +5,8 @@ struct current_task  {
     __u64 count;
     __u64 timestamp;
     __u64 cgroup_id;
-    __u32 ns_id;
+    __u32 pid_namespace;
+    __u32 mnt_namespace;
     __u32 ppid;
     __u32 pid;
     __u32 tid;
@@ -39,13 +40,13 @@ struct event_t {
 
 struct event_key {
     __s64 event_id;
-    __u32 ns_id;
+    __u32 pid_namespace;
 };
 
 struct map_key {
     __u32 pid;
     __u32 tid;
-    __u32 ns_id;
+    __u32 pid_namespace;
 };
 
 struct getsockopt_args {
