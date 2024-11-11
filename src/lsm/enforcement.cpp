@@ -107,26 +107,26 @@ static void bump_memlock_rlimit(void)
     }
 }
 
-int get_docker_pid(const char* container_name) {
-    char cmd[MAX_CMD_LEN];
-    char output[MAX_OUTPUT_LEN];
-    FILE *fp;
+// int get_docker_pid(const char* container_name) {
+//     char cmd[MAX_CMD_LEN];
+//     char output[MAX_OUTPUT_LEN];
+//     FILE *fp;
 
-    snprintf(cmd, sizeof(cmd), "docker inspect -f '{{.State.Pid}}' %s", container_name);
-    fp = popen(cmd, "r");
-    if (fp == NULL) {
-        perror("Failed to run docker command");
-        return 0;
-    }
+//     snprintf(cmd, sizeof(cmd), "docker inspect -f '{{.State.Pid}}' %s", container_name);
+//     fp = popen(cmd, "r");
+//     if (fp == NULL) {
+//         perror("Failed to run docker command");
+//         return 0;
+//     }
 
-    if (fgets(output, sizeof(output), fp) == NULL) {
-        pclose(fp);
-        return 0;
-    }
-    pclose(fp);
+//     if (fgets(output, sizeof(output), fp) == NULL) {
+//         pclose(fp);
+//         return 0;
+//     }
+//     pclose(fp);
 
-    return atoi(output);
-}
+//     return atoi(output);
+// }
 
 std::string remove_chunked_encoding(const std::string& response) {
     std::string json_body;
