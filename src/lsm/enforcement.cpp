@@ -734,7 +734,7 @@ int main(int argc, char **argv) {
         goto cleanup;
     }
 
-    // map_fd = bpf_map__fd(skel->maps.policy_map);
+    map_fd = bpf_map__fd(skel->maps.policy_map);
     // // check if the map already exists
     // if (map_fd < 0) {
     //     fprintf(stderr, "No existing map found, creating a new one.\n");
