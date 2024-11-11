@@ -18,6 +18,7 @@
 #include "container_info.h"
 #include "policy_map_structs.h"
 #include "parser.h"
+#include "getEnv.h"
 
 #define BPF_FS_PATH "/sys/fs/bpf"
 // #define MAP_PIN_PATH "/sys/fs/bpf/policy_map"
@@ -556,6 +557,8 @@ int main(int argc, char **argv) {
     struct ring_buffer *rb = NULL;
     int map_fd = -1;
     int status = 0;
+
+    env::getEnv();
 
     /* Set up libbpf errors and debug info callback */
     // libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
