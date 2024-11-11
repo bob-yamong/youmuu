@@ -50,23 +50,21 @@ bool file_exists(const char *path) {
 static int print_event(void *ctx, void *data, size_t data_sz) {
     event *e = (event *)data;
     char timestamp[32];
-    time_t event_time = e->ts / 1000000000;  // Convert nanoseconds to seconds
+    time_t event_time = e->ts / 1000000000;
     struct tm *tm_info = localtime(&event_time);
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
 
-    // JSON 형식의 문자열을 직접 구성
+    // JSON 문자열 생성을 stringstream으로 수정
     std::stringstream event_data;
-    event_data << "{"
-               << "\"timestamp\": \"" << timestamp << "." << (e->ts % 1000000000) << "\", "
-               << "\"container_id\": {\"pid_ns\": " << e->pid_id << ", \"mnt_ns\": " << e->mnt_id << "}, "
-               << "\"process\": {\"host_ppid\": " << e->host_ppid << ", \"host_pid\": " << e->host_pid 
-               << ", \"ppid\": " << e->ppid << ", \"pid\": " << e->pid << ", \"uid\": " << e->uid << "}, "
-               << "\"cgroup_id\": " << e->cgroup_id << ", "
-               << "\"event_id\": " << e->event_id << ", "
-               << "\"return_value\": " << e->retval << ", "
-               << "\"command\": \"" << e->comm << "\", "
-               << "\"data\": {\"path\": \"" << e->data.path << "\", \"source\": \"" << e->data.source << "\"}"
-               << "}";
+    event_data << "{\"timestamp\":\"" << timestamp << "." << (e->ts % 1000000000) << "\","
+               << "\"container_id\":{\"pid_ns\":" << e->pid_id << ",\"mnt_ns\":" << e->mnt_id << "},"
+               << "\"process\":{\"host_ppid\":" << e->host_ppid << ",\"host_pid\":" << e->host_pid 
+               << ",\"ppid\":" << e->ppid << ",\"pid\":" << e->pid << ",\"uid\":" << e->uid << "},"
+               << "\"cgroup_id\":" << e->cgroup_id << ","
+               << "\"event_id\":" << e->event_id << ","
+               << "\"return_value\":" << e->retval << ","
+               << "\"command\":\"" << e->comm << "\","
+               << "\"data\":{\"path\":\"" << e->data.path << "\",\"source\":\"" << e->data.source << "\"}}";
 
     try {
         pqxx::work txn(conn);
