@@ -73,7 +73,7 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
         
         // JSON 문자열을 단일 따옴표로 감싸고 quote로 이스케이프
         std::string escaped_json = txn.quote(event_data.str());
-        std::string query = "SELECT * FROM pgmq.send('lsm_msg_queue', " + escaped_json + ");";
+        std::string query = "SELECT * FROM pgmq.send('lsm', " + escaped_json + ");";
         
         txn.exec(query);
         txn.commit();
