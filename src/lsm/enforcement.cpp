@@ -59,57 +59,61 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
     struct tm *tm_info = localtime(&event_time);
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
 
-    // 특수 문자를 이스케이프하는 함수
-    auto escape_string = [](const std::string& input) {
-        std::string output;
-        for (unsigned char c : input) {
-            if (c < 32 || c == '\\' || c == '"') {
-                char hex[8];
-                snprintf(hex, sizeof(hex), "\\u%04x", c);
-                output += hex;
-            } else {
-                output += c;
+    try {
+        // nlohmann::json 객체 생성
+        nlohmann::json event_json = {
+            {"timestamp", std::string(timestamp) + "." + std::to_string(e->ts % 1000000000)},
+            {"container_id", {
+                {"pid_ns", e->pid_id},
+                {"mnt_ns", e->mnt_id}
+            }},
+            {"process", {
+                {"host_ppid", e->host_ppid},
+                {"host_pid", e->host_pid},
+                {"ppid", e->ppid},
+                {"pid", e->pid},
+                {"uid", e->uid}
+            }},
+            {"cgroup_id", e->cgroup_id},
+            {"event_id", e->event_id},
+            {"return_value", e->retval},
+            {"command", e->comm},
+            {"data", {
+                {"path", e->data.path},
+                {"source", e->data.source}
+            }}
+        };
+
+        // 재시도 로직
+        for (int retry = 0; retry < MAX_RETRIES; retry++) {
+            try {
+                pqxx::work txn(*conn);
+                std::string json_str = event_json.dump();
+                std::string escaped_json = txn.quote(json_str);
+                std::string query = "SELECT * FROM pgmq.send('lsm', " + escaped_json + ");";
+                
+                txn.exec(query);
+                txn.commit();
+
+                printf("Event successfully sent to queue\n");
+                return 0;
+
+            } catch (const std::exception &e) {
+                fprintf(stderr, "Attempt %d failed to send event to queue: %s\n", 
+                        retry + 1, e.what());
+                
+                if (retry < MAX_RETRIES - 1) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(RETRY_DELAY_MS));
+                }
             }
         }
-        return output;
-    };
 
-    // JSON 문자열 생성 시 이스케이프 처리 추가
-    std::stringstream event_data;
-    event_data << "{\"timestamp\":\"" << timestamp << "." << (e->ts % 1000000000) << "\","
-               << "\"container_id\":{\"pid_ns\":" << e->pid_id << ",\"mnt_ns\":" << e->mnt_id << "},"
-               << "\"process\":{\"host_ppid\":" << e->host_ppid << ",\"host_pid\":" << e->host_pid 
-               << ",\"ppid\":" << e->ppid << ",\"pid\":" << e->pid << ",\"uid\":" << e->uid << "},"
-               << "\"cgroup_id\":" << e->cgroup_id << ","
-               << "\"event_id\":" << e->event_id << ","
-               << "\"return_value\":" << e->retval << ","
-               << "\"command\":\"" << escape_string(e->comm) << "\","
-               << "\"data\":{\"path\":\"" << escape_string(e->data.path) << "\",\"source\":\""
-               << escape_string(e->data.source) << "\"}}";
-
-    for (int retry = 0; retry < MAX_RETRIES; retry++) {
-        try {
-            pqxx::work txn(*conn);
-            std::string escaped_json = txn.quote(event_data.str());
-            std::string query = "SELECT * FROM pgmq.send('lsm', " + escaped_json + ");";
-            
-            txn.exec(query);
-            txn.commit();
-
-            printf("Event successfully sent to queue\n");
-            return 0;
-
-        } catch (const std::exception &e) {
-            fprintf(stderr, "Attempt %d failed to send event to queue: %s\n", 
-                    retry + 1, e.what());
-            
-            if (retry < MAX_RETRIES - 1) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(RETRY_DELAY_MS));
-            }
-        }
+        fprintf(stderr, "Dropping event after %d failed attempts\n", MAX_RETRIES);
+        
+    } catch (const nlohmann::json::exception& e) {
+        fprintf(stderr, "JSON processing error: %s\n", e.what());
     }
 
-    fprintf(stderr, "Dropping event after %d failed attempts\n", MAX_RETRIES);
     return 0;
 }
 
