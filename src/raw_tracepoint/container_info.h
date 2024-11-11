@@ -9,6 +9,8 @@
 #include <sys/stat.h>
 #include <limits.h>
 
+#include "getEnv.h"
+
 #define DOCKER_SOCKET "/var/run/docker.sock"
 #define MAX_CONTAINERS 100
 

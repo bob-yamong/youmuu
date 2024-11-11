@@ -11,7 +11,6 @@
 #include <bpf/libbpf.h>    // BPF 관련
 #include <filesystem>      // 파일 존재 확인
 #include <algorithm>       // std::find 사용
-#include <cstdlib>         // getenv 사용
 
 // 프로젝트 관련 헤더
 #include "raw_tracepoint.skel.h"
@@ -20,6 +19,7 @@
 #include "syscall_list.h"
 #include "parser.h"
 #include "EventLogger.h"
+#include "getEnv.h"
 
 #define POLICY_FILE_PATH "/policy/policy.yaml"
 
@@ -224,24 +224,14 @@ int main(int argc, char **argv)
         // 로그 디렉토리 생성
         system("mkdir -p log");
 
-        // 환경 변수 읽기
-        // std::string host = get_env_var("POSTGRES_HOST");
-        // std::string dbname = get_env_var("POSTGRES_DB");
-        // std::string user = get_env_var("POSTGRES_USER");
-        // std::string password = get_env_var("POSTGRES_PASSWORD");
-        // std::string port = get_env_var("POSTGRES_PORT");
-        std::string host = "34.64.34.211";
-        std::string dbname = "yamong";
-        std::string user = "yamong";
-        std::string password = "yamong";
-        std::string port = "5432";
-
+        env::getEnv();
+        
         // 연결 문자열 구성
-        std::string dbConnectionStr = "dbname=" + dbname +
-                                      " user=" + user +
-                                      " password=" + password +
-                                      " hostaddr=" + host +
-                                      " port=" + port;
+        std::string dbConnectionStr = "dbname=" + env::dbname +
+                                      " user=" + env::user +
+                                      " password=" + env::password +
+                                      " hostaddr=" + env::host +
+                                      " port=" + env::port;
 
         // EventLogger 객체 생성
         const size_t BUFFER_SIZE = 100000;
