@@ -7,8 +7,11 @@
 #include <sstream>
 #include <cstdlib>
 #include <iostream>
+#include <string_view>
 #include "struct.h"
 #include "user_struct.h"
+
+using namespace std::string_view_literals;
 
 class DBConnection {
 public:

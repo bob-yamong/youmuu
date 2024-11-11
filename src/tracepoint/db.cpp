@@ -63,36 +63,157 @@ void DBConnection::ensure_connection() {
 }
 
 void DBConnection::insert_events(const std::vector<db_event_t>& events) {    
-    // if (events.empty()) return;
+    if (events.empty()) return;
 
-    // try {
-    //     pqxx::work txn(*conn);
-        
-    //     // stream_to 사용법 변경
-    //     std::vector<std::string> columns = {
-    //         "timestamp", "pid", "tid", "syscall_id", "ret", 
-    //         "arg1", "arg2", "arg3"
-    //     };
-        
-    //     pqxx::stream_to stream{txn, "syscall_events", columns.begin(), columns.end()};
-        
-    //     for (const auto& event : events) {
-    //         stream.write_values(
-    //             event.task.timestamp,
-    //             event.task.cgroup_id,
-    //             event.task.pid,
-    //             event.task.tid,
-    //             event.event_id,
-    //             event.ret,
-    //             event.arg_s32[0],
-    //             event.arg_s32[1],
-    //             event.arg_s32[2]
-    //         );
-    //     }
+    try {
+        pqxx::work txn(*conn);
 
-    //     stream.complete();
-    //     txn.commit();
-    // } catch (const std::exception& e) {
-    //     throw std::runtime_error("Failed to insert events: " + std::string(e.what()));
-    // }
+        auto stream = pqxx::stream_to::table(txn, {"syscall_events"sv}, {
+            "timestamp"sv,
+            "cgroup_id"sv,
+            "ns_id"sv,
+            "ppid"sv,
+            "pid"sv,
+            "tid"sv,
+            "uid"sv,
+            "gid"sv,
+            "comm"sv,
+            "ret"sv,
+            "arg0"sv,
+            "arg1"sv,
+            "arg2"sv,
+            "arg3"sv,
+            "arg4"sv,
+            "arg5"sv
+        });
+
+        for (const auto& event : events) {
+            std::string timestamp_str = pqxx::to_string(
+                std::chrono::duration_cast<std::chrono::microseconds>(
+                    event.timestamp.time_since_epoch()
+                ).count() / 1000000.0
+            );
+            stream.write_values(
+                timestamp_str,
+                event.cgroup_id,
+                event.ns_id,
+                event.ppid,
+                event.pid,
+                event.tid,
+                event.uid,
+                event.gid,
+                event.comm,
+                event.ret,
+                event.arg0,
+                event.arg1,
+                event.arg2,
+                event.arg3,
+                event.arg4,
+                event.arg5
+            );
+        }
+
+        stream.complete();
+        txn.commit();
+    } catch (const std::exception& e) {
+        throw std::runtime_error("Failed to insert events: " + std::string(e.what()));
+    }
 }
+
+// void EventLogger::insertEventsToDB(const std::vector<event>& buffer) {
+//     if (buffer.empty()) return;
+
+//     try {
+//         pqxx::work txn(dbConnection_);
+//         auto stream = pqxx::stream_to::table(txn, {"ContainerLog"sv}, {
+//             "systemcall",
+//             "container_name",
+//             "pid",
+//             "ppid",
+//             "tid",
+//             "uid",
+//             "gid",
+//             "command",
+//             "atr_0",
+//             "atr_1",
+//             "atr_2",
+//             "atr_3",
+//             "atr_4",
+//             "atr_5"
+//         });
+
+//         // 개선된 문자열 정제 함수
+//         auto sanitizeString = [](const char* str) -> std::string {
+//             std::string result;
+//             const unsigned char* p = reinterpret_cast<const unsigned char*>(str);
+            
+//             while (*p && result.length() < MAX_ARG_LEN) {
+//                 // UTF-8 유효성 검사 및 필터링
+//                 if (*p < 0x80) { // ASCII 문자
+//                     if (*p >= 0x20 && *p != 0x7F) { // 출력 가능한 ASCII
+//                         result += static_cast<char>(*p);
+//                     }
+//                     p++;
+//                 } else if ((*p & 0xE0) == 0xC0) { // 2바이트 UTF-8
+//                     if (p[1] && (p[1] & 0xC0) == 0x80) {
+//                         result += static_cast<char>(p[0]);
+//                         result += static_cast<char>(p[1]);
+//                         p += 2;
+//                     } else {
+//                         p++;
+//                     }
+//                 } else if ((*p & 0xF0) == 0xE0) { // 3바이트 UTF-8
+//                     if (p[1] && p[2] && 
+//                         (p[1] & 0xC0) == 0x80 && 
+//                         (p[2] & 0xC0) == 0x80) {
+//                         result += static_cast<char>(p[0]);
+//                         result += static_cast<char>(p[1]);
+//                         result += static_cast<char>(p[2]);
+//                         p += 3;
+//                     } else {
+//                         p++;
+//                     }
+//                 } else {
+//                     p++; // 유효하지 않은 바이트는 건너뛰기
+//                 }
+//             }
+//             return result;
+//         };
+
+//         for (const auto& e : buffer) {
+//             std::string container_name;
+//             for (const auto& container : ContainerManager::containers) {
+//                 if (container.cgroup_id == e.cgroup_id) {
+//                     container_name = container.name;
+//                     break;
+//                 }
+//             }
+
+//             stream.write_values(
+//                 sanitizeString(e.syscall),
+//                 container_name,
+//                 e.pid,
+//                 e.ppid,
+//                 e.tid,
+//                 e.uid,
+//                 e.gid,
+//                 sanitizeString(e.comm),
+//                 sanitizeString(e.argv[0]),
+//                 sanitizeString(e.argv[1]),
+//                 sanitizeString(e.argv[2]),
+//                 sanitizeString(e.argv[3]),
+//                 sanitizeString(e.argv[4]),
+//                 sanitizeString(e.argv[5])
+//             );
+//         }
+//         stream.complete();
+//         txn.commit();
+//     }
+//     catch (const pqxx::sql_error &e) {
+//         std::cerr << "SQL error: " << e.what() << "\n";
+//         std::cerr << "Query was: " << e.query() << "\n";
+//     }
+//     catch (const std::exception &e) {
+//         std::cerr << "Exception in insertEventsToDB: " << e.what() << "\n";
+//     }
+// }
