@@ -11,6 +11,7 @@
 #include <iostream>
 #include "struct.h"
 #include "db.h"
+#include "user_struct.h"
 
 class EventBuffer {
 public:

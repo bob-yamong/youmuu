@@ -11,9 +11,9 @@ DBConnection::DBConnection() {
         // 환경 변수에서 DB 연결 정보 가져오기
         std::string host = get_env_var("POSTGRES_HOST", "localhost");
         std::string port = get_env_var("POSTGRES_PORT", "5432");
-        std::string dbname = get_env_var("POSTGRES_DB", "yamong");
-        std::string user = get_env_var("POSTGRES_USER", "yamong");
-        std::string password = get_env_var("POSTGRES_PASSWORD", "yamong");
+        std::string dbname = get_env_var("POSTGRES_DB", "yamong_postgres");
+        std::string user = get_env_var("POSTGRES_USER", "temp_admin");
+        std::string password = get_env_var("POSTGRES_PASSWORD", "temp_password");
 
         // 연결 문자열 구성
         std::stringstream conn_string;
@@ -30,6 +30,7 @@ DBConnection::DBConnection() {
         w.exec("SET synchronous_commit TO OFF");
         w.exec("SET client_encoding TO 'UTF8'");
         w.commit();
+        std::cout << "Database connection successful! Connected to " << dbname << " at " << host << ":" << port << std::endl;
 
     } catch (const std::exception& e) {
         throw std::runtime_error("Database connection failed: " + std::string(e.what()));
@@ -42,9 +43,9 @@ void DBConnection::ensure_connection() {
             // 재연결 시에도 환경 변수 사용
             std::string host = get_env_var("POSTGRES_HOST", "localhost");
             std::string port = get_env_var("POSTGRES_PORT", "5432");
-            std::string dbname = get_env_var("POSTGRES_DB", "yamong");
-            std::string user = get_env_var("POSTGRES_USER", "yamong");
-            std::string password = get_env_var("POSTGRES_PASSWORD", "yamong");
+            std::string dbname = get_env_var("POSTGRES_DB", "yamong_postgres");
+            std::string user = get_env_var("POSTGRES_USER", "temp_admin");
+            std::string password = get_env_var("POSTGRES_PASSWORD", "temp_password");
 
             std::stringstream conn_string;
             conn_string << "dbname=" << dbname << " "
@@ -54,6 +55,7 @@ void DBConnection::ensure_connection() {
                        << "password=" << password;
 
             conn = std::make_unique<pqxx::connection>(conn_string.str());
+            std::cout << "Database connection successful! Connected to " << dbname << " at " << host << ":" << port << std::endl;
         }
     } catch (const std::exception& e) {
         throw std::runtime_error("Database reconnection failed: " + std::string(e.what()));
