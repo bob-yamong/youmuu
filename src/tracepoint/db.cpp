@@ -68,48 +68,52 @@ void DBConnection::insert_events(const std::vector<db_event_t>& events) {
     try {
         pqxx::work txn(*conn);
 
-        auto stream = pqxx::stream_to::table(txn, {"syscall_events"sv}, {
-            "timestamp"sv,
-            "cgroup_id"sv,
-            "ns_id"sv,
-            "ppid"sv,
+        auto stream = pqxx::stream_to::table(txn, {"ContainerLog"sv}, {
+            "systemcall"sv,
+            "container_name"sv,
             "pid"sv,
+            "ppid"sv,
             "tid"sv,
             "uid"sv,
             "gid"sv,
-            "comm"sv,
-            "ret"sv,
-            "arg0"sv,
-            "arg1"sv,
-            "arg2"sv,
-            "arg3"sv,
-            "arg4"sv,
-            "arg5"sv
+            "command"sv,
+            "atr_0"sv,
+            "atr_1"sv,
+            "atr_2"sv,
+            "atr_3"sv,
+            "atr_4"sv,
+            "atr_5"sv,
+            "additional_info"sv,
+            "callded_at"sv,
+            "mnt_namespace"sv,
+            "pid_namespace"sv,
         });
 
         for (const auto& event : events) {
-            std::string timestamp_str = pqxx::to_string(
-                std::chrono::duration_cast<std::chrono::microseconds>(
-                    event.timestamp.time_since_epoch()
-                ).count() / 1000000.0
-            );
+            
+            time_t timestamp = std::chrono::system_clock::to_time_t(event.timestamp);
+            char timestamp_str[32];
+            struct tm* timeinfo = gmtime(&timestamp);  // UTC 시간 사용
+            strftime(timestamp_str, sizeof(timestamp_str), "%Y-%m-%d %H:%M:%S", timeinfo);
             stream.write_values(
-                timestamp_str,
-                event.cgroup_id,
-                event.ns_id,
-                event.ppid,
+                event.syscall,
+                event.container_name,
                 event.pid,
+                event.ppid,
                 event.tid,
                 event.uid,
                 event.gid,
                 event.comm,
-                event.ret,
                 event.arg0,
                 event.arg1,
                 event.arg2,
                 event.arg3,
                 event.arg4,
-                event.arg5
+                event.arg5,
+                event.additional_info,
+                std::string(timestamp_str),
+                event.mnt_namespace,
+                event.pid_namespace 
             );
         }
 

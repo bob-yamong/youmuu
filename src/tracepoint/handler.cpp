@@ -11,13 +11,13 @@ static db_event_t get_task_info_str(const struct current_task *task, time_t boot
     time_t timer, actual_time;
 
     timer = task->timestamp / NANOSECONDS_IN_A_SECOND;
-    unsigned long long nanoseconds = task->timestamp % NANOSECONDS_IN_A_SECOND;
+    // unsigned long long nanoseconds = task->timestamp % NANOSECONDS_IN_A_SECOND;
     actual_time = boot_time + timer;
 
-    event.timestamp = std::chrono::system_clock::from_time_t(actual_time) + 
-                    std::chrono::nanoseconds(nanoseconds);
-    event.cgroup_id = task->cgroup_id;
-    event.ns_id = task->ns_id;
+    event.timestamp = std::chrono::system_clock::from_time_t(actual_time);
+                    //  + std::chrono::nanoseconds(nanoseconds);
+    event.pid_namespace = task->pid_namespace;
+    event.mnt_namespace = task->mnt_namespace;
     event.ppid = task->ppid;
     event.pid = task->pid;
     event.tid = task->tid;
