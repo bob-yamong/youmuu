@@ -98,15 +98,15 @@ struct YamlTracepointPolicy {
 
 struct YamlContainerPolicy {
     string container_name;
+    bool raw_tp_policy;
     YamlLsmPolicy lsm_policies;
     YamlTracepointPolicy tracepoint_policy;
 };
 
 struct YamlPolicy {
-    string container_name;
-    bool raw_tp_policy;
-    YamlLsmPolicy lsm_policies;
-    YamlTracepointPolicy tracepoint_policy;
+    string api_version;
+    string name;
+    vector<YamlContainerPolicy> containers;
 };
 
 // IP 주소 문자열을 정수로 변환하는 함수
