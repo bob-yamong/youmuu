@@ -114,7 +114,7 @@ $(OUTPUT)/%.o: %.cpp $(wildcard %.h) | $(OUTPUT)  # C++ 파일 컴파일 규칙 
 	$(Q)$(CXX) $(CXXFLAGS) $(INCLUDES) -c $(filter %.cpp,$^) -o $@
 
 # Build application binary
-$(APPS): %: $(OUTPUT)/%.o $(LIBBPF_OBJ) $(OUTPUT)/container_info.o $(OUTPUT)/EventLogger.o | $(OUTPUT)  # container_info.o 추가
+$(APPS): %: $(OUTPUT)/%.o $(LIBBPF_OBJ) $(OUTPUT)/container_info.o $(OUTPUT)/EventLogger.o $(OUTPUT)/getEnv.o | $(OUTPUT)  # container_info.o 추가
 	$(call msg,BINARY,$@)
 	$(Q)$(CXX) $(CXXFLAGS) $^ $(ALL_LDFLAGS) $(LIBS) -o $@
 # delete failed targets

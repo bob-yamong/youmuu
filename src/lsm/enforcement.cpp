@@ -12,6 +12,8 @@
 #include <fstream>
 #include <thread>
 #include <chrono>
+#include <pqxx/pqxx>
+#include <sstream>
  
 #include "enforcement.skel.h"
 
@@ -30,6 +32,8 @@
 
 static volatile bool exiting = false;
 
+pqxx::connection conn;
+
 void clear_bpf_map(int map_fd);
 
 bool file_exists(const char *path) {
@@ -44,20 +48,33 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
     struct tm *tm_info = localtime(&event_time);
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
 
-    printf("--------- Event ---------\n"
-           "Timestamp: %s.%09llu\n"
-           "Container ID: pid_ns=%u, mnt_ns=%u\n"
-           "Process: host_ppid=%u, host_pid=%u, ppid=%u, pid=%u, uid=%u\n"
-           "Cgroup ID: %llu\n"
-           "Event ID: %d\n"
-           "Return Value: %lld\n"
-           "Command: %s\n"
-           "Data:\n"
-           "  Path: %s\n"
-           "  Source: %s\n"
-           "--------------------------\n\n",
-           timestamp, e->ts % 1000000000, e->pid_id, e->mnt_id, e->host_ppid, e->host_pid, e->ppid, e->pid, e->uid,
-           e->cgroup_id, e->event_id, e->retval, e->comm, e->data.path, e->data.source);
+    // JSON 형식의 문자열을 직접 구성
+    std::stringstream event_data;
+    event_data << "{"
+               << "\"timestamp\": \"" << timestamp << "." << (e->ts % 1000000000) << "\", "
+               << "\"container_id\": {\"pid_ns\": " << e->pid_id << ", \"mnt_ns\": " << e->mnt_id << "}, "
+               << "\"process\": {\"host_ppid\": " << e->host_ppid << ", \"host_pid\": " << e->host_pid 
+               << ", \"ppid\": " << e->ppid << ", \"pid\": " << e->pid << ", \"uid\": " << e->uid << "}, "
+               << "\"cgroup_id\": " << e->cgroup_id << ", "
+               << "\"event_id\": " << e->event_id << ", "
+               << "\"return_value\": " << e->retval << ", "
+               << "\"command\": \"" << e->comm << "\", "
+               << "\"data\": {\"path\": \"" << e->data.path << "\", \"source\": \"" << e->data.source << "\"}"
+               << "}";
+
+    try {
+        pqxx::work txn(conn);
+
+        // PGMQ `send` 호출
+        std::string query = "SELECT * FROM pgmq.send('my_queue', '" + txn.quote(event_data.str()) + "');";
+        txn.exec(query);
+        txn.commit();
+
+        printf("Event successfully sent to queue\n");
+    } catch (const std::exception &e) {
+        fprintf(stderr, "Failed to send event to queue: %s\n", e.what());
+        return -1;
+    }
 
     return 0;
 }
@@ -559,6 +576,9 @@ int main(int argc, char **argv) {
     int status = 0;
 
     env::getEnv();
+
+    // DB 연결
+    conn = pqxx::connection("dbname=" + env::dbname + " user=" + env::user + " password=" + env::password + " host=" + env::host + " port=" + env::port);
 
     /* Set up libbpf errors and debug info callback */
     // libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
