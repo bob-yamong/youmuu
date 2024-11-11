@@ -13,6 +13,7 @@
 #include "struct.h"
 #include "handler.h"
 #include "parser.h"
+#include "db.h"
 
 #define MAX_CMD_LEN 1024
 #define MAX_OUTPUT_LEN 256
@@ -24,6 +25,7 @@
 #define POLICY_FILE_PATH const_cast<char*>("/policy/policy.yaml")
 
 static volatile bool running = true;
+std::unique_ptr<DBConnection> g_db_connection;
 
 static void sig_handler(int sig) {
     running = false;
@@ -311,6 +313,9 @@ int main(int argc, char **argv) {
     
 cleanup:
     running = false;
+    g_db_connection.reset();
+    if (rb)
+        ring_buffer__free(rb);
     tracepoint_bpf__destroy(skel);
     return err != 0;
 }
