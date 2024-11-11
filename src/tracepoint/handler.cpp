@@ -16,12 +16,12 @@ static void get_task_info_str(const struct current_task *task, char *buffer, siz
     strftime(timestamp, 26, "%Y-%m-%d %H:%M:%S", tm_info);
 
     snprintf(buffer, buffer_size,
-             "count=%20llu, timestamp=%s.%9llu, cgroup_id=%20llu, ns_id=%9u, "
-             "ppid=%9u, pid=%9u, tid=%9u, uid=%9u, gid=%9u, comm=%s",
-             task->count, timestamp, nanoseconds,
-             task->cgroup_id, task->ns_id,
-             task->ppid, task->pid, task->tid,
-             task->uid, task->gid, task->comm);
+            "count=%20llu, timestamp=%s.%9llu, cgroup_id=%20llu, ns_id=%9u, "
+            "ppid=%9u, pid=%9u, tid=%9u, uid=%9u, gid=%9u, comm=%s",
+            task->count, timestamp, nanoseconds,
+            task->cgroup_id, task->ns_id,
+            task->ppid, task->pid, task->tid,
+            task->uid, task->gid, task->comm);
 }
 
 typedef int (*event_handler_t)(const struct event_t*, const char*);
