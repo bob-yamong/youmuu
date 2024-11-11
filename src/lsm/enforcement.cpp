@@ -50,8 +50,8 @@ bool file_exists(const char *path) {
 }
 
 static int print_event(void *ctx, void *data, size_t data_sz) {
-    const int MAX_RETRIES = 2;  // 최초 시도 + 1회 재시도
-    const int RETRY_DELAY_MS = 100;  // 재시도 전 100ms 대기
+    const int MAX_RETRIES = 2;
+    const int RETRY_DELAY_MS = 100;
     
     event *e = (event *)data;
     char timestamp[32];
@@ -59,7 +59,22 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
     struct tm *tm_info = localtime(&event_time);
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
 
-    // JSON 문자열 생성을 stringstream으로 수정
+    // 특수 문자를 이스케이프하는 함수
+    auto escape_string = [](const std::string& input) {
+        std::string output;
+        for (unsigned char c : input) {
+            if (c < 32 || c == '\\' || c == '"') {
+                char hex[8];
+                snprintf(hex, sizeof(hex), "\\u%04x", c);
+                output += hex;
+            } else {
+                output += c;
+            }
+        }
+        return output;
+    };
+
+    // JSON 문자열 생성 시 이스케이프 처리 추가
     std::stringstream event_data;
     event_data << "{\"timestamp\":\"" << timestamp << "." << (e->ts % 1000000000) << "\","
                << "\"container_id\":{\"pid_ns\":" << e->pid_id << ",\"mnt_ns\":" << e->mnt_id << "},"
@@ -68,8 +83,9 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
                << "\"cgroup_id\":" << e->cgroup_id << ","
                << "\"event_id\":" << e->event_id << ","
                << "\"return_value\":" << e->retval << ","
-               << "\"command\":\"" << e->comm << "\","
-               << "\"data\":{\"path\":\"" << e->data.path << "\",\"source\":\"" << e->data.source << "\"}}";
+               << "\"command\":\"" << escape_string(e->comm) << "\","
+               << "\"data\":{\"path\":\"" << escape_string(e->data.path) << "\",\"source\":\""
+               << escape_string(e->data.source) << "\"}}";
 
     for (int retry = 0; retry < MAX_RETRIES; retry++) {
         try {
@@ -81,22 +97,20 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
             txn.commit();
 
             printf("Event successfully sent to queue\n");
-            return 0;  // 성공시 즉시 반환
+            return 0;
 
         } catch (const std::exception &e) {
             fprintf(stderr, "Attempt %d failed to send event to queue: %s\n", 
                     retry + 1, e.what());
             
             if (retry < MAX_RETRIES - 1) {
-                // 마지막 시도가 아닌 경우에만 대기
                 std::this_thread::sleep_for(std::chrono::milliseconds(RETRY_DELAY_MS));
             }
         }
     }
 
-    // 모든 재시도 실패 후
     fprintf(stderr, "Dropping event after %d failed attempts\n", MAX_RETRIES);
-    return 0;  // 프로그램은 계속 실행
+    return 0;
 }
 
 void handle_signal(int sig) {
