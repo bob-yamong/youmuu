@@ -58,43 +58,20 @@ std::string env::resolveHostname(const std::string& hostname) {
 }
 
 // void env::getEnv() {
-//     try {
-//         std::cout << "Initializing environment variables..." << std::endl;
-        
-//         // 환경변수 가져오기 (없으면 기본값 사용)
-//         host = get_env_var("POSTGRES_HOST", "localhost");
-//         dbname = get_env_var("POSTGRES_DB", "yamong_postgres");
-//         user = get_env_var("POSTGRES_USER", "temp_admin");
-//         password = get_env_var("POSTGRES_PASSWORD", "temp_password");
-//         port = get_env_var("POSTGRES_PORT", "5432");
-//         cgroup_path = get_env_var("CGROUP_SYSTEM_SLICE_PATH", "/sys/fs/cgroup/system.slice/");
-//         proc_path = get_env_var("PROC_PATH", "/proc");
-
-//         // 디버깅을 위한 출력
-//         std::cout << "Environment variables set:" << std::endl
-//                   << "Host: " << host << std::endl
-//                   << "Port: " << port << std::endl
-//                   << "DB: " << dbname << std::endl
-//                   << "User: " << user << std::endl;
-
-//     } catch (const std::exception& e) {
-//         std::cerr << "Error in getEnv: " << e.what() << std::endl;
-//         throw;
+//     std::string hostname = get_env_var("POSTGRES_HOST", "localhost");
+//     // hostname이 IP가 아닌 경우에만 resolve
+//     if (hostname.find_first_not_of("0123456789.") != std::string::npos) {
+//         host = resolveHostname(hostname);
+//     } else {
+//         host = hostname;
 //     }
-//     // std::string host = get_env_var("POSTGRES_HOST", "localhost");
-//     // // hostname이 IP가 아닌 경우에만 resolve
-//     // // if (hostname.find_first_not_of("0123456789.") != std::string::npos) {
-//     // //     host = resolveHostname(hostname);
-//     // // } else {
-//     // //     host = hostname;
-//     // // }
 
-//     // dbname = get_env_var("POSTGRES_DB", "yamong_postgres");
-//     // user = get_env_var("POSTGRES_USER", "temp_admin");
-//     // password = get_env_var("POSTGRES_PASSWORD", "temp_password");
-//     // port = get_env_var("POSTGRES_PORT" , "5432");
-//     // cgroup_path = get_env_var("CGROUP_SYSTEM_SLICE_PATH", "/sys/fs/cgroup/system.slice/");
-//     // proc_path = get_env_var("PROC_PATH", "/proc");
+//     dbname = get_env_var("POSTGRES_DB", "yamong_postgres");
+//     user = get_env_var("POSTGRES_USER", "temp_admin");
+//     password = get_env_var("POSTGRES_PASSWORD", "temp_password");
+//     port = get_env_var("POSTGRES_PORT" , "5432");
+//     cgroup_path = get_env_var("CGROUP_SYSTEM_SLICE_PATH", "/sys/fs/cgroup/system.slice/");
+//     proc_path = get_env_var("PROC_PATH", "/proc");
 // }
 
 void env::getEnv() {

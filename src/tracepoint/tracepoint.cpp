@@ -31,7 +31,6 @@
 
 static volatile bool running = true;
 std::unique_ptr<DBConnection> g_db_connection;
-
 using json = nlohmann::json;
 
 static void sig_handler(int sig) {
