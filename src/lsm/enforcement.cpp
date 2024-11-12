@@ -53,6 +53,11 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
     const int MAX_RETRIES = 2;
     const int RETRY_DELAY_MS = 100;
     
+    if (!data || !conn) {
+        fprintf(stderr, "Invalid data or database connection\n");
+        return -1;
+    }
+    
     event *e = (event *)data;
     char timestamp[32];
     time_t event_time = e->ts / 1000000000;
@@ -60,42 +65,57 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
 
     try {
-        // nlohmann::json 객체 생성
-        nlohmann::json event_json = {
-            {"timestamp", std::string(timestamp) + "." + std::to_string(e->ts % 1000000000)},
-            {"container_id", {
-                {"pid_ns", e->pid_id},
-                {"mnt_ns", e->mnt_id}
-            }},
-            {"process", {
-                {"host_ppid", e->host_ppid},
-                {"host_pid", e->host_pid},
-                {"ppid", e->ppid},
-                {"pid", e->pid},
-                {"uid", e->uid}
-            }},
-            {"cgroup_id", e->cgroup_id},
-            {"event_id", e->event_id},
-            {"return_value", e->retval},
-            {"command", e->comm},
-            {"data", {
-                {"path", e->data.path},
-                {"source", e->data.source}
-            }}
-        };
+        // nlohmann::json 객체 생성 시 예외 처리 추가
+        nlohmann::json event_json;
+        try {
+            event_json = {
+                {"timestamp", std::string(timestamp) + "." + std::to_string(e->ts % 1000000000)},
+                {"container_id", {
+                    {"pid_ns", e->pid_id},
+                    {"mnt_ns", e->mnt_id}
+                }},
+                {"process", {
+                    {"host_ppid", e->host_ppid},
+                    {"host_pid", e->host_pid},
+                    {"ppid", e->ppid},
+                    {"pid", e->pid},
+                    {"uid", e->uid}
+                }},
+                {"cgroup_id", e->cgroup_id},
+                {"event_id", e->event_id},
+                {"return_value", e->retval},
+                {"command", std::string(e->comm)},  // 문자열로 명시적 변환
+                {"data", {
+                    {"path", std::string(e->data.path)},  // 문자열로 명시적 변환
+                    {"source", std::string(e->data.source)}  // 문자열로 명시적 변환
+                }}
+            };
+        } catch (const nlohmann::json::exception& e) {
+            fprintf(stderr, "JSON creation error: %s\n", e.what());
+            return -1;
+        }
 
         // 재시도 로직
         for (int retry = 0; retry < MAX_RETRIES; retry++) {
+            if (!conn->is_open()) {
+                fprintf(stderr, "Database connection lost\n");
+                return -1;
+            }
+
             try {
                 pqxx::work txn(*conn);
                 std::string json_str = event_json.dump();
+                
+                // 디버깅을 위한 출력
+                fprintf(stderr, "Sending JSON: %s\n", json_str.c_str());
+                
                 std::string escaped_json = txn.quote(json_str);
                 std::string query = "SELECT * FROM pgmq.send('lsm', " + escaped_json + ");";
                 
                 txn.exec(query);
                 txn.commit();
 
-                printf("Event successfully sent to queue\n");
+                fprintf(stderr, "Event successfully sent to queue\n");
                 return 0;
 
             } catch (const std::exception &e) {
@@ -110,8 +130,9 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
 
         fprintf(stderr, "Dropping event after %d failed attempts\n", MAX_RETRIES);
         
-    } catch (const nlohmann::json::exception& e) {
-        fprintf(stderr, "JSON processing error: %s\n", e.what());
+    } catch (const std::exception& e) {
+        fprintf(stderr, "Unexpected error: %s\n", e.what());
+        return -1;
     }
 
     return 0;
