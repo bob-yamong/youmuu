@@ -509,7 +509,7 @@ int update_policy_with_file(int map_fd, char* abs_file_name) {
         struct policy_value value;
 
         int container_pid = get_docker_pid(container.container_name.c_str());
-        if (!container_pid) {
+        if (container_pid==0) {
             fprintf(stderr, "Failed to get container pid: %s\n", container.container_name.c_str());
             continue;
         }
@@ -807,6 +807,7 @@ int main(int argc, char **argv) {
                 status = SHOW_LOG;
             } else {
                 std::cout << "Policy file not found\n";
+                sleep(POLICY_UPDATE_INTERVAL);
             }
             break;
         case DELETE_POLICY:

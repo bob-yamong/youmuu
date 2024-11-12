@@ -176,9 +176,9 @@ static __always_inline __u32 match_policy(struct task_struct *task, enum policy_
     
     struct policy_value *value = bpf_map_lookup_elem(&policy_map, &key);
     
-    bpf_printk("match policy request from pid_ns_id: %u, mnt_ns_id: %u\n", key.pid_ns_id, key.mnt_ns_id);
+    // bpf_printk("match policy request from pid_ns_id: %u, mnt_ns_id: %u\n", key.pid_ns_id, key.mnt_ns_id);
     if (!value) return 0;
-    bpf_printk("start comparing from pid_ns_id: %u, mnt_ns_id: %u\n", key.pid_ns_id, key.mnt_ns_id);
+    // bpf_printk("start comparing from pid_ns_id: %u, mnt_ns_id: %u\n", key.pid_ns_id, key.mnt_ns_id);
 
     switch (type) {
         case POLICY_FILE: {
