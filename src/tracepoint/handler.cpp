@@ -52,9 +52,6 @@ static int handle_enter_socket(const struct event_t *e, const db_event_t& base_e
     event.arg0 = std::to_string(e->arg_s32[0]); // domain
     event.arg1 = std::to_string(e->arg_s32[1]); // type
     event.arg2 = std::to_string(e->arg_s32[2]); // protocol
-
-    printf("Enter socket: domain=%#x, type=%#x, protocol=%#x\n",
-        e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
     event_buffer.add_event(event);
     return 0;
 }
@@ -63,14 +60,6 @@ static int handle_exit_socket(const struct event_t *e, const db_event_t& base_ev
     db_event_t event = base_event;
 
     event.ret = e->ret;
-
-    if (e->ret < 0) {
-        printf("Exit socket: failed, error_code=%lld\n",
-                e->ret);
-    } else {
-        printf("Exit socket: success, ret=%lld\n",
-                e->ret);
-    }
     event_buffer.add_event(event);
     return 0;
 }
@@ -81,9 +70,6 @@ static int handle_enter_socketpair(const struct event_t *e, const db_event_t& ba
     event.arg0 = std::to_string(e->arg_s32[0]); // domain
     event.arg1 = std::to_string(e->arg_s32[1]); // type
     event.arg2 = std::to_string(e->arg_s32[2]); // protocol
-
-    printf("Enter socketpair: domain=%#x, type=%#x, protocol=%#x\n",
-            e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
     event_buffer.add_event(event);
     return 0;
 }
@@ -92,19 +78,9 @@ static int handle_exit_socketpair(const struct event_t *e, const db_event_t& bas
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    if (e->is_valid == true) {
+    if (e->is_valid) {
         event.arg0 = std::to_string(e->arg_s32[0]); // sv[0]
         event.arg1 = std::to_string(e->arg_s32[1]); // sv[1]
-    }
-    if (e->ret < 0) {
-        printf("Exit socketpair: failed, error_code=%lld\n",
-                e->ret);
-    } else if (e->is_valid == true) {
-        printf("Exit socketpair: success, sv[0]=%d, sv[1]=%d, ret=%lld\n",
-                e->arg_s32[0], e->arg_s32[1], e->ret);
-    } else {
-        printf("Exit socketpair: success but failed to read socket values, ret=%lld\n",
-                e->ret);
     }
     event_buffer.add_event(event);
     return 0;
@@ -117,15 +93,8 @@ static int handle_enter_setsockopt(const struct event_t *e, const db_event_t& ba
     event.arg1 = std::to_string(e->arg_s32[1]); // level
     event.arg2 = std::to_string(e->arg_s32[2]); // optname
     event.arg4 = std::to_string(e->arg_s32[3]); // optlen
-    if (e->is_valid == true) {
+    if (e->is_valid) {
         event.arg3 = std::to_string(e->arg_u32[0]); // optval
-    }
-    if (e->is_valid == true) {
-        printf("Enter setsockopt: socktfd=%d, level=%#x, optname=%#x, optval=%u, optlen=%d\n",
-                e->arg_s32[0], e->arg_s32[1], e->arg_s32[2], e->arg_u32[0], e->arg_s32[3]);
-    } else {
-        printf("Enter setsockopt: socktfd=%d, level=%#x, optname=%#x, failed to read optval, optlen=%d\n",
-                e->arg_s32[0], e->arg_s32[1], e->arg_s32[2], e->arg_s32[3]);
     }
     event_buffer.add_event(event);
     return 0;
@@ -135,13 +104,6 @@ static int handle_exit_setsockopt(const struct event_t *e, const db_event_t& bas
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    if (e->ret < 0) {
-        printf("Exit setsockopt: failed, error_code=%lld\n",
-                e->ret);
-    } else {
-        printf("Exit setsockopt: success, ret=%lld\n",
-                e->ret);
-    }
     event_buffer.add_event(event);
     return 0;
 }
@@ -152,8 +114,6 @@ static int handle_enter_getsockopt(const struct event_t *e, const db_event_t& ba
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
     event.arg1 = std::to_string(e->arg_s32[1]); // level
     event.arg2 = std::to_string(e->arg_s32[2]); // optname
-    printf("Enter getsockopt: socketfd=%d, level=%#x, optname=%#x\n",
-            e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
     event_buffer.add_event(event);
     return 0;
 }
@@ -162,231 +122,219 @@ static int handle_exit_getsockopt(const struct event_t *e, const db_event_t& bas
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    if (e->is_valid == true) {
+    if (e->is_valid) {
         event.arg0 = std::to_string(e->arg_u32[0]); // optval
         event.arg1 = std::to_string(e->arg_u32[1]); // optlen
-    }
-    if (e->ret < 0) {
-        printf("Exit getsockopt: failed, error_code=%lld\n",
-                e->ret);
-    } else if (e->is_valid == true) {
-        printf("Exit getsockopt: success, optval=%u, optlen=%u, ret=%lld\n",
-                e->arg_u32[0], e->arg_u32[1], e->ret);
-    } else {
-        printf("Exit getsockopt: success, failed to read optval, ret=%lld\n",
-                e->ret);
     }
     event_buffer.add_event(event);
     return 0;
 }
 
-// static int handle_enter_getsockname(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter getsockname: %s, socketfd=%d\n",
-//             e->arg_s32[0]);
-//     return 0;
-// }
+static int handle_enter_getsockname(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_getsockname(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit getsockname: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else if (e->is_valid == true) {
-//         char ip_str[INET6_ADDRSTRLEN];
-//         get_ip_str(e, ip_str, sizeof(ip_str));
-//         printf("Exit getsockname: success, %s, address=%s:%u, ip_version=%s, ret=%lld\n",
-//                 ip_str, e->port, 
-//                 e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown", e->ret);
-//     } else {
-//         printf("Exit getsockname: success, %s, failed to read socket address info, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_getpeername(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter getpeername: %s, socketfd=%d\n",
-//             e->arg_s32[0]);
-//     return 0;
-// }
+static int handle_exit_getsockname(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_getpeername(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit getpeername: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else if (e->is_valid == true) {
-//         char ip_str[INET6_ADDRSTRLEN];
-//         get_ip_str(e, ip_str, sizeof(ip_str));
-//         printf("Exit getpeername: success, %s, address=%s:%u, ip_version=%s, ret=%lld\n",
-//                 ip_str, e->port, 
-//                 e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown", e->ret);
-//     } else {
-//         printf("Exit getpeername: success, %s, failed to read socket address info, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.ret = e->ret;
+    if (e->is_valid) {
+        char ip_str[INET6_ADDRSTRLEN];
+        get_ip_str(e, ip_str, sizeof(ip_str));
+        event.arg0 = ip_str;    // ip
+        event.arg1 = std::to_string(e->port);   // port
+        event.arg2 = std::to_string(e->addr_family);    // ip_version
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_bind(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
-//         char ip_str[INET6_ADDRSTRLEN];
-//         get_ip_str(e, ip_str, sizeof(ip_str));
-//         printf("Enter bind: %s, socktfd=%d, addr=%s:%u, ip_version=%s\n",
-//                 e->arg_s32[0], ip_str, e->port, 
-//                 e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown");
-//     } else {
-//         printf("Enter bind: %s, socktfd=%d, failed to read address info\n",
-//                 e->arg_s32[0]);
-//     }
-//     return 0;
-// }
+static int handle_enter_getpeername(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_bind(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit bind: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit bind: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_listen(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter listen: %s, socktfd=%d, backlog=%d\n",
-//             e->arg_s32[0], e->arg_s32[1]);
-//     return 0;
-// }
+static int handle_exit_getpeername(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_listen(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit listen: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit listen: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.ret = e->ret;
+    if (e->is_valid) {
+        char ip_str[INET6_ADDRSTRLEN];
+        get_ip_str(e, ip_str, sizeof(ip_str));
+        event.arg0 = ip_str;    // ip
+        event.arg1 = std::to_string(e->port);   // port
+        event.arg2 = std::to_string(e->addr_family);    // ip_version
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_accept(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter accept: %s, socktfd=%d\n",
-//             e->arg_s32[0]);
-//     return 0;
-// }
+static int handle_enter_bind(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_accept(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit accept: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else if (e->is_null == true) {
-//         printf("Exit accept: success, %s, socket address info is not requested, ret=%lld\n",
-//                 e->ret);
-//     } else if (e->is_valid == true) {
-//         char ip_str[INET6_ADDRSTRLEN];
-//         get_ip_str(e, ip_str, sizeof(ip_str));
-//         printf("Exit accept: success, %s, address=%s:%u, ip_version=%s, ret=%lld\n",
-//                 ip_str, e->port, 
-//                 e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown", e->ret);
-//     } else {
-//         printf("Exit accept: success, %s, failed to read socket address info, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
+    if (e->is_valid) {
+        char ip_str[INET6_ADDRSTRLEN];
+        get_ip_str(e, ip_str, sizeof(ip_str));
+        event.arg0 = ip_str;    // ip
+        event.arg1 = std::to_string(e->port);   // port
+        event.arg2 = std::to_string(e->addr_family);    // ip_version
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_accept4(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter accept4: %s, socktfd=%d, flags=%#x\n",
-//             e->arg_s32[0], e->arg_s32[1]);
-//     return 0;
-// }
+static int handle_exit_bind(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_accept4(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit accept4: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else if (e->is_null == true) {
-//         printf("Exit accept4: success, %s, socket address info is not requested, ret=%lld\n",
-//                 e->ret);
-//     } else if (e->is_valid == true) {
-//         char ip_str[INET6_ADDRSTRLEN];
-//         get_ip_str(e, ip_str, sizeof(ip_str));
-//         printf("Exit accept4: success, %s, address=%s:%u, ip_version=%s, ret=%lld\n",
-//                 ip_str, e->port, 
-//                 e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown", e->ret);
-//     } else {
-//         printf("Exit accept4: success, %s, failed to read socket address info, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_connect(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
-//         char ip_str[INET6_ADDRSTRLEN];
-//         get_ip_str(e, ip_str, sizeof(ip_str));
-//         printf("Enter connect: %s, socktfd=%d, addr=%s:%u, ip_version=%s\n",
-//                 e->arg_s32[0], ip_str, e->port, 
-//                 e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown");
-//     } else {
-//         printf("Enter connect: %s, socktfd=%d, failed to read address info\n",
-//                 e->arg_s32[0]);
-//     }
-//     return 0;
-// }
+static int handle_enter_listen(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_connect(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit connect: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit connect: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
+    event.arg1 = std::to_string(e->arg_s32[1]); // backlog
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_shutdown(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter shutdown: %s, socketfd=%d, how=%d\n",
-//             e->arg_s32[0], e->arg_s32[1]);
-//     return 0;
-// }
+static int handle_exit_listen(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_shutdown(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit shutdown: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit shutdown: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_recvfrom (const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter recvfrom: %s, socktfd=%d, msg_len=%llu, flags=%#x\n",
-//             e->arg_s32[0], e->arg_u64[0], e->arg_s32[1]);
-//     return 0;
-// }
+static int handle_enter_accept(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_recvfrom(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit recvfrom: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else if (e->is_null == true) {
-//         printf("Exit recvfrom: success, %s, socket address info is not requested, ret=%lld\n",
-//                 e->ret);
-//     } else if (e->is_valid == true) {
-//         char ip_str[INET6_ADDRSTRLEN];
-//         get_ip_str(e, ip_str, sizeof(ip_str));
-//         printf("Exit recvfrom: success, %s, src_addr=%s:%u, ip_version=%s, ret=%lld\n",
-//                 ip_str, e->port, 
-//                 e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown", e->ret);
-//     } else {
-//         printf("Exit recvfrom: success, %s, failed to read source info, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
+    event_buffer.add_event(event);
+}
+
+static int handle_exit_accept(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    if (e->is_null) {
+        event.additional_info = "socket address info is not requested";
+    }
+    if (e->is_valid) {
+        char ip_str[INET6_ADDRSTRLEN];
+        get_ip_str(e, ip_str, sizeof(ip_str));
+        event.arg0 = ip_str;    // ip
+        event.arg1 = std::to_string(e->port);   // port
+        event.arg2 = std::to_string(e->addr_family);    // ip_version
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_accept4(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
+    event.arg1 = std::to_string(e->arg_s32[1]); // flags
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_accept4(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    if (e->is_null) {
+        event.additional_info = "socket address info is not requested";
+    }
+    if (e->is_valid) {
+        char ip_str[INET6_ADDRSTRLEN];
+        get_ip_str(e, ip_str, sizeof(ip_str));
+        event.arg0 = ip_str;    // ip
+        event.arg1 = std::to_string(e->port);   // port
+        event.arg2 = std::to_string(e->addr_family);    // ip_version
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_connect(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
+    if (e->is_valid) {
+        char ip_str[INET6_ADDRSTRLEN];
+        get_ip_str(e, ip_str, sizeof(ip_str));
+        event.arg0 = ip_str;    // ip
+        event.arg1 = std::to_string(e->port);   // port
+        event.arg2 = std::to_string(e->addr_family);    // ip_version
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_connect(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_shutdown(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
+    event.arg1 = std::to_string(e->arg_s32[1]); // how
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_shutdown(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_recvfrom (const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
+    event.arg1 = std::to_string(e->arg_u64[0]); // msg_len
+    event.arg2 = std::to_string(e->arg_s32[1]); // flags
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_recvfrom(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    if (e->is_null) {
+        event.additional_info = "socket address info is not requested";
+    }
+    if (e->is_valid) {
+        char ip_str[INET6_ADDRSTRLEN];
+        get_ip_str(e, ip_str, sizeof(ip_str));
+        event.arg0 = ip_str;    // ip
+        event.arg1 = std::to_string(e->port);   // port
+        event.arg2 = std::to_string(e->addr_family);    // ip_version
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
 
 static int handle_enter_recvmsg(const struct event_t *e, const db_event_t& base_event) {
     db_event_t event = base_event;
@@ -404,42 +352,34 @@ static int handle_exit_recvmsg(const struct event_t *e, const db_event_t& base_e
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    if (e->ret < 0) {
-        printf("Exit recvmsg: failed, error_code=%lld\n",
-                e->ret);
-    } else if (e->is_valid == true) {
+    if (e->is_valid) {
         char ip_str[INET6_ADDRSTRLEN];
         get_ip_str(e, ip_str, sizeof(ip_str));
-        printf("Exit recvmsg: success, src_addr=%s:%u, ip_version=%s, ret=%lld\n",
-                ip_str, e->port, 
-                e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown", e->ret);
         event.arg0 = std::string(ip_str); // src_addr
         event.arg1 = std::to_string(e->port); // src_port
         event.arg2 = std::to_string(e->addr_family); // ip_version
-    } else {
-        printf("Exit recvmsg: success, failed to read source info, ret=%lld\n",
-                e->ret);
     }
     event_buffer.add_event(event);
     return 0;
 }
 
-// static int handle_enter_recvmmsg(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter recvmmsg: %s, socktfd=%d, vlen=%u, flags=%#x\n",
-//             e->arg_s32[0], e->arg_u32[0], e->arg_s32[1]);
-//     return 0;
-// }
+static int handle_enter_recvmmsg(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_recvmmsg(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit recvmmsg: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit recvmmsg: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
+    event.arg1 = std::to_string(e->arg_u64[0]); // vlen
+    event.arg2 = std::to_string(e->arg_s32[1]); // flags
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_recvmmsg(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
 
 static int handle_enter_sendto(const struct event_t *e, const db_event_t& base_event) {
     db_event_t event = base_event;
@@ -447,18 +387,12 @@ static int handle_enter_sendto(const struct event_t *e, const db_event_t& base_e
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
     event.arg1 = std::to_string(e->arg_u64[0]); // msg_len
     event.arg2 = std::to_string(e->arg_s32[1]); // flags
-    if (e->is_valid == true) {
+    if (e->is_valid) {
         char ip_str[INET6_ADDRSTRLEN];
         get_ip_str(e, ip_str, sizeof(ip_str));
-        printf("Enter sendto: socktfd=%d, msg_len=%llu, flags=%#x, dest_addr=%s:%u, ip_version=%s\n",
-                e->arg_s32[0], e->arg_u64[0], e->arg_s32[1], ip_str, e->port, 
-                e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown");
         event.arg3 = std::string(ip_str); // dest_addr
         event.arg4 = std::to_string(e->port); // dest_port
         event.arg5 = std::to_string(e->addr_family); // ip_version
-    } else {
-        printf("Enter sendto: socktfd=%d, msg_len=%llu, flags=%#x, failed to read destination info\n",
-                e->arg_s32[0], e->arg_u64[0], e->arg_s32[1]);
     }
     event_buffer.add_event(event);
     return 0;
@@ -468,13 +402,6 @@ static int handle_exit_sendto(const struct event_t *e, const db_event_t& base_ev
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    if (e->ret < 0) {
-        printf("Exit sendto: failed, error_code=%lld\n",
-                e->ret);
-    } else {
-        printf("Exit sendto: success, ret=%lld\n",
-                e->ret);
-    }
     event_buffer.add_event(event);
     return 0;
 }
@@ -484,22 +411,12 @@ static int handle_enter_sendmsg(const struct event_t *e, const db_event_t& base_
 
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
     event.arg1 = std::to_string(e->arg_s32[1]); // flags
-    if (e->is_valid == true) {
+    if (e->is_valid) {
         char ip_str[INET6_ADDRSTRLEN];
         get_ip_str(e, ip_str, sizeof(ip_str));
         event.arg2 = std::string(ip_str); // dest_addr
         event.arg3 = std::to_string(e->port); // dest_port
         event.arg4 = std::to_string(e->addr_family); // ip_version
-    }
-    if (e->is_valid == true) {
-        char ip_str[INET6_ADDRSTRLEN];
-        get_ip_str(e, ip_str, sizeof(ip_str));
-        printf("Enter sendmsg: socktfd=%d, flags=%#x, dest_addr=%s:%u, ip_version=%s\n",
-                e->arg_s32[0], e->arg_s32[1], ip_str, e->port, 
-                e->addr_family == AF_INET ? "IPv4" : e->addr_family == AF_INET6 ? "IPv6" : "Unknown");
-    } else {
-        printf("Enter sendmsg: socktfd=%d, flags=%#x, failed to read destination info\n",
-                e->arg_s32[0], e->arg_s32[1]);
     }
     event_buffer.add_event(event);
     return 0;
@@ -509,94 +426,82 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    if (e->ret < 0) {
-        printf("Exit sendmsg: failed, error_code=%lld\n",
-                e->ret);
-    } else {
-        printf("Exit sendmsg: success, ret=%lld\n",
-                e->ret);
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_sendmmsg(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
+    event.arg1 = std::to_string(e->arg_u64[0]); // vlen
+    event.arg2 = std::to_string(e->arg_s32[1]); // flags
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_sendmmsg(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_sethostname(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u64[0]); // len
+    if (e->is_valid) {
+        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str));    // hostname
     }
     event_buffer.add_event(event);
     return 0;
 }
 
-// static int handle_enter_sendmmsg(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter sendmmsg: %s, socktfd=%d, vlen=%u, flags=%#x\n",
-//             e->arg_s32[0], e->arg_u32[0], e->arg_s32[1]);
-//     return 0;
-// }
+static int handle_exit_sethostname(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_sendmmsg(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit sendmmsg: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit sendmmsg: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_sethostname(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
-//         printf("Enter sethostname: %s, hostname=%s, len=%llu\n",
-//                 e->arg_str, e->arg_u64[0]);
-//     } else {
-//         printf("Enter sethostname: %s, failed to read hostname, len=%llu\n",
-//                 e->arg_u64[0]);
-//     }
-//     return 0;
-// }
+static int handle_enter_setdomainname(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_sethostname(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit sethostname: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit sethostname: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.arg0 = std::to_string(e->arg_u64[0]); // len
+    if (e->is_valid) {
+        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str));    // domainname
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_setdomainname(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
-//         printf("Enter setdomainname: %s, domainname=%s, len=%llu\n",
-//                 e->arg_str, e->arg_u64[0]);
-//     } else {
-//         printf("Enter setdomainname: %s, failed to read domainname, len=%llu\n",
-//                 e->arg_u64[0]);
-//     }
-//     return 0;
-// }
+static int handle_exit_setdomainname(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_setdomainname(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit setdomainname: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit setdomainname: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_ioctl(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter ioctl: %s, fd=%d, op=%llu\n",
-//             e->arg_s32[0], e->arg_u64[0]);
-//     return 0;
-// }
+static int handle_enter_ioctl(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_ioctl(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit ioctl: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit ioctl: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.arg0 = std::to_string(e->arg_s32[0]); // fd
+    event.arg1 = std::to_string(e->arg_u64[0]); // op
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_ioctl(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
 
 // static int handle_enter_close(const struct event_t *e, const db_event_t& base_event) {
 //     printf("Enter close: %s, fd=%d\n",
@@ -616,7 +521,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_creat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter creat: %s, pathname=%s, mode=%#x\n",
 //                 e->arg_str, e->arg_u32[0]);
 //     } else {
@@ -638,7 +543,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_open(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter open: %s, pathname=%s, flags=%#x, mode=%#x\n",
 //                 e->arg_str, e->arg_s32[0], e->arg_u32[0]);
 //     } else {
@@ -660,7 +565,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_openat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter openat: %s, dirfd=%d, pathname=%s, flags=%#x, mode=%#x\n",
 //                 e->arg_s32[0], e->arg_str, e->arg_s32[1], e->arg_u32[0]);
 //     } else {
@@ -682,7 +587,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_openat2(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter openat2: %s, dirfd=%d, pathname=%s, flags=%#llx, mode=%#llx, resolve=%llu, size=%llu\n",
 //                 e->arg_s32[0], e->arg_str, e->arg_u64[1], e->arg_u64[2], e->arg_u64[3], e->arg_u64[0]);
 //     } else {
@@ -704,7 +609,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_name_to_handle_at(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter name_to_handle_at: %s, dirfd=%d, pathname=%s, handle_bytes=%u, handle_type=%d, mount_id=%d, flags=%#x\n",
 //                 e->arg_s32[0], e->arg_str, e->arg_u32[0], e->arg_s32[3], e->arg_s32[2], e->arg_s32[1]);
 //     } else {
@@ -726,7 +631,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_open_by_handle_at(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter open_by_handle_at: %s, mount_fd=%d, handle_bytes=%u, handle_type=%d, flags=%#x\n",
 //                 e->arg_s32[0], e->arg_u32[0], e->arg_s32[2], e->arg_s32[1]);
 //     } else {
@@ -748,7 +653,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_memfd_create(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter memfd_create: %s, name=%s, flags=%#x\n",
 //                 e->arg_str, e->arg_u32[0]);
 //     } else {
@@ -770,7 +675,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_mknod(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter mknod: %s, pathname=%s, mode=%#x, dev=%llu\n",
 //                 e->arg_str, e->arg_u32[0], e->arg_u64[0]);
 //     } else {
@@ -792,7 +697,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_mknodat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter mknodat: %s, dirfd=%d, pathname=%s, mode=%#x, dev=%llu\n",
 //                 e->arg_s32[0], e->arg_str, e->arg_u32[0], e->arg_u64[0]);
 //     } else {
@@ -814,7 +719,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_rename(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter rename: %s, oldpath=%s, newpath=%s\n",
 //                 e->arg_str, e->arg_str2);
 //     } else {
@@ -836,7 +741,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_renameat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter renameat: %s, olddirfd=%d, oldpath=%s, newdirfd=%d, newpath=%s\n",
 //                 e->arg_s32[0], e->arg_str, e->arg_s32[1], e->arg_str2);
 //     } else {
@@ -858,7 +763,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_renameat2(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter renameat2: %s, olddirfd=%d, oldpath=%s, newdirfd=%d, newpath=%s, flags=%#x\n",
 //                 e->arg_s32[0], e->arg_str, e->arg_s32[1], e->arg_str2, e->arg_s32[2]);
 //     } else {
@@ -880,7 +785,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_truncate(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter truncate: %s, path=%s, length=%llu\n",
 //                 e->arg_str, e->arg_u64[0]);
 //     } else {
@@ -936,7 +841,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_mkdir(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter mkdir: %s, pathname=%s, mode=%#x\n",
 //                 e->arg_str, e->arg_u32[0]);
 //     } else {
@@ -958,7 +863,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_mkdirat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter mkdirat: %s, dirfd=%d, pathname=%s, mode=%#x\n",
 //                 e->arg_s32[0], e->arg_str, e->arg_u32[0]);
 //     } else {
@@ -980,7 +885,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_rmdir(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter rmdir: %s, pathname=%s\n",
 //                 e->arg_str);
 //     } else {
@@ -1019,7 +924,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_chdir(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter chdir: %s, pathname=%s\n",
 //                 e->arg_str);
 //     } else {
@@ -1058,7 +963,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_chroot(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter chroot: %s, pathname=%s\n",
 //                 e->arg_str);
 //     } else {
@@ -1080,7 +985,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_pivot_root(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter pivot_root: %s, new_root=%s, put_old=%s\n",
 //                 e->arg_str, e->arg_str2);
 //     } else {
@@ -1111,7 +1016,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 //     if (e->ret < 0) {
 //         printf("Exit getdents: failed, %s, error_code=%lld\n",
 //                 e->ret);
-//     } else if (e->is_valid == true) {
+//     } else if (e->is_valid) {
 //         printf("Exit getdents: success, %s, data=%llu, ret=%lld, \n",
 //                 e->arg_u64[0], e->ret);
 //     } else {
@@ -1131,7 +1036,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 //     if (e->ret < 0) {
 //         printf("Exit getdents64: failed, %s, error_code=%lld\n",
 //                 e->ret);
-//     } else if (e->is_valid == true) {
+//     } else if (e->is_valid) {
 //         printf("Exit getdents64: success, %s, data=%llu, ret=%lld, \n",
 //                 e->arg_u64[0], e->ret);
 //     } else {
@@ -1142,7 +1047,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_link(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter link: %s, oldpath=%s, newpath=%s\n",
 //                 e->arg_str, e->arg_str2);
 //     } else {
@@ -1164,7 +1069,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_linkat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter linkat: %s, olddirfd=%d, oldpath=%s, newdirfd=%d, newpath=%s, flags=%#x\n",
 //                 e->arg_s32[0], e->arg_str, e->arg_s32[1], e->arg_str2, e->arg_s32[2]);
 //     } else {
@@ -1186,7 +1091,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_symlink(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter symlink: %s, target=%s, linkpath=%s\n",
 //                 e->arg_str, e->arg_str2);
 //     } else {
@@ -1208,7 +1113,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_symlinkat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter symlinkat: %s, target=%s, newdirfd=%d, linkpath=%s\n",
 //                 e->arg_str, e->arg_s32[0], e->arg_str2);
 //     } else {
@@ -1230,7 +1135,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_unlink(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter unlink: %s, pathname=%s\n",
 //                 e->arg_str);
 //     } else {
@@ -1252,7 +1157,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_unlinkat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter unlinkat: %s, dirfd=%d, pathname=%s, flags=%#x\n",
 //                 e->arg_s32[0], e->arg_str, e->arg_s32[1]);
 //     } else {
@@ -1274,7 +1179,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_readlink(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter readlink: %s, pathname=%s, size=%llu\n",
 //                 e->arg_str, e->arg_u64[0]);
 //     } else {
@@ -1296,7 +1201,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_readlinkat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter readlinkat: %s, dirfd=%d, pathname=%s, size=%llu\n",
 //                 e->arg_s32[0], e->arg_str, e->arg_u64[0]);
 //     } else {
@@ -1335,7 +1240,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_newstat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter newstat: %s, filename=%s\n",
 //                 e->arg_str);
 //     } else {
@@ -1357,7 +1262,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_newlstat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter newlstat: %s, filename=%s\n",
 //                 e->arg_str);
 //     } else {
@@ -1396,7 +1301,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_newfstatat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter newfstatat: %s, dirfd=%d, pathname=%s, flags=%#x\n",
 //                 e->arg_s32[0], e->arg_str, e->arg_s32[1]);
 //     } else {
@@ -1418,7 +1323,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_statx(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter statx: %s, dirfd=%d, pathname=%s, flags=%#x, mask=%#x\n",
 //                 e->arg_s32[0], e->arg_str, e->arg_s32[1], e->arg_u32[0]);
 //     } else {
@@ -1440,7 +1345,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_statfs(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter statfs: %s, pathname=%s\n",
 //                 e->arg_str);
 //     } else {
@@ -1479,7 +1384,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_chmod(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter chmod: %s, pathname=%s, mode=%#x\n",
 //                 e->arg_str, e->arg_u32[0]);
 //     } else {
@@ -1518,7 +1423,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_fchmodat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter fchmodat: %s, dirfd=%d, pathname=%s, mode=%#x, flags=%#x\n",
 //                 e->arg_s32[0], e->arg_str, e->arg_u32[0], e->arg_s32[1]);
 //     } else {
@@ -1540,7 +1445,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_chown(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter chown: %s, pathname=%s, owner=%u, group=%u\n",
 //                 e->arg_str, e->arg_u32[0], e->arg_u32[1]);
 //     } else {
@@ -1562,7 +1467,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_lchown(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter lchown: %s, pathname=%s, owner=%u, group=%u\n",
 //                 e->arg_str, e->arg_u32[0], e->arg_u32[1]);
 //     } else {
@@ -1601,7 +1506,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_fchownat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter fchownat: %s, dirfd=%d, pathname=%s, owner=%u, group=%u, flags=%#x\n",
 //                 e->arg_s32[0], e->arg_str, e->arg_u32[0], e->arg_u32[1], e->arg_s32[1]);
 //     } else {
@@ -1623,7 +1528,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_access(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter access: %s, pathname=%s, mode=%#x\n",
 //                 e->arg_str, e->arg_s32[0]);
 //     } else {
@@ -1645,7 +1550,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_faccessat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter faccessat: %s, dirfd=%d, pathname=%s, mode=%#x, flags=%#x\n",
 //                 e->arg_s32[0], e->arg_str, e->arg_s32[1], e->arg_s32[2]);
 //     } else {
@@ -1989,7 +1894,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_inotify_add_watch(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter inotify_add_watch: %s, fd=%d, pathname=%s, mask=%#x\n",
 //                 e->arg_s32[0], e->arg_str, e->arg_u32[0]);
 //     } else {
@@ -2046,7 +1951,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 
 // static int handle_enter_fanotify_mark(const struct event_t *e, const db_event_t& base_event) {
 //     if (e->is_null == false) {
-//         if (e->is_valid == true) {
+//         if (e->is_valid) {
 //             printf("Enter fanotify_mark: %s, fanotify_fd=%d, flags=%#x, mask=%#llx, dirfd=%d, pathname=%s\n",
 //                     e->arg_s32[0], e->arg_u32[0], e->arg_u64[0], e->arg_s32[1], e->arg_str);
 //         } else {
@@ -2072,7 +1977,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_mount(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter mount: %s, source=%s, target=%s, filesystemtype=%s, mountflags=%#llx\n",
 //                 e->arg_str, e->arg_str2, e->filesystem_type, e->arg_u64[0]);
 //     } else {
@@ -2094,7 +1999,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_umount(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter umount: %s, target=%s, flags=%#x\n",
 //                 e->arg_str, e->arg_s32[0]);
 //     } else {
@@ -2116,7 +2021,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_move_mount(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter move_mount: %s, from_fd=%d, from_pathname=%s, to_fd=%d, to_pathname=%s, flags=%#llx\n",
 //                 e->arg_s32[0], e->arg_str, e->arg_s32[1], e->arg_str2, e->arg_u64[0]);
 //     } else {
@@ -2155,7 +2060,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_clone3(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter clone3: %s, flags=%#llx, stack=%llu, stack_size=%llu, cgroup=%llu\n",
 //                 e->arg_u64[0], e->arg_u64[1], e->arg_u64[2], e->arg_u64[3]);
 //     } else {
@@ -2209,7 +2114,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_execve(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter execve: %s, pathname=%s\n",
 //                 e->arg_str);
 //     } else {
@@ -2231,7 +2136,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_execveat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter execveat: %s, dirfd=%d, pathname=%s, flags=%#x\n",
 //                 e->arg_s32[0], e->arg_str, e->arg_s32[1]);
 //     } else {
@@ -2287,7 +2192,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_wait4(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter wait4: %s, pid=%u, status=%d, options=%#x\n",
 //                 e->arg_u32[0], e->arg_s32[1], e->arg_s32[0]);
 //     } else {
@@ -2309,7 +2214,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_waitid(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter waitid: %s, idtype=%d, pid=%u, si_signo=%d, si_code=%d, options=%#x\n",
 //                 e->arg_s32[0], e->arg_u32[0], e->arg_s32[2], e->arg_s32[3], e->arg_s32[1]);
 //     } else {
@@ -2553,7 +2458,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 //     if (e->ret < 0) {
 //         printf("Exit getresuid: failed, %s, error_code=%lld\n",
 //                 e->ret);
-//     } else if (e->is_valid == true) {
+//     } else if (e->is_valid) {
 //         printf("Exit getresuid: success, %s, ruid=%u, euid=%u, suid=%u, ret=%lld\n",
 //                 e->arg_u32[0], e->arg_u32[1], e->arg_u32[2], e->ret);
 //     } else {
@@ -2589,7 +2494,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 //     if (e->ret < 0) {
 //         printf("Exit getresgid: failed, %s, error_code=%lld\n",
 //                 e->ret);
-//     } else if (e->is_valid == true) {
+//     } else if (e->is_valid) {
 //         printf("Exit getresgid: success, %s, rgid=%u, egid=%u, sgid=%u, ret=%lld\n",
 //                 e->arg_u32[0], e->arg_u32[1], e->arg_u32[2], e->ret);
 //     } else {
@@ -2717,7 +2622,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_setrlimit(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter setrlimit: %s, resource=%d, rlim_cur=%llu, rlim_max=%llu\n",
 //                 e->arg_s32[0], e->arg_u64[0], e->arg_u64[1]);
 //     } else {
@@ -2748,7 +2653,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 //     if (e->ret < 0) {
 //         printf("Exit getrlimit: failed, %s, error_code=%lld\n",
 //                 e->ret);
-//     } else if (e->is_valid == true) {
+//     } else if (e->is_valid) {
 //         printf("Exit getrlimit: success, %s, rlim_cur=%llu, rlim_max=%llu, ret=%lld\n",
 //                 e->arg_u64[0], e->arg_u64[1], e->ret);
 //     } else {
@@ -2963,7 +2868,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_init_module(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter init_module: %s, len=%llu, param=%s\n",
 //                 e->arg_u64[0], e->arg_str);
 //     } else {
@@ -2985,7 +2890,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 // }
 
 // static int handle_enter_finit_module(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid == true) {
+//     if (e->is_valid) {
 //         printf("Enter finit_module: %s, fd=%d, param=%s, flags=%#x\n",
 //                 e->arg_s32[0], e->arg_str, e->arg_s32[1]);
 //     } else {
@@ -3201,7 +3106,7 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
 //     if (e->ret < 0) {
 //         printf("Exit capget: failed, %s, error_code=%lld\n",
 //                 e->ret);
-//     } else if (e->is_valid == true) {
+//     } else if (e->is_valid) {
 //         printf("Enter capget: success, %s, header_version=%u, header_pid=%u, data_effective=%#x, data_permitted=%#x, data_inheritable=%#x, ret=%lld\n",
 //             e->arg_u32[0], e->arg_u32[1], e->arg_u32[2], e->arg_u32[3], e->arg_u32[4], e->ret);
 //     } else {
@@ -3305,42 +3210,42 @@ void init_event_handlers(void) {
     event_handler[__NR_socketpair].exit = handle_exit_socketpair;
     event_handler[__NR_setsockopt].enter = handle_enter_setsockopt;
     event_handler[__NR_setsockopt].exit = handle_exit_setsockopt;
-    // event_handler[__NR_bind].enter = handle_enter_bind;
-    // event_handler[__NR_bind].exit = handle_exit_bind;
-    // event_handler[__NR_listen].enter = handle_enter_listen;
-    // event_handler[__NR_listen].exit = handle_exit_listen;
-    // event_handler[__NR_accept].enter = handle_enter_accept;
-    // event_handler[__NR_accept].exit = handle_exit_accept;
-    // event_handler[__NR_accept4].enter = handle_enter_accept4;
-    // event_handler[__NR_accept4].exit = handle_exit_accept4;
-    // event_handler[__NR_connect].enter = handle_enter_connect;
-    // event_handler[__NR_connect].exit = handle_exit_connect;
-    // event_handler[__NR_shutdown].enter = handle_enter_shutdown;
-    // event_handler[__NR_shutdown].exit = handle_exit_shutdown;
-    // event_handler[__NR_recvfrom].enter = handle_enter_recvfrom;
-    // event_handler[__NR_recvfrom].exit = handle_exit_recvfrom;
+    event_handler[__NR_bind].enter = handle_enter_bind;
+    event_handler[__NR_bind].exit = handle_exit_bind;
+    event_handler[__NR_listen].enter = handle_enter_listen;
+    event_handler[__NR_listen].exit = handle_exit_listen;
+    event_handler[__NR_accept].enter = handle_enter_accept;
+    event_handler[__NR_accept].exit = handle_exit_accept;
+    event_handler[__NR_accept4].enter = handle_enter_accept4;
+    event_handler[__NR_accept4].exit = handle_exit_accept4;
+    event_handler[__NR_connect].enter = handle_enter_connect;
+    event_handler[__NR_connect].exit = handle_exit_connect;
+    event_handler[__NR_shutdown].enter = handle_enter_shutdown;
+    event_handler[__NR_shutdown].exit = handle_exit_shutdown;
+    event_handler[__NR_recvfrom].enter = handle_enter_recvfrom;
+    event_handler[__NR_recvfrom].exit = handle_exit_recvfrom;
     event_handler[__NR_recvmsg].enter = handle_enter_recvmsg;
     event_handler[__NR_recvmsg].exit = handle_exit_recvmsg;
-    // event_handler[__NR_recvmmsg].enter = handle_enter_recvmmsg;
-    // event_handler[__NR_recvmmsg].exit = handle_exit_recvmmsg;
+    event_handler[__NR_recvmmsg].enter = handle_enter_recvmmsg;
+    event_handler[__NR_recvmmsg].exit = handle_exit_recvmmsg;
     event_handler[__NR_sendto].enter = handle_enter_sendto;
     event_handler[__NR_sendto].exit = handle_exit_sendto;
     event_handler[__NR_sendmsg].enter = handle_enter_sendmsg;
     event_handler[__NR_sendmsg].exit = handle_exit_sendmsg;
-    // event_handler[__NR_sendmmsg].enter = handle_enter_sendmmsg;
-    // event_handler[__NR_sendmmsg].exit = handle_exit_sendmmsg;
-    // event_handler[__NR_sethostname].enter = handle_enter_sethostname;
-    // event_handler[__NR_sethostname].exit = handle_exit_sethostname;
-    // event_handler[__NR_setdomainname].enter = handle_enter_setdomainname;
-    // event_handler[__NR_setdomainname].exit = handle_exit_setdomainname;
+    event_handler[__NR_sendmmsg].enter = handle_enter_sendmmsg;
+    event_handler[__NR_sendmmsg].exit = handle_exit_sendmmsg;
+    event_handler[__NR_sethostname].enter = handle_enter_sethostname;
+    event_handler[__NR_sethostname].exit = handle_exit_sethostname;
+    event_handler[__NR_setdomainname].enter = handle_enter_setdomainname;
+    event_handler[__NR_setdomainname].exit = handle_exit_setdomainname;
     event_handler[__NR_getsockopt].enter = handle_enter_getsockopt;
     event_handler[__NR_getsockopt].exit = handle_exit_getsockopt;
-    // event_handler[__NR_getsockname].enter = handle_enter_getsockname;
-    // event_handler[__NR_getsockname].exit = handle_exit_getsockname;
-    // event_handler[__NR_getpeername].enter = handle_enter_getpeername;
-    // event_handler[__NR_getpeername].exit = handle_exit_getpeername;
-    // event_handler[__NR_ioctl].enter = handle_enter_ioctl;
-    // event_handler[__NR_ioctl].exit = handle_exit_ioctl;
+    event_handler[__NR_getsockname].enter = handle_enter_getsockname;
+    event_handler[__NR_getsockname].exit = handle_exit_getsockname;
+    event_handler[__NR_getpeername].enter = handle_enter_getpeername;
+    event_handler[__NR_getpeername].exit = handle_exit_getpeername;
+    event_handler[__NR_ioctl].enter = handle_enter_ioctl;
+    event_handler[__NR_ioctl].exit = handle_exit_ioctl;
     // event_handler[__NR_close].enter = handle_enter_close;
     // event_handler[__NR_close].exit = handle_exit_close;
     // event_handler[__NR_creat].enter = handle_enter_creat;
