@@ -215,7 +215,7 @@ class Object {
         return i;
       }
     }
-    for (auto i = 0; i < i_; ++i) {
+    for (__u64 i = 0; i < i_; ++i) {
       if (data_[i].first == _key) {
         i_ = i + 1;
         return i;

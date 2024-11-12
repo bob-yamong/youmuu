@@ -31,6 +31,9 @@ CXXFLAGS += $(shell pkg-config --cflags libpqxx)
 
 ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS)
 
+# handler_syslog.cpp
+# syslog를 남기고 싶으면 SRCS에 위의 파일을 추가
+
 APPS = tracepoint
 SRCS = tracepoint.cpp handler.cpp db.cpp buffer.cpp
 OBJS = $(patsubst %.cpp,$(OUTPUT)/%.o,$(SRCS))

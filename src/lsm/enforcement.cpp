@@ -1,4 +1,4 @@
-#define _GNU_SOURCE
+// SPDX-License-Identifier: GPL-2.0
 #include <stdio.h>
 #include <time.h>
 #include <unistd.h>
@@ -12,15 +12,23 @@
 #include <fstream>
 #include <thread>
 #include <chrono>
+#include <pqxx/pqxx>
+#include <sstream>
+#include <cstring>
+#include <sys/stat.h> 
+#include <errno.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <nlohmann/json.hpp>
  
 #include "enforcement.skel.h"
 
 #include "container_info.h"
 #include "policy_map_structs.h"
 #include "parser.h"
+#include "getEnv.h"
 
 #define BPF_FS_PATH "/sys/fs/bpf"
-#define MAP_PIN_PATH "/sys/fs/bpf/policy_map"
 #define POLICY_FILE_PATH "/policy/policy.yaml"
 #define POLICY_UPDATE_INTERVAL 60
 
@@ -28,6 +36,10 @@
 #define MAX_OUTPUT_LEN 256
 
 static volatile bool exiting = false;
+
+std::unique_ptr<pqxx::connection> conn;
+
+using json = nlohmann::json;
 
 void clear_bpf_map(int map_fd);
 
@@ -37,28 +49,52 @@ bool file_exists(const char *path) {
 }
 
 static int print_event(void *ctx, void *data, size_t data_sz) {
+    const int MAX_RETRIES = 2;  // 최초 시도 + 1회 재시도
+    const int RETRY_DELAY_MS = 100;  // 재시도 전 100ms 대기
+    
     event *e = (event *)data;
     char timestamp[32];
-    time_t event_time = e->ts / 1000000000;  // Convert nanoseconds to seconds
+    time_t event_time = e->ts / 1000000000;
     struct tm *tm_info = localtime(&event_time);
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
 
-    printf("--------- Event ---------\n"
-           "Timestamp: %s.%09llu\n"
-           "Container ID: pid_ns=%u, mnt_ns=%u\n"
-           "Process: host_ppid=%u, host_pid=%u, ppid=%u, pid=%u, uid=%u\n"
-           "Cgroup ID: %llu\n"
-           "Event ID: %d\n"
-           "Return Value: %lld\n"
-           "Command: %s\n"
-           "Data:\n"
-           "  Path: %s\n"
-           "  Source: %s\n"
-           "--------------------------\n\n",
-           timestamp, e->ts % 1000000000, e->pid_id, e->mnt_id, e->host_ppid, e->host_pid, e->ppid, e->pid, e->uid,
-           e->cgroup_id, e->event_id, e->retval, e->comm, e->data.path, e->data.source);
+    std::stringstream event_data;
+    event_data << "{\"timestamp\":\"" << timestamp << "." << (e->ts % 1000000000) << "\","
+               << "\"container_id\":{\"pid_ns\":" << e->pid_id << ",\"mnt_ns\":" << e->mnt_id << "},"
+               << "\"process\":{\"host_ppid\":" << e->host_ppid << ",\"host_pid\":" << e->host_pid 
+               << ",\"ppid\":" << e->ppid << ",\"pid\":" << e->pid << ",\"uid\":" << e->uid << "},"
+               << "\"cgroup_id\":" << e->cgroup_id << ","
+               << "\"event_id\":" << e->event_id << ","
+               << "\"return_value\":" << e->retval << ","
+               << "\"command\":\"" << e->comm << "\","
+               << "\"data\":{\"path\":\"" << e->data.path << "\",\"source\":\"" << e->data.source << "\"}}";
 
-    return 0;
+    for (int retry = 0; retry < MAX_RETRIES; retry++) {
+        try {
+            pqxx::work txn(*conn);
+            std::string escaped_json = txn.quote(event_data.str());
+            std::string query = "SELECT * FROM pgmq.send('lsm', " + escaped_json + ");";
+            
+            txn.exec(query);
+            txn.commit();
+
+            printf("Event successfully sent to queue\n");
+            return 0;  // 성공시 즉시 반환
+
+        } catch (const std::exception &e) {
+            fprintf(stderr, "Attempt %d failed to send event to queue: %s\n", 
+                    retry + 1, e.what());
+            
+            if (retry < MAX_RETRIES - 1) {
+                // 마지막 시도가 아닌 경우에만 대기
+                std::this_thread::sleep_for(std::chrono::milliseconds(RETRY_DELAY_MS));
+            }
+        }
+    }
+
+    // 모든 재시도 실패 후
+    fprintf(stderr, "Dropping event after %d failed attempts\n", MAX_RETRIES);
+    return 0;  // 프로그램은 계속 실행
 }
 
 void handle_signal(int sig) {
@@ -83,30 +119,98 @@ static void bump_memlock_rlimit(void)
     }
 }
 
+std::string remove_chunked_encoding(const std::string& response) {
+    std::string json_body;
+    size_t pos = 0;
+    
+    while (pos < response.size()) {
+        // Find the position of the newline after the chunk size
+        size_t chunk_size_end = response.find("\r\n", pos);
+        if (chunk_size_end == std::string::npos) break;
+
+        // Convert the chunk size from hexadecimal to decimal
+        std::string chunk_size_hex = response.substr(pos, chunk_size_end - pos);
+        size_t chunk_size = std::stoul(chunk_size_hex, nullptr, 16);
+        
+        // Move to the start of the actual data
+        pos = chunk_size_end + 2;
+
+        // Add the chunk to the JSON body and move to the next chunk
+        json_body += response.substr(pos, chunk_size);
+        pos += chunk_size + 2;  // Skip over the data and the trailing \r\n
+    }
+
+    return json_body;
+}
+
 int get_docker_pid(const char* container_name) {
-    char cmd[MAX_CMD_LEN];
-    char output[MAX_OUTPUT_LEN];
-    FILE *fp;
-
-    snprintf(cmd, sizeof(cmd), "docker inspect -f '{{.State.Pid}}' %s", container_name);
-    fp = popen(cmd, "r");
-    if (fp == NULL) {
-        perror("Failed to run docker command");
+    const char* socket_path = "/var/run/docker.sock";
+    int sock = socket(AF_UNIX, SOCK_STREAM, 0);
+    
+    if (sock < 0) {
+        perror("Socket creation failed");
         return 0;
     }
 
-    if (fgets(output, sizeof(output), fp) == NULL) {
-        pclose(fp);
+    struct sockaddr_un addr{};
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
+
+    if (connect(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        perror("Connection to Docker socket failed");
+        close(sock);
         return 0;
     }
-    pclose(fp);
 
-    return atoi(output);
+    // Formulate HTTP request to get container info
+    std::string request = "GET /containers/" + std::string(container_name) + "/json HTTP/1.1\r\n"
+                          "Host: localhost\r\n"
+                          "Connection: close\r\n\r\n";
+    
+    // Send request
+    if (send(sock, request.c_str(), request.size(), 0) < 0) {
+        perror("Send request failed");
+        close(sock);
+        return 0;
+    }
+
+    // Receive response
+    std::string response;
+    char buffer[4096];
+    int bytes_received;
+    while ((bytes_received = recv(sock, buffer, sizeof(buffer), 0)) > 0) {
+        response.append(buffer, bytes_received);
+    }
+    close(sock);
+
+    // Find the start of JSON data after HTTP headers
+    auto pos = response.find("\r\n\r\n");
+    if (pos == std::string::npos) {
+        std::cerr << "Invalid response format" << std::endl;
+        return 0;
+    }
+
+    // Extract the JSON body
+    std::string json_str = remove_chunked_encoding(response.substr(pos + 4));
+
+    try {
+        json container_info = json::parse(json_str);
+        return container_info["State"]["Pid"].get<int>();
+    } catch (const json::parse_error& e) {
+        std::cerr << "JSON parse error: " << e.what() << std::endl;
+        return 0;
+    } catch (const json::type_error& e) {
+        std::cerr << "JSON type error: " << e.what() << std::endl;
+        return 0;
+    }
 }
 
 unsigned long get_pid_ns_id(pid_t container_pid) {
     char path[MAX_PATH_LENGTH];
-    snprintf(path, sizeof(path), "/proc/%d/ns/pid", container_pid);
+
+    std::string full_path = env::proc_path + "/" + std::to_string(container_pid) + "/ns/pid";
+    snprintf(path, sizeof(path), "%s", full_path.c_str());
+
     
     int fd = open(path, O_RDONLY);
     if (fd < 0) {
@@ -142,7 +246,8 @@ unsigned long get_mnt_ns_id(pid_t container_pid) {
     unsigned long mnt_ns_id = 0;
 
     // Create mnt ns path
-    snprintf(path, sizeof(path), "/proc/%d/ns/mnt", container_pid);
+    std::string full_path = env::proc_path + "/" + std::to_string(container_pid) + "/ns/mnt";
+    snprintf(path, sizeof(path), "%s", full_path.c_str());
 
     // Open namespace File
     fd = open(path, O_RDONLY);
@@ -192,7 +297,7 @@ void print_policies(int map_fd) {
 
             // Print file policies
             printf("File Policies:\n");
-            for (int i = 0; i < value.num_file_policies; i++) {
+            for (__u32 i = 0; i < value.num_file_policies; i++) {
                 printf("  Path: %s\n", value.file_policies[i].path);
                 printf("  Flags: ");
                 for (const auto &flag: flags_to_string(value.file_policies[i].flags)) cout << flag << " ";
@@ -201,7 +306,7 @@ void print_policies(int map_fd) {
 
             // Print network policies
             printf("Network Policies:\n");
-            for (int i = 0; i < value.num_network_policies; i++) {
+            for (__u32 i = 0; i < value.num_network_policies; i++) {
                 char ip_str[INET_ADDRSTRLEN];
                 inet_ntop(AF_INET, &(value.network_policies[i].ip), ip_str, INET_ADDRSTRLEN);
                 int prefix_len = 32;
@@ -224,7 +329,7 @@ void print_policies(int map_fd) {
 
             // Print process policies
             printf("Process Policies:\n");
-            for (int i = 0; i < value.num_process_policies; i++) {
+            for (__u32 i = 0; i < value.num_process_policies; i++) {
                 printf("  Command: %s\n", value.process_policies[i].comm);
                 printf("  Flags: ");
                 for (const auto &flag: flags_to_string(value.process_policies[i].flags)) cout << flag << " ";
@@ -291,7 +396,6 @@ int add_policy(int map_fd) {
     getchar(); // Consume newline
 
     switch (policy_type) {
-        char input;
         case POLICY_FILE: {
             struct file_policy *fp = &value.file_policies[value.num_file_policies];
             printf("Enter file path: ");
@@ -383,7 +487,7 @@ int add_policy(int map_fd) {
     }
 
     if (bpf_map_update_elem(map_fd, &key, &value, BPF_ANY)) {
-        fprintf(stderr, "Failed to Add policy: mnt ns: %u, pid ns: %u\n", key.mnt_ns_id, key.pid_ns_id, strerror(errno));
+        fprintf(stderr, "Failed to Add policy: mnt ns: %u, pid ns: %u\n", key.mnt_ns_id, key.pid_ns_id);
     }
 
     return 0;
@@ -424,7 +528,7 @@ int update_policy_with_file(int map_fd, char* abs_file_name) {
                 strcpy(value.file_policies[value.num_file_policies].path, file.path.c_str());
                 value.file_policies[value.num_file_policies].flags = string_to_flags(file.flags);
                 
-                for (int i = 0; i < file.uid.size(); i++) {
+                for (std::vector<int>::size_type i = 0; i < file.uid.size(); i++) {
                     value.file_policies[value.num_file_policies].uid[i] = file.uid[i];
                 }
                 value.num_file_policies++;
@@ -445,7 +549,7 @@ int update_policy_with_file(int map_fd, char* abs_file_name) {
                 value.network_policies[value.num_network_policies].protocol = network.protocol;
                 value.network_policies[value.num_network_policies].flags = string_to_flags(network.flags);
                 
-                for (int i = 0; i < network.uid.size(); i++) {
+                for (std::vector<int>::size_type i = 0; i < network.uid.size(); i++) {
                     value.file_policies[value.num_network_policies].uid[i] = network.uid[i];
                 }
                 value.num_network_policies++;
@@ -459,7 +563,7 @@ int update_policy_with_file(int map_fd, char* abs_file_name) {
                 strcpy(value.process_policies[value.num_process_policies].comm, process.comm.c_str());
                 value.process_policies[value.num_process_policies].flags = string_to_flags(process.flags);
                 
-                for (int i = 0; i < process.uid.size(); i++) {
+                for (std::vector<int>::size_type i = 0; i < process.uid.size(); i++) {
                     value.process_policies[value.num_process_policies].uid[i] = process.uid[i];
                 }
                 value.num_process_policies++;
@@ -467,7 +571,7 @@ int update_policy_with_file(int map_fd, char* abs_file_name) {
         }
 
         if (bpf_map_update_elem(map_fd, &key, &value, BPF_ANY)) {
-            fprintf(stderr, "Failed to Add policy: mnt ns: %u, pid ns: %u\n", key.mnt_ns_id, key.pid_ns_id, strerror(errno));
+            fprintf(stderr, "Failed to Add policy: mnt ns: %u, pid ns: %u\n", key.mnt_ns_id, key.pid_ns_id);
         }
     }
     return 0;
@@ -508,7 +612,11 @@ void print_menu() {
     
     printf("input number to select menu\n");
 
-    for (int i = 0; i < sizeof(menu) / sizeof(menu[0]); printf("  %d. %s\n", i, menu[i++]));
+
+    __u64 i=0;
+    for (i = 0; i < sizeof(menu) / sizeof(menu[0]); i++) {
+        printf("  %lld. %s\n", i, menu[i]);
+    }
 }
 
 int get_menu(char *input) {
@@ -554,6 +662,11 @@ int main(int argc, char **argv) {
     int map_fd = -1;
     int status = 0;
 
+    env::getEnv();
+
+    // DB 연결
+    conn = std::make_unique<pqxx::connection>("dbname=" + env::dbname + " user=" + env::user + " password=" + env::password + " host=" + env::host + " port=" + env::port);
+
     /* Set up libbpf errors and debug info callback */
     // libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
     libbpf_set_print(libbpf_print_fn);
@@ -582,32 +695,32 @@ int main(int argc, char **argv) {
     }
 
     map_fd = bpf_map__fd(skel->maps.policy_map);
-    // check if the map already exists
-    if (map_fd < 0) {
-        fprintf(stderr, "No existing map found, creating a new one.\n");
+    // // check if the map already exists
+    // if (map_fd < 0) {
+    //     fprintf(stderr, "No existing map found, creating a new one.\n");
 
-        err = bpf_object__pin_maps(skel->obj, BPF_FS_PATH);
-        if (err) {
-            fprintf(stderr, "Failed to pin maps: %d\n", err);
-            goto cleanup;
-        }
+    //     err = bpf_object__pin_maps(skel->obj, BPF_FS_PATH);
+    //     if (err) {
+    //         fprintf(stderr, "Failed to pin maps: %d\n", err);
+    //         goto cleanup;
+    //     }
 
-        map_fd = bpf_obj_get(MAP_PIN_PATH);
-        if (map_fd < 0) {
-            fprintf(stderr, "Failed to open pinned map: %s\n", strerror(errno));
-            goto cleanup;
-        }
-    }
-    else {
-        fprintf(stdout, "Found existing map, reusing it.\n");
+    //     map_fd = bpf_obj_get(MAP_PIN_PATH);
+    //     if (map_fd < 0) {
+    //         fprintf(stderr, "Failed to open pinned map: %s\n", strerror(errno));
+    //         goto cleanup;
+    //     }
+    // }
+    // else {
+    //     fprintf(stdout, "Found existing map, reusing it.\n");
 
-        bpf_map__set_pin_path(skel->maps.policy_map, MAP_PIN_PATH);
-        err = bpf_map__reuse_fd(skel->maps.policy_map, map_fd);
-        if (err) {
-            fprintf(stderr, "Failed to reuse existing map: %d\n", err);
-            goto cleanup;
-        }
-    }
+    //     bpf_map__set_pin_path(skel->maps.policy_map, MAP_PIN_PATH);
+    //     err = bpf_map__reuse_fd(skel->maps.policy_map, map_fd);
+    //     if (err) {
+    //         fprintf(stderr, "Failed to reuse existing map: %d\n", err);
+    //         goto cleanup;
+    //     }
+    // }
 
     {
         std::cout << "컨테이너 PID 자동 감지 중...\n";

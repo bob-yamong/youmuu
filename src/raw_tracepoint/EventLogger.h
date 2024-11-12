@@ -8,15 +8,19 @@
 #include <string>
 #include <condition_variable>
 #include <deque>
-#include <sys/syscall.h>
-#include <linux/types.h>
-#include <zlib.h> // zlib 헤더 추가
-#include "event.h" // event 구조체가 정의된 헤더 파일
+#include <zlib.h>
+#include <sys/sysinfo.h>
+#include <ctime>
+#include <pqxx/pqxx>
+#include <syscall.h>
+#include <chrono>
+#include "event.h"
+#include "container_info.h"
 
 class EventLogger {
 public:
     // 생성자: 버퍼 크기 설정 및 로그 파일 경로 설정
-    EventLogger(size_t bufferSize, const std::string& logFilePath);
+    EventLogger(size_t bufferSize, const std::string& logFilePath, const std::string& dbConnStr);
     
     // 소멸자: 모든 쓰레드 종료 및 리소스 정리
     ~EventLogger();
@@ -29,6 +33,12 @@ private:
     void flushThreadFunc();
     void flushToFile(const std::vector<event>& buffer);
     
+    // 데이터베이스에 이벤트 삽입
+    //void insertEventsToDB(const std::vector<event>& buffer);
+
+    static time_t get_boot_time();
+    std::string format_timestamp(uint64_t timestamp_ns) const;
+
     size_t bufferSize_;
     std::string logFilePath_;
     
@@ -37,6 +47,12 @@ private:
     std::vector<event> buffer2_;
     std::vector<event> buffer3_;
     std::vector<event> buffer4_;
+
+    // 버퍼의 마지막 활성화 시간
+    std::chrono::steady_clock::time_point current_buffer_time_;
+
+    // 플러시 타임아웃 설정 (10초)
+    const std::chrono::seconds FLUSH_TIMEOUT = std::chrono::seconds(10);
     
     // 현재 버퍼와 플러시 버퍼 대기열
     std::vector<event>* currentBuffer_;
@@ -54,6 +70,11 @@ private:
     
     // zlib 압축 스트림
     gzFile gzFile_; // 압축된 파일 스트림 추가
+
+    // 데이터베이스 연결 객체
+    // pqxx::connection dbConnection_;
+    
+    time_t boot_time_;
 };
 
 #endif // EVENTLOGGER_H

@@ -227,6 +227,9 @@ int main(int argc, char **argv) {
     struct ring_buffer *rb;
     int err;
 
+    // Syslog 초기화
+    openlog("tracepoint", LOG_PID | LOG_CONS, LOG_USER);
+
     boot_time = get_boot_time();
     if (boot_time == -1) {
         fprintf(stderr, "Failed to get boot time\n");
@@ -289,6 +292,7 @@ int main(int argc, char **argv) {
     }
     
 cleanup:
+    closelog();
     running = false;
     g_db_connection.reset();
     if (rb)
