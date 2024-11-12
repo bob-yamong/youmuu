@@ -31,35 +31,6 @@ static void sig_handler(int sig) {
     running = false;
 }
 
-typedef enum {
-    RUNTIME_UNKNOWN,
-    RUNTIME_DOCKER,
-    RUNTIME_CONTAINERD,
-    RUNTIME_CRIO
-} ContainerRuntime;
-
-ContainerRuntime get_runtime_from_user() {
-    char input[20];
-    struct sigaction sa_int{};
-    sa_int.sa_handler = sig_handler;
-    sa_int.sa_flags = 0;
-    sigemptyset(&sa_int.sa_mask);
-    sigaction(SIGINT, &sa_int, NULL);
-    
-    printf("Enter container runtime (docker/containerd/crio): ");
-    if (fgets(input, sizeof(input), stdin) == NULL || !running) {
-        printf("\nExiting...\n");
-        exit(0);
-    }
-    input[strcspn(input, "\n")] = 0;
-
-    if (strcmp(input, "docker") == 0) return RUNTIME_DOCKER;
-    else if (strcmp(input, "containerd") == 0) return RUNTIME_CONTAINERD;
-    else if (strcmp(input, "crio") == 0) return RUNTIME_CRIO;
-    
-    return RUNTIME_UNKNOWN;
-}
-
 int get_docker_pid(const char* container_name) {
     char cmd[MAX_CMD_LEN];
     char output[MAX_OUTPUT_LEN];
@@ -79,67 +50,6 @@ int get_docker_pid(const char* container_name) {
     pclose(fp);
 
     return atoi(output);
-}
-
-// 여러개 가능, 현재는 name으로 찾지만 label, namespace 구현 필요
-int get_containerd_pid(const char* container_name) {
-    char cmd[MAX_CMD_LEN];
-    char output[MAX_OUTPUT_LEN];
-    FILE *fp;
-
-    snprintf(cmd, sizeof(cmd), "ctr task ls | awk '$1 == \"%s\" {print $2}'", container_name);
-    fp = popen(cmd, "r");
-    if (fp == NULL) {
-        perror("Failed to run ctr task info command");
-        return -1;
-    }
-    if (fgets(output, sizeof(output), fp) == NULL) {
-        pclose(fp);
-        return -1;
-    }
-    pclose(fp);
-    output[strcspn(output, "\n")] = 0;
-
-    return atoi(output);
-}
-
-// 여러개 가능, 현재는 name인데 사실 pod임 추가로 label, namespace 구현 필요
-int get_crio_pid(const char* container_name) {
-    char cmd[MAX_CMD_LEN];
-    char output[MAX_OUTPUT_LEN];
-    FILE *fp;
-
-    snprintf(cmd, sizeof(cmd), "crictl inspect $(crictl ps | grep \"\\b%s\\b\" | awk '{print $1}') 2>/dev/null | grep -Po '\"pid\":\\s*\\K[0-9]+'", container_name);
-    fp = popen(cmd, "r");
-    if (fp == NULL) {
-        perror("Failed to run crictl inspect command");
-        return -1;
-    }
-
-    if (fgets(output, sizeof(output), fp) == NULL) {
-        pclose(fp);
-        return -1;
-    }
-    pclose(fp);
-    output[strcspn(output, "\n")] = 0;
-
-    return atoi(output);
-}
-
-int get_container_pid(const char* container_name) {
-    ContainerRuntime runtime = get_runtime_from_user();
-    
-    switch(runtime) {
-        case RUNTIME_DOCKER:
-            return get_docker_pid(container_name);
-        case RUNTIME_CONTAINERD:
-            return get_containerd_pid(container_name);
-        case RUNTIME_CRIO:
-            return get_crio_pid(container_name);
-        default:
-            fprintf(stderr, "Unknown or unsupported container runtime\n");
-            return -1;
-    }
 }
 
 __u32 get_namespace_id(int container_pid) {
