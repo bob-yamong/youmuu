@@ -65,57 +65,49 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
 
     try {
-        // nlohmann::json 객체 생성 시 예외 처리 추가
+        // char* 타입을 처리하는 헬퍼 함수
+        auto char_to_string = [](const char* data, size_t max_len) -> std::string {
+            return std::string(data, strnlen(data, max_len));
+        };
+
+        // __u8* 타입을 처리하는 헬퍼 함수
+        auto u8_to_string = [](const __u8* data, size_t max_len) -> std::string {
+            return std::string(reinterpret_cast<const char*>(data), 
+                             strnlen(reinterpret_cast<const char*>(data), max_len));
+        };
+
         nlohmann::json event_json;
-        try {
-            event_json = {
-                {"timestamp", std::string(timestamp) + "." + std::to_string(e->ts % 1000000000)},
-                {"container_id", {
-                    {"pid_ns", e->pid_id},
-                    {"mnt_ns", e->mnt_id}
-                }},
-                {"process", {
-                    {"host_ppid", e->host_ppid},
-                    {"host_pid", e->host_pid},
-                    {"ppid", e->ppid},
-                    {"pid", e->pid},
-                    {"uid", e->uid}
-                }},
-                {"cgroup_id", e->cgroup_id},
-                {"event_id", e->event_id},
-                {"return_value", e->retval},
-                {"command", std::string(e->comm)},  // 문자열로 명시적 변환
-                {"data", {
-                    {"path", std::string(e->data.path)},  // 문자열로 명시적 변환
-                    {"source", std::string(e->data.source)}  // 문자열로 명시적 변환
-                }}
-            };
-        } catch (const nlohmann::json::exception& e) {
-            fprintf(stderr, "JSON creation error: %s\n", e.what());
-            return -1;
-        }
+        event_json["timestamp"] = std::string(timestamp) + "." + std::to_string(e->ts % 1000000000);
+        event_json["container_id"] = {
+            {"pid_ns", e->pid_id},
+            {"mnt_ns", e->mnt_id}
+        };
+        event_json["process"] = {
+            {"host_ppid", e->host_ppid},
+            {"host_pid", e->host_pid},
+            {"ppid", e->ppid},
+            {"pid", e->pid},
+            {"uid", e->uid}
+        };
+        event_json["cgroup_id"] = e->cgroup_id;
+        event_json["event_id"] = e->event_id;
+        event_json["return_value"] = e->retval;
+        event_json["command"] = u8_to_string(e->comm, sizeof(e->comm));
+        event_json["data"] = {
+            {"path", char_to_string(e->data.path, sizeof(e->data.path))},
+            {"source", char_to_string(e->data.source, sizeof(e->data.source))}
+        };
 
         // 재시도 로직
         for (int retry = 0; retry < MAX_RETRIES; retry++) {
-            if (!conn->is_open()) {
-                fprintf(stderr, "Database connection lost\n");
-                return -1;
-            }
-
             try {
                 pqxx::work txn(*conn);
                 std::string json_str = event_json.dump();
-                
-                // 디버깅을 위한 출력
-                fprintf(stderr, "Sending JSON: %s\n", json_str.c_str());
-                
                 std::string escaped_json = txn.quote(json_str);
                 std::string query = "SELECT * FROM pgmq.send('lsm', " + escaped_json + ");";
                 
                 txn.exec(query);
                 txn.commit();
-
-                fprintf(stderr, "Event successfully sent to queue\n");
                 return 0;
 
             } catch (const std::exception &e) {
