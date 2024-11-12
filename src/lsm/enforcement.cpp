@@ -49,13 +49,8 @@ bool file_exists(const char *path) {
 }
 
 static int print_event(void *ctx, void *data, size_t data_sz) {
-    const int MAX_RETRIES = 2;
-    const int RETRY_DELAY_MS = 100;
-    
-    if (!data || !conn) {
-        fprintf(stderr, "Invalid data or database connection\n");
-        return -1;
-    }
+    const int MAX_RETRIES = 2;  // 최초 시도 + 1회 재시도
+    const int RETRY_DELAY_MS = 100;  // 재시도 전 100ms 대기
     
     event *e = (event *)data;
     char timestamp[32];
@@ -63,6 +58,7 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
     struct tm *tm_info = localtime(&event_time);
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
 
+    // JSON 문자열 생성을 stringstream으로 수정
     std::stringstream event_data;
     event_data << "{\"timestamp\":\"" << timestamp << "." << (e->ts % 1000000000) << "\","
                << "\"container_id\":{\"pid_ns\":" << e->pid_id << ",\"mnt_ns\":" << e->mnt_id << "},"
@@ -74,36 +70,32 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
                << "\"command\":\"" << e->comm << "\","
                << "\"data\":{\"path\":\"" << e->data.path << "\",\"source\":\"" << e->data.source << "\"}}";
 
-        // 재시도 로직
-        for (int retry = 0; retry < MAX_RETRIES; retry++) {
-            try {
-                pqxx::work txn(*conn);
-                std::string json_str = event_json.dump();
-                std::string escaped_json = txn.quote(json_str);
-                std::string query = "SELECT * FROM pgmq.send('lsm', " + escaped_json + ");";
-                
-                txn.exec(query);
-                txn.commit();
-                return 0;
+    for (int retry = 0; retry < MAX_RETRIES; retry++) {
+        try {
+            pqxx::work txn(*conn);
+            std::string escaped_json = txn.quote(event_data.str());
+            std::string query = "SELECT * FROM pgmq.send('lsm', " + escaped_json + ");";
+            
+            txn.exec(query);
+            txn.commit();
 
-            } catch (const std::exception &e) {
-                fprintf(stderr, "Attempt %d failed to send event to queue: %s\n", 
-                        retry + 1, e.what());
-                
-                if (retry < MAX_RETRIES - 1) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(RETRY_DELAY_MS));
-                }
+            printf("Event successfully sent to queue\n");
+            return 0;  // 성공시 즉시 반환
+
+        } catch (const std::exception &e) {
+            fprintf(stderr, "Attempt %d failed to send event to queue: %s\n", 
+                    retry + 1, e.what());
+            
+            if (retry < MAX_RETRIES - 1) {
+                // 마지막 시도가 아닌 경우에만 대기
+                std::this_thread::sleep_for(std::chrono::milliseconds(RETRY_DELAY_MS));
             }
         }
-
-        fprintf(stderr, "Dropping event after %d failed attempts\n", MAX_RETRIES);
-        
-    } catch (const std::exception& e) {
-        fprintf(stderr, "Unexpected error: %s\n", e.what());
-        return -1;
     }
 
-    return 0;
+    // 모든 재시도 실패 후
+    fprintf(stderr, "Dropping event after %d failed attempts\n", MAX_RETRIES);
+    return 0;  // 프로그램은 계속 실행
 }
 
 void handle_signal(int sig) {
