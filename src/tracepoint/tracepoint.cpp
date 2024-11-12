@@ -12,6 +12,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <nlohmann/json.hpp>
+#include <syslog.h>
 #include "tracepoint.skel.h"
 #include "struct.h"
 #include "handler.h"
