@@ -161,7 +161,6 @@ int trace_sys_exit_socket(struct trace_event_raw_sys_exit *ctx) {
         return 0;
 
     e->ret = BPF_CORE_READ(ctx, ret);
-    bpf_printk("event_id=%lld\n", BPF_CORE_READ(ctx, id));
 
     bpf_ringbuf_submit(e, 0);
     return 0;
@@ -684,6 +683,7 @@ int trace_sys_enter_recvmsg(struct trace_event_raw_sys_enter *ctx) {
     if (!e) 
         return 0;
     
+    bpf_printk("recvmsg: %d\n", msg_ptr);
     e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
     e->arg_s32[1] = BPF_CORE_READ(ctx, args[2]);
     
@@ -706,9 +706,10 @@ int trace_sys_exit_recvmsg(struct trace_event_raw_sys_exit *ctx) {
 
     if (ret >= 0) {
         __u64 *msg_ptr = bpf_map_lookup_elem(&recvmsg_args_map, &key);
+        bpf_printk("recvmsg_exit: %d\n", msg_ptr);
         if (msg_ptr) {
             struct msghdr msg;
-            if (bpf_probe_read_user(&msg, sizeof(msg), msg_ptr) == 0) {
+            if (bpf_probe_read_user(&msg, sizeof(msg), (void *)*msg_ptr) == 0) {
                 read_sockaddr(e, msg.msg_name);
             }
         }
@@ -1734,7 +1735,7 @@ int trace_sys_exit_getdents(struct trace_event_raw_sys_exit *ctx) {
         __u64 *dirents_ptr = bpf_map_lookup_elem(&getdents_args_map, &key);
         if (dirents_ptr) {
             struct linux_dirent dirents;
-            if (bpf_probe_read_user(&dirents, sizeof(dirents), dirents_ptr) == 0) {
+            if (bpf_probe_read_user(&dirents, sizeof(dirents), (void *)*dirents_ptr) == 0) {
                 e->arg_u64[0] = dirents.d_ino;
                 e->is_valid = true;
             }
@@ -1784,7 +1785,7 @@ int trace_sys_exit_getdents64(struct trace_event_raw_sys_exit *ctx) {
         __u64 *dirents_ptr = bpf_map_lookup_elem(&getdents64_args_map, &key);
         if (dirents_ptr) {
             struct linux_dirent64 dirents;
-            if (bpf_probe_read_user(&dirents, sizeof(dirents), dirents_ptr) == 0) {
+            if (bpf_probe_read_user(&dirents, sizeof(dirents), (void *)*dirents_ptr) == 0) {
                 e->arg_u64[0] = dirents.d_ino;
                 e->is_valid = true;
             }
@@ -4223,7 +4224,7 @@ int trace_sys_exit_getrlimit(struct trace_event_raw_sys_exit *ctx) {
         __u64 *rlim_ptr = bpf_map_lookup_elem(&getrlimit_args_map, &key);
         if (rlim_ptr) {
             struct rlimit rlim;
-            if (bpf_probe_read_user(&rlim, sizeof(rlim), rlim_ptr) == 0) {
+            if (bpf_probe_read_user(&rlim, sizeof(rlim), (void *)*rlim_ptr) == 0) {
                 e->arg_u64[0] = rlim.rlim_cur;
                 e->arg_u64[1] = rlim.rlim_max;
                 e->is_valid = true;
