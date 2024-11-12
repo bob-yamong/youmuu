@@ -1,31 +1,76 @@
 #include "db.h"
 
-DBConnection::DBConnection() {
-    try {
-        // TCP/IP 연결을 위한 연결 문자열 구성
-        std::stringstream conn_string;
-        conn_string << "postgresql://"
-                   << env::user << ":"
-                   << env::password << "@"
-                   << env::host << ":"
-                   << env::port << "/"
-                   << env::dbname
-                   << "?connect_timeout=10"; // 타임아웃 추가
+// DBConnection::DBConnection() {
+//     std::stringstream conn_string;
+//     try {
+//         env::getEnv();
+//         // TCP/IP 연결을 위한 연결 문자열 구성
+//         conn_string << "postgresql://"
+//                    << env::user << ":"
+//                    << env::password << "@"
+//                    << env::host << ":"
+//                    << env::port << "/"
+//                    << env::dbname
+//                    << "?connect_timeout=10"; // 타임아웃 추가
 
-        std::cout << "Attempting to connect to database..." << std::endl;
+//         std::cout << "Attempting to connect to database..." << std::endl;
+//         conn = std::make_unique<pqxx::connection>(conn_string.str());
+        
+//         // 초기 설정
+//         pqxx::work w(*conn);
+//         w.exec("SET synchronous_commit TO OFF");
+//         w.exec("SET client_encoding TO 'UTF8'");
+//         w.commit();
+        
+//         std::cout << "Database connection successful! Connected to " << env::dbname 
+//                   << " at " << env::host << ":" << env::port << std::endl;
+
+//     } catch (const std::exception& e) {
+//         std::cerr << "Connection string debug: " << conn_string.str() << std::endl;
+//         throw std::runtime_error("Database connection failed: " + std::string(e.what()));
+//     }
+// }
+
+DBConnection::DBConnection() {
+    std::stringstream conn_string;
+
+    try {
+        std::cout << "=== Starting database connection ===" << std::endl;
+        
+        // 환경 변수 초기화
+        std::cout << "Calling getEnv()..." << std::endl;
+        env::getEnv();
+        std::cout << "getEnv() completed successfully" << std::endl;
+
+        // 연결 문자열 생성
+        std::cout << "Creating connection string..." << std::endl;
+        conn_string << "host=" << env::host << " "
+                   << "port=" << env::port << " "
+                   << "dbname=" << env::dbname << " "
+                   << "user=" << env::user << " "
+                   << "password=" << env::password << " "
+                   << "connect_timeout=10";
+
+        std::cout << "Connection string created: " << conn_string.str() << std::endl;
+
+        // DB 연결 시도
+        std::cout << "Attempting to create database connection..." << std::endl;
         conn = std::make_unique<pqxx::connection>(conn_string.str());
+        std::cout << "Database connection created successfully" << std::endl;
         
         // 초기 설정
+        std::cout << "Setting up initial configuration..." << std::endl;
         pqxx::work w(*conn);
         w.exec("SET synchronous_commit TO OFF");
         w.exec("SET client_encoding TO 'UTF8'");
         w.commit();
         
-        std::cout << "Database connection successful! Connected to " << env::dbname 
-                  << " at " << env::host << ":" << env::port << std::endl;
+        std::cout << "=== Database connection completed successfully ===" << std::endl;
 
     } catch (const std::exception& e) {
-        std::cerr << "Connection string debug: " << conn_string.str() << std::endl;
+        std::cerr << "=== Database connection failed ===" << std::endl;
+        std::cerr << "Error details: " << e.what() << std::endl;
+        std::cerr << "Connection string was: " << conn_string.str() << std::endl;
         throw std::runtime_error("Database connection failed: " + std::string(e.what()));
     }
 }

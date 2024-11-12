@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <memory>
 #include <array>
+#include <iostream>
 
 class env {
 public:
