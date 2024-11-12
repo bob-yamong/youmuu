@@ -8,6 +8,8 @@
 #include <cstdlib>
 #include <iostream>
 #include <string_view>
+#include <ctime>
+#include <iomanip>
 #include "struct.h"
 #include "user_struct.h"
 

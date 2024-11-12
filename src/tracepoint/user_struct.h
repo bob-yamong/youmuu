@@ -8,7 +8,8 @@
 struct db_event_t {
     std::chrono::system_clock::time_point timestamp;
     std::string container_name;
-    std::string syscall;
+    __s32 syscall;
+    bool is_enter;
     __u32 pid_namespace;
     __u32 mnt_namespace;
     __u32 ppid;

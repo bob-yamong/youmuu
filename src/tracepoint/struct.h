@@ -4,6 +4,7 @@
 struct current_task  {
     __u64 count;
     __u64 timestamp;
+    __s32 event_id;
     __u64 cgroup_id;
     __u32 pid_namespace;
     __u32 mnt_namespace;
@@ -17,7 +18,6 @@ struct current_task  {
 
 struct event_t {
     struct current_task task;
-    __s64 event_id;
     __s64 ret;
 
     __s32 arg_s32[6];
@@ -39,7 +39,7 @@ struct event_t {
 };
 
 struct event_key {
-    __s64 event_id;
+    __s32 event_id;
     __u32 pid_namespace;
 };
 
