@@ -1,38 +1,76 @@
 #include "db.h"
 
-// 환경 변수에서 값을 가져오는 헬퍼 함수
-std::string get_env_var(const char* var_name, const std::string& default_value) {
-    const char* value = std::getenv(var_name);
-    return value ? std::string(value) : default_value;
-}
+// DBConnection::DBConnection() {
+//     std::stringstream conn_string;
+//     try {
+//         env::getEnv();
+//         // TCP/IP 연결을 위한 연결 문자열 구성
+//         conn_string << "postgresql://"
+//                    << env::user << ":"
+//                    << env::password << "@"
+//                    << env::host << ":"
+//                    << env::port << "/"
+//                    << env::dbname
+//                    << "?connect_timeout=10"; // 타임아웃 추가
+
+//         std::cout << "Attempting to connect to database..." << std::endl;
+//         conn = std::make_unique<pqxx::connection>(conn_string.str());
+        
+//         // 초기 설정
+//         pqxx::work w(*conn);
+//         w.exec("SET synchronous_commit TO OFF");
+//         w.exec("SET client_encoding TO 'UTF8'");
+//         w.commit();
+        
+//         std::cout << "Database connection successful! Connected to " << env::dbname 
+//                   << " at " << env::host << ":" << env::port << std::endl;
+
+//     } catch (const std::exception& e) {
+//         std::cerr << "Connection string debug: " << conn_string.str() << std::endl;
+//         throw std::runtime_error("Database connection failed: " + std::string(e.what()));
+//     }
+// }
 
 DBConnection::DBConnection() {
+    std::stringstream conn_string;
+
     try {
-        // 환경 변수에서 DB 연결 정보 가져오기
-        std::string host = get_env_var("POSTGRES_HOST", "localhost");
-        std::string port = get_env_var("POSTGRES_PORT", "5432");
-        std::string dbname = get_env_var("POSTGRES_DB", "yamong_postgres");
-        std::string user = get_env_var("POSTGRES_USER", "temp_admin");
-        std::string password = get_env_var("POSTGRES_PASSWORD", "temp_password");
+        std::cout << "=== Starting database connection ===" << std::endl;
+        
+        // 환경 변수 초기화
+        std::cout << "Calling getEnv()..." << std::endl;
+        env::getEnv();
+        std::cout << "getEnv() completed successfully" << std::endl;
 
-        // 연결 문자열 구성
-        std::stringstream conn_string;
-        conn_string << "dbname=" << dbname << " "
-                   << "host=" << host << " "
-                   << "port=" << port << " "
-                   << "user=" << user << " "
-                   << "password=" << password;
+        // 연결 문자열 생성
+        std::cout << "Creating connection string..." << std::endl;
+        conn_string << "host=" << env::host << " "
+                   << "port=" << env::port << " "
+                   << "dbname=" << env::dbname << " "
+                   << "user=" << env::user << " "
+                   << "password=" << env::password << " "
+                   << "connect_timeout=10";
 
+        std::cout << "Connection string created: " << conn_string.str() << std::endl;
+
+        // DB 연결 시도
+        std::cout << "Attempting to create database connection..." << std::endl;
         conn = std::make_unique<pqxx::connection>(conn_string.str());
+        std::cout << "Database connection created successfully" << std::endl;
         
         // 초기 설정
+        std::cout << "Setting up initial configuration..." << std::endl;
         pqxx::work w(*conn);
         w.exec("SET synchronous_commit TO OFF");
         w.exec("SET client_encoding TO 'UTF8'");
         w.commit();
-        std::cout << "Database connection successful! Connected to " << dbname << " at " << host << ":" << port << std::endl;
+        
+        std::cout << "=== Database connection completed successfully ===" << std::endl;
 
     } catch (const std::exception& e) {
+        std::cerr << "=== Database connection failed ===" << std::endl;
+        std::cerr << "Error details: " << e.what() << std::endl;
+        std::cerr << "Connection string was: " << conn_string.str() << std::endl;
         throw std::runtime_error("Database connection failed: " + std::string(e.what()));
     }
 }
@@ -40,22 +78,18 @@ DBConnection::DBConnection() {
 void DBConnection::ensure_connection() {
     try {
         if (!conn || !conn->is_open()) {
-            // 재연결 시에도 환경 변수 사용
-            std::string host = get_env_var("POSTGRES_HOST", "localhost");
-            std::string port = get_env_var("POSTGRES_PORT", "5432");
-            std::string dbname = get_env_var("POSTGRES_DB", "yamong_postgres");
-            std::string user = get_env_var("POSTGRES_USER", "temp_admin");
-            std::string password = get_env_var("POSTGRES_PASSWORD", "temp_password");
+        std::stringstream conn_string;
+        conn_string << "postgresql://"
+                   << env::user << ":"
+                   << env::password << "@"
+                   << env::host << ":"
+                   << env::port << "/"
+                   << env::dbname
+                   << "?connect_timeout=10"; // 타임아웃 추가
 
-            std::stringstream conn_string;
-            conn_string << "dbname=" << dbname << " "
-                       << "host=" << host << " "
-                       << "port=" << port << " "
-                       << "user=" << user << " "
-                       << "password=" << password;
-
-            conn = std::make_unique<pqxx::connection>(conn_string.str());
-            std::cout << "Database connection successful! Connected to " << dbname << " at " << host << ":" << port << std::endl;
+        std::cout << "Attempting to connect to database..." << std::endl;
+        conn = std::make_unique<pqxx::connection>(conn_string.str());
+            std::cout << "Database connection successful! Connected to " << env::dbname << " at " << env::host << ":" << env::port << std::endl;
         }
     } catch (const std::exception& e) {
         throw std::runtime_error("Database reconnection failed: " + std::string(e.what()));
@@ -138,101 +172,3 @@ void DBConnection::insert_events(const std::vector<db_event_t>& events) {
         throw std::runtime_error("Failed to insert events: " + std::string(e.what()));
     }
 }
-
-// void EventLogger::insertEventsToDB(const std::vector<event>& buffer) {
-//     if (buffer.empty()) return;
-
-//     try {
-//         pqxx::work txn(dbConnection_);
-//         auto stream = pqxx::stream_to::table(txn, {"ContainerLog"sv}, {
-//             "systemcall",
-//             "container_name",
-//             "pid",
-//             "ppid",
-//             "tid",
-//             "uid",
-//             "gid",
-//             "command",
-//             "atr_0",
-//             "atr_1",
-//             "atr_2",
-//             "atr_3",
-//             "atr_4",
-//             "atr_5"
-//         });
-
-//         // 개선된 문자열 정제 함수
-//         auto sanitizeString = [](const char* str) -> std::string {
-//             std::string result;
-//             const unsigned char* p = reinterpret_cast<const unsigned char*>(str);
-            
-//             while (*p && result.length() < MAX_ARG_LEN) {
-//                 // UTF-8 유효성 검사 및 필터링
-//                 if (*p < 0x80) { // ASCII 문자
-//                     if (*p >= 0x20 && *p != 0x7F) { // 출력 가능한 ASCII
-//                         result += static_cast<char>(*p);
-//                     }
-//                     p++;
-//                 } else if ((*p & 0xE0) == 0xC0) { // 2바이트 UTF-8
-//                     if (p[1] && (p[1] & 0xC0) == 0x80) {
-//                         result += static_cast<char>(p[0]);
-//                         result += static_cast<char>(p[1]);
-//                         p += 2;
-//                     } else {
-//                         p++;
-//                     }
-//                 } else if ((*p & 0xF0) == 0xE0) { // 3바이트 UTF-8
-//                     if (p[1] && p[2] && 
-//                         (p[1] & 0xC0) == 0x80 && 
-//                         (p[2] & 0xC0) == 0x80) {
-//                         result += static_cast<char>(p[0]);
-//                         result += static_cast<char>(p[1]);
-//                         result += static_cast<char>(p[2]);
-//                         p += 3;
-//                     } else {
-//                         p++;
-//                     }
-//                 } else {
-//                     p++; // 유효하지 않은 바이트는 건너뛰기
-//                 }
-//             }
-//             return result;
-//         };
-
-//         for (const auto& e : buffer) {
-//             std::string container_name;
-//             for (const auto& container : ContainerManager::containers) {
-//                 if (container.cgroup_id == e.cgroup_id) {
-//                     container_name = container.name;
-//                     break;
-//                 }
-//             }
-
-//             stream.write_values(
-//                 sanitizeString(e.syscall),
-//                 container_name,
-//                 e.pid,
-//                 e.ppid,
-//                 e.tid,
-//                 e.uid,
-//                 e.gid,
-//                 sanitizeString(e.comm),
-//                 sanitizeString(e.argv[0]),
-//                 sanitizeString(e.argv[1]),
-//                 sanitizeString(e.argv[2]),
-//                 sanitizeString(e.argv[3]),
-//                 sanitizeString(e.argv[4]),
-//                 sanitizeString(e.argv[5])
-//             );
-//         }
-//         stream.complete();
-//         txn.commit();
-//     }
-//     catch (const pqxx::sql_error &e) {
-//         std::cerr << "SQL error: " << e.what() << "\n";
-//         std::cerr << "Query was: " << e.query() << "\n";
-//     }
-//     catch (const std::exception &e) {
-//         std::cerr << "Exception in insertEventsToDB: " << e.what() << "\n";
-//     }
-// }

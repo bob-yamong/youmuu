@@ -18,7 +18,7 @@ static void get_task_info_str(const struct current_task *task, char *buffer, siz
     syslog(LOG_INFO,
              "count=%20llu, timestamp=%s.%9llu, cgroup_id=%20llu, ns_id=%9u, ppid=%9u, pid=%9u, tid=%9u, uid=%9u, gid=%9u, comm=%s",
              task->count, timestamp, nanoseconds,
-             task->cgroup_id, task->ns_id,
+             task->cgroup_id, task->pid_namespace,
              task->ppid, task->pid, task->tid,
              task->uid, task->gid, task->comm);
 }
@@ -3532,12 +3532,12 @@ int handle_event(void *ctx, void *data, size_t data_sz) {
 
     get_task_info_str(&e->task, task_info, sizeof(task_info), boot_time);
     
-    struct socket_handlers *handlers = &event_handler[e->event_id];
+    struct socket_handlers *handlers = &event_handler[e->task.event_id];
     event_handler_t handler = e->is_enter ? handlers->enter : handlers->exit;
     if (handler) {
         return handler(e, task_info);
     }
     
-    syslog(LOG_INFO, "Unknown event: %s, event_id=%lld\n", task_info, e->event_id);
+    syslog(LOG_INFO, "Unknown event: %s, event_id=%lld\n", task_info, e->task.event_id);
     return 0;
 }
