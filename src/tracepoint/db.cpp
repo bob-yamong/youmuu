@@ -2,15 +2,13 @@
 
 DBConnection::DBConnection() {
     try {
-
         // 연결 문자열 구성
         std::stringstream conn_string;
-        int port = std::stoi(env::port);
-        conn_string << "dbname=" << env::dbname << " "
-                   << "host=" << env::host << " "
-                   << "port=" << port << " "
-                   << "user=" << env::user << " "
-                   << "password=" << env::password;
+        conn_string << "dbname='" << env::dbname << "' "
+                   << "host='" << env::host << "' "
+                   << "port='" << env::port << "' "
+                   << "user='" << env::user << "' "
+                   << "password='" << env::password << "'";
 
         conn = std::make_unique<pqxx::connection>(conn_string.str());
         
@@ -19,7 +17,9 @@ DBConnection::DBConnection() {
         w.exec("SET synchronous_commit TO OFF");
         w.exec("SET client_encoding TO 'UTF8'");
         w.commit();
-        std::cout << "Database connection successful! Connected to " << env::dbname << " at " << env::host << ":" << env::port << std::endl;
+        
+        std::cout << "Database connection successful! Connected to " << env::dbname 
+                  << " at " << env::host << ":" << env::port << std::endl;
 
     } catch (const std::exception& e) {
         throw std::runtime_error("Database connection failed: " + std::string(e.what()));
@@ -30,12 +30,11 @@ void DBConnection::ensure_connection() {
     try {
         if (!conn || !conn->is_open()) {
             std::stringstream conn_string;
-            int port = std::stoi(env::port);
-            conn_string << "dbname=" << env::dbname << " "
-                       << "host=" << env::host << " "
-                       << "port=" << port << " "
-                       << "user=" << env::user << " "
-                       << "password=" << env::password;
+            conn_string << "dbname='" << env::dbname << "' "
+                   << "host='" << env::host << "' "
+                   << "port='" << env::port << "' "
+                   << "user='" << env::user << "' "
+                   << "password='" << env::password << "'";
 
             conn = std::make_unique<pqxx::connection>(conn_string.str());
             std::cout << "Database connection successful! Connected to " << env::dbname << " at " << env::host << ":" << env::port << std::endl;

@@ -35,7 +35,7 @@ ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS)
 # syslog를 남기고 싶으면 SRCS에 위의 파일을 추가
 
 APPS = tracepoint
-SRCS = tracepoint.cpp handler.cpp db.cpp buffer.cpp getEnv.cpp
+SRCS = tracepoint.cpp handler.cpp db.cpp buffer.cpp getEnv.cpp container_pid_id.cpp
 OBJS = $(patsubst %.cpp,$(OUTPUT)/%.o,$(SRCS))
 
 # Get Clang's default includes on this system. We'll explicitly add these dirs

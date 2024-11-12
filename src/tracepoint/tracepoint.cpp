@@ -31,7 +31,7 @@
 
 static volatile bool running = true;
 std::unique_ptr<DBConnection> g_db_connection;
-std::unordered_map<__u32, std::string> pid_namespace_to_container_id;
+
 using json = nlohmann::json;
 
 static void sig_handler(int sig) {
