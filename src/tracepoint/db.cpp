@@ -2,14 +2,17 @@
 
 DBConnection::DBConnection() {
     try {
-        // 연결 문자열 구성
+        // TCP/IP 연결을 위한 연결 문자열 구성
         std::stringstream conn_string;
-        conn_string << "dbname='" << env::dbname << "' "
-                   << "host='" << env::host << "' "
-                   << "port='" << env::port << "' "
-                   << "user='" << env::user << "' "
-                   << "password='" << env::password << "'";
+        conn_string << "postgresql://"
+                   << env::user << ":"
+                   << env::password << "@"
+                   << env::host << ":"
+                   << env::port << "/"
+                   << env::dbname
+                   << "?connect_timeout=10"; // 타임아웃 추가
 
+        std::cout << "Attempting to connect to database..." << std::endl;
         conn = std::make_unique<pqxx::connection>(conn_string.str());
         
         // 초기 설정
@@ -22,6 +25,7 @@ DBConnection::DBConnection() {
                   << " at " << env::host << ":" << env::port << std::endl;
 
     } catch (const std::exception& e) {
+        std::cerr << "Connection string debug: " << conn_string.str() << std::endl;
         throw std::runtime_error("Database connection failed: " + std::string(e.what()));
     }
 }
@@ -29,14 +33,17 @@ DBConnection::DBConnection() {
 void DBConnection::ensure_connection() {
     try {
         if (!conn || !conn->is_open()) {
-            std::stringstream conn_string;
-            conn_string << "dbname='" << env::dbname << "' "
-                   << "host='" << env::host << "' "
-                   << "port='" << env::port << "' "
-                   << "user='" << env::user << "' "
-                   << "password='" << env::password << "'";
+        std::stringstream conn_string;
+        conn_string << "postgresql://"
+                   << env::user << ":"
+                   << env::password << "@"
+                   << env::host << ":"
+                   << env::port << "/"
+                   << env::dbname
+                   << "?connect_timeout=10"; // 타임아웃 추가
 
-            conn = std::make_unique<pqxx::connection>(conn_string.str());
+        std::cout << "Attempting to connect to database..." << std::endl;
+        conn = std::make_unique<pqxx::connection>(conn_string.str());
             std::cout << "Database connection successful! Connected to " << env::dbname << " at " << env::host << ":" << env::port << std::endl;
         }
     } catch (const std::exception& e) {
