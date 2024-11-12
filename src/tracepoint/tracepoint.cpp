@@ -13,11 +13,13 @@
 #include <sys/un.h>
 #include <nlohmann/json.hpp>
 #include <syslog.h>
+#include <utility>
 #include "tracepoint.skel.h"
 #include "struct.h"
 #include "handler.h"
 #include "parser.h"
 #include "db.h"
+#include "container_pid_id.h"
 
 #define MAX_PATH 256
 #define ALLOW 0
@@ -58,13 +60,13 @@ std::string remove_chunked_encoding(const std::string& response) {
     return json_body;
 }
 
-int get_docker_pid(const char* container_name) {
+std::pair<int, std::string> get_docker_pid(const char* container_name) {
     const char* socket_path = "/var/run/docker.sock";
     int sock = socket(AF_UNIX, SOCK_STREAM, 0);
     
     if (sock < 0) {
         perror("Socket creation failed");
-        return 0;
+        return {0, ""};
     }
 
     struct sockaddr_un addr{};
@@ -74,7 +76,7 @@ int get_docker_pid(const char* container_name) {
     if (connect(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
         perror("Connection to Docker socket failed");
         close(sock);
-        return 0;
+        return {0, ""};
     }
 
     // Formulate HTTP request to get container info
@@ -86,7 +88,7 @@ int get_docker_pid(const char* container_name) {
     if (send(sock, request.c_str(), request.size(), 0) < 0) {
         perror("Send request failed");
         close(sock);
-        return 0;
+        return {0, ""};
     }
 
     // Receive response
@@ -102,7 +104,7 @@ int get_docker_pid(const char* container_name) {
     auto pos = response.find("\r\n\r\n");
     if (pos == std::string::npos) {
         std::cerr << "Invalid response format" << std::endl;
-        return 0;
+        return {0, ""};
     }
 
     // Extract the JSON body
@@ -110,13 +112,15 @@ int get_docker_pid(const char* container_name) {
 
     try {
         json container_info = json::parse(json_str);
-        return container_info["State"]["Pid"].get<int>();
+        int pid = container_info["State"]["Pid"].get<int>();
+        std::string id = container_info["Id"].get<std::string>();
+        return {pid, id};
     } catch (const json::parse_error& e) {
         std::cerr << "JSON parse error: " << e.what() << std::endl;
-        return 0;
+        return {0, ""};
     } catch (const json::type_error& e) {
         std::cerr << "JSON type error: " << e.what() << std::endl;
-        return 0;
+        return {0, ""};
     }
 }
 
@@ -173,28 +177,34 @@ int update_policy_with_file(struct bpf_map *event_policy_map, char* abs_file_nam
         return -1;
     }
 
-    for (const YamlContainerPolicy& container: policy.containers) {
-        struct event_key key{};
-        vector<int> syscall_list = string_to_syscalls(container.tracepoint_policy.syscalls);
+    // clearing monitoring data
+    pid_namespace_to_container_id.clear();
 
-        __u32 container_pid = get_docker_pid(container.container_name.c_str());
-        if (!container_pid) {
-            fprintf(stderr, "Failed to get container pid: %s\n", container.container_name.c_str());
+    for (const YamlContainerPolicy& container: policy.containers) {
+    struct event_key key{};
+    vector<int> syscall_list = string_to_syscalls(container.tracepoint_policy.syscalls);
+
+    auto [container_pid, container_id] = get_docker_pid(container.container_name.c_str());
+    if (!container_pid) {
+        fprintf(stderr, "Failed to get container pid: %s\n", container.container_name.c_str());
+        continue;
+    }
+    __u32 pid_namespace = get_namespace_id(container_pid);
+
+    // Store the pid_namespace and container_id in the hash map
+    pid_namespace_to_container_id[pid_namespace] = container_id;
+
+    for (size_t i = 0; i < syscall_list.size(); i++) {
+        key.pid_namespace = pid_namespace;
+        key.event_id = syscall_list[i];
+        
+        err = bpf_map__update_elem(event_policy_map, &key, sizeof(key), &action, sizeof(action), BPF_ANY);
+        if (err) {
+            fprintf(stderr, "Failed to update map for enter event: %d\n", err);
             continue;
         }
-        __u32 pid_namespace = get_namespace_id(container_pid);
-
-        for (size_t i = 0; i < syscall_list.size(); i++) {
-            key.pid_namespace = pid_namespace;
-            key.event_id = syscall_list[i];
-            
-            err = bpf_map__update_elem(event_policy_map, &key, sizeof(key), &action, sizeof(action), BPF_ANY);
-            if (err) {
-                fprintf(stderr, "Failed to update map for enter event: %d\n", err);
-                continue;
-            }
-            
-            printf("Updated map for syscall %d\n", syscall_list[i]);
+        
+        printf("Updated map for syscall %d, Container ID: %s\n", syscall_list[i], container_id.c_str());
         }
     }
 
