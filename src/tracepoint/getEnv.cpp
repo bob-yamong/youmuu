@@ -14,10 +14,11 @@ std::string env::cgroup_path;
 std::string env::proc_path;
 
 // static 멤버 함수 구현
-std::string env::get_env_var(const std::string& var_name) {
+std::string env::get_env_var(const std::string& var_name, const std::string& default_value) {
     const char* val = std::getenv(var_name.c_str());
     if (val == nullptr) {
         throw std::runtime_error("환경 변수 " + var_name + "이(가) 설정되지 않았습니다.");
+        return default_value;
     }
     return std::string(val);
 }
@@ -57,7 +58,7 @@ std::string env::resolveHostname(const std::string& hostname) {
 }
 
 void env::getEnv() {
-    std::string hostname = get_env_var("POSTGRES_HOST");
+    std::string hostname = get_env_var("POSTGRES_HOST", "localhost");
     // hostname이 IP가 아닌 경우에만 resolve
     if (hostname.find_first_not_of("0123456789.") != std::string::npos) {
         host = resolveHostname(hostname);
@@ -65,10 +66,10 @@ void env::getEnv() {
         host = hostname;
     }
     
-    dbname = get_env_var("POSTGRES_DB");
-    user = get_env_var("POSTGRES_USER");
-    password = get_env_var("POSTGRES_PASSWORD");
-    port = get_env_var("POSTGRES_PORT");
-    cgroup_path = get_env_var("CGROUP_SYSTEM_SLICE_PATH");
-    proc_path = get_env_var("PROC_PATH");
+    dbname = get_env_var("POSTGRES_DB", "yamong_postgres");
+    user = get_env_var("POSTGRES_USER", "temp_admin");
+    password = get_env_var("POSTGRES_PASSWORD", "temp_password");
+    port = get_env_var("POSTGRES_PORT" , "5432");
+    cgroup_path = get_env_var("CGROUP_SYSTEM_SLICE_PATH", "/sys/fs/cgroup/system.slice/");
+    proc_path = get_env_var("PROC_PATH", "/proc");
 }

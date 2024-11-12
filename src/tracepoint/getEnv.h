@@ -25,7 +25,7 @@ public:
     static std::string resolveHostname(const std::string& hostname);
 
 private:
-    static std::string get_env_var(const std::string& var_name);
+    static std::string get_env_var(const std::string& var_name , const std::string& default_value);
 };
 
 #endif // GET_ENV_H
