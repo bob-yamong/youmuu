@@ -5,7 +5,6 @@
 #include <unordered_map>
 #include <string>
 
-// static 대신 extern으로 선언
 extern std::unordered_map<__u32, std::string> pid_namespace_to_container_id;
 
-#endif // CONTAINER_PID_ID_H
+#endif

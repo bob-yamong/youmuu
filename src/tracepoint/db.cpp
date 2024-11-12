@@ -5,9 +5,10 @@ DBConnection::DBConnection() {
 
         // 연결 문자열 구성
         std::stringstream conn_string;
+        int port = std::stoi(env::port);
         conn_string << "dbname=" << env::dbname << " "
                    << "host=" << env::host << " "
-                   << "port=" << env::port << " "
+                   << "port=" << port << " "
                    << "user=" << env::user << " "
                    << "password=" << env::password;
 
@@ -29,9 +30,10 @@ void DBConnection::ensure_connection() {
     try {
         if (!conn || !conn->is_open()) {
             std::stringstream conn_string;
+            int port = std::stoi(env::port);
             conn_string << "dbname=" << env::dbname << " "
                        << "host=" << env::host << " "
-                       << "port=" << env::port << " "
+                       << "port=" << port << " "
                        << "user=" << env::user << " "
                        << "password=" << env::password;
 
