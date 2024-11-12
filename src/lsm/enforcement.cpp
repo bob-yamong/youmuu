@@ -14,9 +14,9 @@
 #include <chrono>
 #include <pqxx/pqxx>
 #include <sstream>
-#include <cstring>  // 추가: strerror 사용
-#include <sys/stat.h>  // 추가: stat 사용
-#include <errno.h>  // 추가: errno 사용
+#include <cstring>
+#include <sys/stat.h> 
+#include <errno.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <nlohmann/json.hpp>
@@ -29,7 +29,6 @@
 #include "getEnv.h"
 
 #define BPF_FS_PATH "/sys/fs/bpf"
-// #define MAP_PIN_PATH "/sys/fs/bpf/policy_map"
 #define POLICY_FILE_PATH "/policy/policy.yaml"
 #define POLICY_UPDATE_INTERVAL 60
 
@@ -59,7 +58,6 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
     struct tm *tm_info = localtime(&event_time);
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
 
-    // JSON 문자열 생성을 stringstream으로 수정
     std::stringstream event_data;
     event_data << "{\"timestamp\":\"" << timestamp << "." << (e->ts % 1000000000) << "\","
                << "\"container_id\":{\"pid_ns\":" << e->pid_id << ",\"mnt_ns\":" << e->mnt_id << "},"
