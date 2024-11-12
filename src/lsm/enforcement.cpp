@@ -58,7 +58,6 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
     struct tm *tm_info = localtime(&event_time);
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
 
-    // JSON 문자열 생성을 stringstream으로 수정
     std::stringstream event_data;
     event_data << "{\"timestamp\":\"" << timestamp << "." << (e->ts % 1000000000) << "\","
                << "\"container_id\":{\"pid_ns\":" << e->pid_id << ",\"mnt_ns\":" << e->mnt_id << "},"
