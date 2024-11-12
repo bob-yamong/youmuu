@@ -14,9 +14,9 @@
 #include <chrono>
 #include <pqxx/pqxx>
 #include <sstream>
-#include <cstring>  // 추가: strerror 사용
-#include <sys/stat.h>  // 추가: stat 사용
-#include <errno.h>  // 추가: errno 사용
+#include <cstring>
+#include <sys/stat.h> 
+#include <errno.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <nlohmann/json.hpp>
@@ -29,7 +29,6 @@
 #include "getEnv.h"
 
 #define BPF_FS_PATH "/sys/fs/bpf"
-// #define MAP_PIN_PATH "/sys/fs/bpf/policy_map"
 #define POLICY_FILE_PATH "/policy/policy.yaml"
 #define POLICY_UPDATE_INTERVAL 60
 
@@ -64,39 +63,16 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
     struct tm *tm_info = localtime(&event_time);
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
 
-    try {
-        // char* 타입을 처리하는 헬퍼 함수
-        auto char_to_string = [](const char* data, size_t max_len) -> std::string {
-            return std::string(data, strnlen(data, max_len));
-        };
-
-        // __u8* 타입을 처리하는 헬퍼 함수
-        auto u8_to_string = [](const __u8* data, size_t max_len) -> std::string {
-            return std::string(reinterpret_cast<const char*>(data), 
-                             strnlen(reinterpret_cast<const char*>(data), max_len));
-        };
-
-        nlohmann::json event_json;
-        event_json["timestamp"] = std::string(timestamp) + "." + std::to_string(e->ts % 1000000000);
-        event_json["container_id"] = {
-            {"pid_ns", e->pid_id},
-            {"mnt_ns", e->mnt_id}
-        };
-        event_json["process"] = {
-            {"host_ppid", e->host_ppid},
-            {"host_pid", e->host_pid},
-            {"ppid", e->ppid},
-            {"pid", e->pid},
-            {"uid", e->uid}
-        };
-        event_json["cgroup_id"] = e->cgroup_id;
-        event_json["event_id"] = e->event_id;
-        event_json["return_value"] = e->retval;
-        event_json["command"] = u8_to_string(e->comm, sizeof(e->comm));
-        event_json["data"] = {
-            {"path", char_to_string(e->data.path, sizeof(e->data.path))},
-            {"source", char_to_string(e->data.source, sizeof(e->data.source))}
-        };
+    std::stringstream event_data;
+    event_data << "{\"timestamp\":\"" << timestamp << "." << (e->ts % 1000000000) << "\","
+               << "\"container_id\":{\"pid_ns\":" << e->pid_id << ",\"mnt_ns\":" << e->mnt_id << "},"
+               << "\"process\":{\"host_ppid\":" << e->host_ppid << ",\"host_pid\":" << e->host_pid 
+               << ",\"ppid\":" << e->ppid << ",\"pid\":" << e->pid << ",\"uid\":" << e->uid << "},"
+               << "\"cgroup_id\":" << e->cgroup_id << ","
+               << "\"event_id\":" << e->event_id << ","
+               << "\"return_value\":" << e->retval << ","
+               << "\"command\":\"" << e->comm << "\","
+               << "\"data\":{\"path\":\"" << e->data.path << "\",\"source\":\"" << e->data.source << "\"}}";
 
         // 재시도 로직
         for (int retry = 0; retry < MAX_RETRIES; retry++) {
