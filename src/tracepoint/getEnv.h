@@ -7,6 +7,9 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <cstdio>
+#include <memory>
+#include <array>
 
 class env {
 public:
@@ -28,4 +31,4 @@ private:
     static std::string get_env_var(const std::string& var_name , const std::string& default_value);
 };
 
-#endif // GET_ENV_H
+#endif
