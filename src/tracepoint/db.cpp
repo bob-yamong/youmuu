@@ -1,27 +1,15 @@
 #include "db.h"
 
-// 환경 변수에서 값을 가져오는 헬퍼 함수
-std::string get_env_var(const char* var_name, const std::string& default_value) {
-    const char* value = std::getenv(var_name);
-    return value ? std::string(value) : default_value;
-}
-
 DBConnection::DBConnection() {
     try {
-        // 환경 변수에서 DB 연결 정보 가져오기
-        std::string host = get_env_var("POSTGRES_HOST", "localhost");
-        std::string port = get_env_var("POSTGRES_PORT", "5432");
-        std::string dbname = get_env_var("POSTGRES_DB", "yamong_postgres");
-        std::string user = get_env_var("POSTGRES_USER", "temp_admin");
-        std::string password = get_env_var("POSTGRES_PASSWORD", "temp_password");
 
         // 연결 문자열 구성
         std::stringstream conn_string;
-        conn_string << "dbname=" << dbname << " "
-                   << "host=" << host << " "
-                   << "port=" << port << " "
-                   << "user=" << user << " "
-                   << "password=" << password;
+        conn_string << "dbname=" << env::dbname << " "
+                   << "host=" << env::host << " "
+                   << "port=" << env::port << " "
+                   << "user=" << env::user << " "
+                   << "password=" << env::password;
 
         conn = std::make_unique<pqxx::connection>(conn_string.str());
         
@@ -30,7 +18,7 @@ DBConnection::DBConnection() {
         w.exec("SET synchronous_commit TO OFF");
         w.exec("SET client_encoding TO 'UTF8'");
         w.commit();
-        std::cout << "Database connection successful! Connected to " << dbname << " at " << host << ":" << port << std::endl;
+        std::cout << "Database connection successful! Connected to " << env::dbname << " at " << env::host << ":" << env::port << std::endl;
 
     } catch (const std::exception& e) {
         throw std::runtime_error("Database connection failed: " + std::string(e.what()));
@@ -40,22 +28,15 @@ DBConnection::DBConnection() {
 void DBConnection::ensure_connection() {
     try {
         if (!conn || !conn->is_open()) {
-            // 재연결 시에도 환경 변수 사용
-            std::string host = get_env_var("POSTGRES_HOST", "localhost");
-            std::string port = get_env_var("POSTGRES_PORT", "5432");
-            std::string dbname = get_env_var("POSTGRES_DB", "yamong_postgres");
-            std::string user = get_env_var("POSTGRES_USER", "temp_admin");
-            std::string password = get_env_var("POSTGRES_PASSWORD", "temp_password");
-
             std::stringstream conn_string;
-            conn_string << "dbname=" << dbname << " "
-                       << "host=" << host << " "
-                       << "port=" << port << " "
-                       << "user=" << user << " "
-                       << "password=" << password;
+            conn_string << "dbname=" << env::dbname << " "
+                       << "host=" << env::host << " "
+                       << "port=" << env::port << " "
+                       << "user=" << env::user << " "
+                       << "password=" << env::password;
 
             conn = std::make_unique<pqxx::connection>(conn_string.str());
-            std::cout << "Database connection successful! Connected to " << dbname << " at " << host << ":" << port << std::endl;
+            std::cout << "Database connection successful! Connected to " << env::dbname << " at " << env::host << ":" << env::port << std::endl;
         }
     } catch (const std::exception& e) {
         throw std::runtime_error("Database reconnection failed: " + std::string(e.what()));

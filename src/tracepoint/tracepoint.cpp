@@ -14,6 +14,7 @@
 #include <nlohmann/json.hpp>
 #include <syslog.h>
 #include <utility>
+#include "getEnv.h"
 #include "tracepoint.skel.h"
 #include "struct.h"
 #include "handler.h"
@@ -126,7 +127,9 @@ std::pair<int, std::string> get_docker_pid(const char* container_name) {
 
 __u32 get_namespace_id(int container_pid) {
     char path[MAX_PATH];
-    snprintf(path, sizeof(path), "/proc/%d/ns/pid", container_pid);
+    
+    std::string full_path = env::proc_path + "/" + std::to_string(container_pid) + "/ns/pid";
+    snprintf(path, sizeof(path), "%s", full_path.c_str());
     
     int fd = open(path, O_RDONLY);
     if (fd < 0) {
@@ -237,6 +240,8 @@ int main(int argc, char **argv) {
     struct tracepoint_bpf *skel;
     struct ring_buffer *rb;
     int err;
+    
+    env::getEnv();
 
     // Syslog 초기화
     openlog("tracepoint", LOG_PID | LOG_CONS, LOG_USER);

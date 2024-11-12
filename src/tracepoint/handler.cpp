@@ -1,5 +1,6 @@
 #include "handler.h"
 
+
 #define NANOSECONDS_IN_A_SECOND 1000000000
 #define MAX_EVENT_ID 1024
 
@@ -19,6 +20,13 @@ static db_event_t get_str(const struct current_task *task, time_t boot_time) {
     event.syscall = task->event_id;
     event.pid_namespace = task->pid_namespace;
     event.mnt_namespace = task->mnt_namespace;
+    // Safely get the container_id from the map
+    auto it = pid_namespace_to_container_id.find(task->pid_namespace);
+    if (it != pid_namespace_to_container_id.end()) {
+        event.container_name = it->second;
+    } else {
+        event.container_name = "Unknown"; // or handle as appropriate
+    }
     event.ppid = task->ppid;
     event.pid = task->pid;
     event.tid = task->tid;
