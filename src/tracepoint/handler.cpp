@@ -6,7 +6,7 @@
 time_t boot_time;
 EventBuffer event_buffer;
 
-static db_event_t get_tr(const struct current_task *task, time_t boot_time) {
+static db_event_t get_str(const struct current_task *task, time_t boot_time) {
     db_event_t event;
     time_t timer, actual_time;
 
@@ -3535,7 +3535,7 @@ void init_event_handlers(void) {
 int handle_event(void *ctx, void *data, size_t data_sz) {
     const struct event_t *e = (struct event_t *)data;
 
-    db_event_t base_event = get_tr(&e->task, boot_time);
+    db_event_t base_event = get_str(&e->task, boot_time);
     
     struct socket_handlers *handlers = &event_handler[e->task.event_id];
     event_handler_t handler = e->is_enter ? handlers->enter : handlers->exit;
