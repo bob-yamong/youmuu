@@ -31,6 +31,7 @@
 
 static volatile bool running = true;
 std::unique_ptr<DBConnection> g_db_connection;
+std::unordered_map<__u32, std::string> pid_namespace_to_container_id;
 using json = nlohmann::json;
 
 static void sig_handler(int sig) {
@@ -127,7 +128,7 @@ std::pair<int, std::string> get_docker_pid(const char* container_name) {
 
 __u32 get_namespace_id(int container_pid) {
     char path[MAX_PATH];
-    
+
     std::string full_path = env::proc_path + "/" + std::to_string(container_pid) + "/ns/pid";
     snprintf(path, sizeof(path), "%s", full_path.c_str());
     
