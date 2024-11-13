@@ -26,9 +26,9 @@ int BPF_PROG(bprm_check_security, struct linux_binprm *bprm)
     
     __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    // if (!should_monitor(ppid, cgroup_id)) {
-    //     return 0;
-    // }
+    if (!should_monitor(ppid, cgroup_id)) {
+        return 0;
+    }
 
     event *e;
     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
@@ -122,9 +122,9 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
     
     __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    // if (!should_monitor(ppid, cgroup_id)) {
-    //     return 0;
-    // }
+    if (!should_monitor(ppid, cgroup_id)) {
+        return 0;
+    }
 
     event *e;
     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
@@ -196,9 +196,9 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
     
     __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    // if (!should_monitor(ppid, cgroup_id)) {
-    //     return 0;
-    // }
+    if (!should_monitor(ppid, cgroup_id)) {
+        return 0;
+    }
 
     event *e;
     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
@@ -255,9 +255,9 @@ int BPF_PROG(file_open, struct file *file)
     
     __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    // if (!should_monitor(ppid, cgroup_id)) {
-    //     return 0;
-    // }
+    if (!should_monitor(ppid, cgroup_id)) {
+        return 0;
+    }
 
     event *e;
     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
@@ -321,9 +321,9 @@ int BPF_PROG(file_permission, struct file *file, int mask)
     
     __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    // if (!should_monitor(ppid, cgroup_id)) {
-    //     return 0;
-    // }
+    if (!should_monitor(ppid, cgroup_id)) {
+        return 0;
+    }
 
     event *e;
     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
@@ -366,9 +366,9 @@ int BPF_PROG(path_unlink, struct path *path)
     
     __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    // if (!should_monitor(ppid, cgroup_id)) {
-    //     return 0;
-    // }
+    if (!should_monitor(ppid, cgroup_id)) {
+        return 0;
+    }
 
     event *e;
     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
@@ -417,9 +417,9 @@ int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
     
     __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    // if (!should_monitor(ppid, cgroup_id)) {
-    //     return 0;
-    // }
+    if (!should_monitor(ppid, cgroup_id)) {
+        return 0;
+    }
 
     event *e;
     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
@@ -474,9 +474,9 @@ int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
     
     __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    // if (!should_monitor(ppid, cgroup_id)) {
-    //     return 0;
-    // }
+    if (!should_monitor(ppid, cgroup_id)) {
+        return 0;
+    }
 
     event *e;
     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
