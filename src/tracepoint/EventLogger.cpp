@@ -17,8 +17,7 @@ EventLogger::EventLogger(size_t bufferSize, const std::string& dbConnectionStr)
       flushBuffers_(),
       isFlushing_(false),
       shutdown_(false),
-      dbConnection_(dbConnectionStr),
-      boot_time_(get_boot_time())
+      dbConnection_(dbConnectionStr)
 {
     if (boot_time_ == 0) {
         throw std::runtime_error("Failed to get system boot time");
@@ -209,29 +208,6 @@ void EventLogger::flushThreadFunc()
     }
 }
 
-
-time_t EventLogger::get_boot_time() {
-    struct sysinfo s_info;
-    if (sysinfo(&s_info) != 0) {
-        return 0;
-    }
-    return time(NULL) - s_info.uptime;
-}
-
-std::string EventLogger::format_timestamp(uint64_t timestamp_ns) const {
-    time_t seconds = boot_time_ + (timestamp_ns / 1000000000);
-    struct tm tm_info;
-    localtime_r(&seconds, &tm_info);
-    
-    char buffer[32];
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &tm_info);
-    
-    uint64_t nanoseconds = timestamp_ns % 1000000000;
-    char result[48];
-    snprintf(result, sizeof(result), "%s.%09lu", buffer, nanoseconds);
-    
-    return std::string(result);
-}
 
 using namespace std::string_view_literals;
 
