@@ -27,7 +27,7 @@
 #define BLOCK 1
 #define LOGGING 2
 #define POLICY_UPDATE_INTERVAL 60
-#define POLICY_FILE_PATH const_cast<char*>("/home/ubuntu/Desktop/youmuu/src/policy.yaml")
+#define POLICY_FILE_PATH const_cast<char*>("/policy/policy.yaml")
 
 static volatile bool running = true;
 std::unique_ptr<DBConnection> g_db_connection;

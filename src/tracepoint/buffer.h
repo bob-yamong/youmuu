@@ -26,7 +26,6 @@ public:
     EventBuffer& operator=(EventBuffer&&) = delete;
 
     // 정보를 버퍼에 추가하는 함수
-    // void add_event(const event_t& event);
     void add_event(const db_event_t& event);
     // EventBuffer 정지하는 함수
     void stop();
