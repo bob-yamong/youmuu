@@ -63,19 +63,19 @@ static __always_inline __u64 get_cgroup_id() {
     return cgroup_id;
 }
 
-// static __always_inline int should_monitor(u32 ppid, u64 cgroup_id) {
-//     u32 *monitored;
+static __always_inline int should_monitor(u32 ppid, u64 cgroup_id) {
+    u32 *monitored;
 
-//     monitored = bpf_map_lookup_elem(&container_cgroup_id, &cgroup_id);
-//     if (monitored)
-//         return 1;
+    monitored = bpf_map_lookup_elem(&container_cgroup_id, &cgroup_id);
+    if (monitored)
+        return 1;
     
-//     monitored = bpf_map_lookup_elem(&container_pids, &ppid);
-//     if (monitored)
-//         return 1;
+    monitored = bpf_map_lookup_elem(&container_pids, &ppid);
+    if (monitored)
+        return 1;
     
-//     return 0;
-// }
+    return 0;
+}
 
 // Custom strncmp function for BPF
 static __always_inline int compare_strings(const char *a, const char *b, __u32 len, __u32 flags) {
