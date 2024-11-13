@@ -4,7 +4,6 @@
 #define MAX_EVENT_ID 1024
 
 time_t boot_time;
-EventBuffer event_buffer;
 
 static db_event_t get_str(const struct current_task *task, time_t boot_time) {
     db_event_t event;
@@ -59,7 +58,11 @@ static int handle_enter_socket(const struct event_t *e, const db_event_t& base_e
     event.arg0 = std::to_string(e->arg_s32[0]); // domain
     event.arg1 = std::to_string(e->arg_s32[1]); // type
     event.arg2 = std::to_string(e->arg_s32[2]); // protocol
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -67,7 +70,11 @@ static int handle_exit_socket(const struct event_t *e, const db_event_t& base_ev
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -77,7 +84,11 @@ static int handle_enter_socketpair(const struct event_t *e, const db_event_t& ba
     event.arg0 = std::to_string(e->arg_s32[0]); // domain
     event.arg1 = std::to_string(e->arg_s32[1]); // type
     event.arg2 = std::to_string(e->arg_s32[2]); // protocol
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -89,7 +100,11 @@ static int handle_exit_socketpair(const struct event_t *e, const db_event_t& bas
         event.arg0 = std::to_string(e->arg_s32[0]); // sv[0]
         event.arg1 = std::to_string(e->arg_s32[1]); // sv[1]
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -103,7 +118,11 @@ static int handle_enter_setsockopt(const struct event_t *e, const db_event_t& ba
     if (e->is_valid) {
         event.arg3 = std::to_string(e->arg_u32[0]); // optval
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -111,7 +130,11 @@ static int handle_exit_setsockopt(const struct event_t *e, const db_event_t& bas
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -121,7 +144,11 @@ static int handle_enter_getsockopt(const struct event_t *e, const db_event_t& ba
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
     event.arg1 = std::to_string(e->arg_s32[1]); // level
     event.arg2 = std::to_string(e->arg_s32[2]); // optname
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -133,7 +160,11 @@ static int handle_exit_getsockopt(const struct event_t *e, const db_event_t& bas
         event.arg0 = std::to_string(e->arg_u32[0]); // optval
         event.arg1 = std::to_string(e->arg_u32[1]); // optlen
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -141,7 +172,11 @@ static int handle_enter_getsockname(const struct event_t *e, const db_event_t& b
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -156,7 +191,11 @@ static int handle_exit_getsockname(const struct event_t *e, const db_event_t& ba
         event.arg1 = std::to_string(e->port);   // port
         event.arg2 = std::to_string(e->addr_family);    // ip_version
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -164,7 +203,11 @@ static int handle_enter_getpeername(const struct event_t *e, const db_event_t& b
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -179,7 +222,11 @@ static int handle_exit_getpeername(const struct event_t *e, const db_event_t& ba
         event.arg1 = std::to_string(e->port);   // port
         event.arg2 = std::to_string(e->addr_family);    // ip_version
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -194,7 +241,11 @@ static int handle_enter_bind(const struct event_t *e, const db_event_t& base_eve
         event.arg1 = std::to_string(e->port);   // port
         event.arg2 = std::to_string(e->addr_family);    // ip_version
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -202,7 +253,11 @@ static int handle_exit_bind(const struct event_t *e, const db_event_t& base_even
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -211,7 +266,11 @@ static int handle_enter_listen(const struct event_t *e, const db_event_t& base_e
 
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
     event.arg1 = std::to_string(e->arg_s32[1]); // backlog
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -219,7 +278,11 @@ static int handle_exit_listen(const struct event_t *e, const db_event_t& base_ev
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -227,7 +290,11 @@ static int handle_enter_accept(const struct event_t *e, const db_event_t& base_e
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -245,7 +312,11 @@ static int handle_exit_accept(const struct event_t *e, const db_event_t& base_ev
         event.arg1 = std::to_string(e->port);   // port
         event.arg2 = std::to_string(e->addr_family);    // ip_version
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -254,7 +325,11 @@ static int handle_enter_accept4(const struct event_t *e, const db_event_t& base_
 
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
     event.arg1 = std::to_string(e->arg_s32[1]); // flags
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -272,7 +347,11 @@ static int handle_exit_accept4(const struct event_t *e, const db_event_t& base_e
         event.arg1 = std::to_string(e->port);   // port
         event.arg2 = std::to_string(e->addr_family);    // ip_version
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -287,7 +366,11 @@ static int handle_enter_connect(const struct event_t *e, const db_event_t& base_
         event.arg1 = std::to_string(e->port);   // port
         event.arg2 = std::to_string(e->addr_family);    // ip_version
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -295,7 +378,11 @@ static int handle_exit_connect(const struct event_t *e, const db_event_t& base_e
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -304,7 +391,11 @@ static int handle_enter_shutdown(const struct event_t *e, const db_event_t& base
 
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
     event.arg1 = std::to_string(e->arg_s32[1]); // how
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -312,7 +403,11 @@ static int handle_exit_shutdown(const struct event_t *e, const db_event_t& base_
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -322,7 +417,11 @@ static int handle_enter_recvfrom (const struct event_t *e, const db_event_t& bas
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
     event.arg1 = std::to_string(e->arg_u64[0]); // msg_len
     event.arg2 = std::to_string(e->arg_s32[1]); // flags
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -340,7 +439,11 @@ static int handle_exit_recvfrom(const struct event_t *e, const db_event_t& base_
         event.arg1 = std::to_string(e->port);   // port
         event.arg2 = std::to_string(e->addr_family);    // ip_version
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -350,7 +453,11 @@ static int handle_enter_recvmsg(const struct event_t *e, const db_event_t& base_
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
     event.arg1 = std::to_string(e->arg_u64[0]); // msg_len
     event.arg2 = std::to_string(e->arg_s32[1]); // flags
-    event_buffer.add_event(base_event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -365,7 +472,11 @@ static int handle_exit_recvmsg(const struct event_t *e, const db_event_t& base_e
         event.arg1 = std::to_string(e->port); // src_port
         event.arg2 = std::to_string(e->addr_family); // ip_version
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -375,7 +486,11 @@ static int handle_enter_recvmmsg(const struct event_t *e, const db_event_t& base
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
     event.arg1 = std::to_string(e->arg_u64[0]); // vlen
     event.arg2 = std::to_string(e->arg_s32[1]); // flags
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -383,7 +498,11 @@ static int handle_exit_recvmmsg(const struct event_t *e, const db_event_t& base_
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -400,7 +519,11 @@ static int handle_enter_sendto(const struct event_t *e, const db_event_t& base_e
         event.arg4 = std::to_string(e->port); // dest_port
         event.arg5 = std::to_string(e->addr_family); // ip_version
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -408,7 +531,11 @@ static int handle_exit_sendto(const struct event_t *e, const db_event_t& base_ev
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -424,7 +551,11 @@ static int handle_enter_sendmsg(const struct event_t *e, const db_event_t& base_
         event.arg3 = std::to_string(e->port); // dest_port
         event.arg4 = std::to_string(e->addr_family); // ip_version
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -432,7 +563,11 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -442,7 +577,11 @@ static int handle_enter_sendmmsg(const struct event_t *e, const db_event_t& base
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
     event.arg1 = std::to_string(e->arg_u64[0]); // vlen
     event.arg2 = std::to_string(e->arg_s32[1]); // flags
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -450,7 +589,11 @@ static int handle_exit_sendmmsg(const struct event_t *e, const db_event_t& base_
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -461,7 +604,11 @@ static int handle_enter_sethostname(const struct event_t *e, const db_event_t& b
     if (e->is_valid) {
         event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str));    // hostname
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -469,7 +616,11 @@ static int handle_exit_sethostname(const struct event_t *e, const db_event_t& ba
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -480,7 +631,11 @@ static int handle_enter_setdomainname(const struct event_t *e, const db_event_t&
     if (e->is_valid) {
         event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str));    // domainname
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -488,7 +643,11 @@ static int handle_exit_setdomainname(const struct event_t *e, const db_event_t& 
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -497,7 +656,11 @@ static int handle_enter_ioctl(const struct event_t *e, const db_event_t& base_ev
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
     event.arg1 = std::to_string(e->arg_u64[0]); // op
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -505,7 +668,11 @@ static int handle_exit_ioctl(const struct event_t *e, const db_event_t& base_eve
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -513,7 +680,11 @@ static int handle_enter_close(const struct event_t *e, const db_event_t& base_ev
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -521,7 +692,11 @@ static int handle_exit_close(const struct event_t *e, const db_event_t& base_eve
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -532,7 +707,11 @@ static int handle_enter_creat(const struct event_t *e, const db_event_t& base_ev
     if (e->is_valid) {
         event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -540,7 +719,11 @@ static int handle_exit_creat(const struct event_t *e, const db_event_t& base_eve
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -552,7 +735,11 @@ static int handle_enter_open(const struct event_t *e, const db_event_t& base_eve
     if (e->is_valid) {
         event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -560,7 +747,11 @@ static int handle_exit_open(const struct event_t *e, const db_event_t& base_even
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -573,7 +764,11 @@ static int handle_enter_openat(const struct event_t *e, const db_event_t& base_e
     if (e->is_valid) {
         event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -581,7 +776,11 @@ static int handle_exit_openat(const struct event_t *e, const db_event_t& base_ev
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -596,7 +795,11 @@ static int handle_enter_openat2(const struct event_t *e, const db_event_t& base_
         event.arg3 = std::to_string(e->arg_u64[2]); // mode
         event.arg4 = std::to_string(e->arg_u64[3]); // resolve
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -604,7 +807,11 @@ static int handle_exit_openat2(const struct event_t *e, const db_event_t& base_e
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -619,7 +826,11 @@ static int handle_enter_name_to_handle_at(const struct event_t *e, const db_even
         event.arg3 = std::to_string(e->arg_s32[3]); // handle_type
         event.arg4 = std::to_string(e->arg_s32[2]); // mount_id
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -627,7 +838,11 @@ static int handle_exit_name_to_handle_at(const struct event_t *e, const db_event
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -640,7 +855,11 @@ static int handle_enter_open_by_handle_at(const struct event_t *e, const db_even
         event.arg1 = std::to_string(e->arg_u32[0]); // handle_bytes
         event.arg2 = std::to_string(e->arg_s32[2]); // handle_type
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -648,7 +867,11 @@ static int handle_exit_open_by_handle_at(const struct event_t *e, const db_event
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -659,7 +882,11 @@ static int handle_enter_memfd_create(const struct event_t *e, const db_event_t& 
     if (e->is_valid) {
         event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // name
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -667,7 +894,11 @@ static int handle_exit_memfd_create(const struct event_t *e, const db_event_t& b
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -679,7 +910,11 @@ static int handle_enter_mknod(const struct event_t *e, const db_event_t& base_ev
     if (e->is_valid) {
         event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -687,7 +922,11 @@ static int handle_exit_mknod(const struct event_t *e, const db_event_t& base_eve
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -700,7 +939,11 @@ static int handle_enter_mknodat(const struct event_t *e, const db_event_t& base_
     if (e->is_valid) {
         event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -708,7 +951,11 @@ static int handle_exit_mknodat(const struct event_t *e, const db_event_t& base_e
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -719,7 +966,11 @@ static int handle_enter_rename(const struct event_t *e, const db_event_t& base_e
         event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // oldpath
         event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str2)); // newpath
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -727,7 +978,11 @@ static int handle_exit_rename(const struct event_t *e, const db_event_t& base_ev
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -740,7 +995,11 @@ static int handle_enter_renameat(const struct event_t *e, const db_event_t& base
         event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // oldpath
         event.arg3 = std::string(reinterpret_cast<const char*>(e->arg_str2)); // newpath
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -748,7 +1007,11 @@ static int handle_exit_renameat(const struct event_t *e, const db_event_t& base_
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -762,7 +1025,11 @@ static int handle_enter_renameat2(const struct event_t *e, const db_event_t& bas
         event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // oldpath
         event.arg3 = std::string(reinterpret_cast<const char*>(e->arg_str2)); // newpath
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -770,7 +1037,11 @@ static int handle_exit_renameat2(const struct event_t *e, const db_event_t& base
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -781,7 +1052,11 @@ static int handle_enter_truncate(const struct event_t *e, const db_event_t& base
     if (e->is_valid) {
         event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
     }
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -789,7 +1064,11 @@ static int handle_exit_truncate(const struct event_t *e, const db_event_t& base_
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -798,7 +1077,11 @@ static int handle_enter_ftruncate(const struct event_t *e, const db_event_t& bas
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
     event.arg1 = std::to_string(e->arg_u64[0]); // length
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -806,7 +1089,11 @@ static int handle_exit_ftruncate(const struct event_t *e, const db_event_t& base
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -817,7 +1104,11 @@ static int handle_enter_fallocate(const struct event_t *e, const db_event_t& bas
     event.arg1 = std::to_string(e->arg_s32[1]); // mode
     event.arg2 = std::to_string(e->arg_u64[0]); // offset
     event.arg3 = std::to_string(e->arg_u64[1]); // len
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
@@ -825,7 +1116,11 @@ static int handle_exit_fallocate(const struct event_t *e, const db_event_t& base
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    event_buffer.add_event(event);
+    if (eventLogger) {
+        eventLogger->addEvent(event);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
     return 0;
 }
 
