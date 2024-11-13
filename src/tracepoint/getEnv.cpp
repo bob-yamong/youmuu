@@ -65,7 +65,7 @@ void env::getEnv() {
         std::cout << "=== Starting environment initialization ===" << std::endl;
 
         // 임시 변수에 저장 후 멤버 변수에 할당
-        std::string temp_host = get_env_var("POSTGRES_HOST", "localhost");
+        std::string temp_host = get_env_var("POSTGRES_HOST", "0.0.0.0");
         std::string temp_dbname = get_env_var("POSTGRES_DB", "yamong_postgres");
         std::string temp_user = get_env_var("POSTGRES_USER", "temp_admin");
         std::string temp_password = get_env_var("POSTGRES_PASSWORD", "temp_password");

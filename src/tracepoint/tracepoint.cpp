@@ -6,7 +6,6 @@
 #include <string.h>
 #include <thread>
 #include <chrono>
-#include <asm/unistd_64.h>
 #include <bpf/libbpf.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -14,13 +13,15 @@
 #include <nlohmann/json.hpp>
 #include <syslog.h>
 #include <utility>
+#include <iostream>
+
 #include "getEnv.h"
 #include "tracepoint.skel.h"
 #include "struct.h"
 #include "handler.h"
 #include "parser.h"
-#include "db.h"
 #include "container_pid_id.h"
+#include "EventLogger.h"
 
 #define MAX_PATH 256
 #define ALLOW 0
@@ -28,8 +29,10 @@
 #define LOGGING 2
 #define POLICY_FILE_PATH const_cast<char*>("/policy/policy.yaml")
 
+// 전역 EventLogger 포인터 선언
+EventLogger* eventLogger = nullptr;
+
 static volatile bool running = true;
-std::unique_ptr<DBConnection> g_db_connection;
 using json = nlohmann::json;
 
 static void sig_handler(int sig) {
@@ -241,6 +244,17 @@ int main(int argc, char **argv) {
     int err;
     
     env::getEnv();
+        
+    // 연결 문자열 구성
+    std::string dbConnectionStr = "dbname=" + env::dbname +
+                                    " user=" + env::user +
+                                    " password=" + env::password +
+                                    " hostaddr=" + env::host +
+                                    " port=" + env::port;
+
+    // EventLogger 객체 생성
+    const size_t BUFFER_SIZE = 100000;
+    eventLogger = new EventLogger(BUFFER_SIZE, dbConnectionStr);
 
     // Syslog 초기화
     openlog("tracepoint", LOG_PID | LOG_CONS, LOG_USER);
@@ -308,8 +322,10 @@ int main(int argc, char **argv) {
     
 cleanup:
     closelog();
+    // 종료 시 정리
+    delete eventLogger;
+    eventLogger = nullptr;
     running = false;
-    g_db_connection.reset();
     if (rb)
         ring_buffer__free(rb);
     tracepoint_bpf__destroy(skel);
