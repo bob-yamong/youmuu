@@ -19,10 +19,6 @@ EventLogger::EventLogger(size_t bufferSize, const std::string& dbConnectionStr)
       shutdown_(false),
       dbConnection_(dbConnectionStr)
 {
-    if (boot_time_ == 0) {
-        throw std::runtime_error("Failed to get system boot time");
-    }
-
     if (!dbConnection_.is_open()) {
         throw std::runtime_error(std::string("Failed to open database connection: ") + dbConnection_.dbname());
     }
