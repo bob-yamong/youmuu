@@ -575,9 +575,41 @@ int update_policy_with_file(int map_fd, char* abs_file_name) {
     return 0;
 }
 
-void update_policy_periodically(int map_fd) {
+void update_policy_periodically(int map_fd, int container_map_fd, int cgroup_map_fd) {
     while (true) {
         // Call the update function
+        {   
+            int err;
+            clear_bpf_map(container_map_fd);
+            clear_bpf_map(cgroup_map_fd);
+            std::cout << "컨테이너 PID 자동 감지 중...\n";
+            int detected_containers = ContainerManager::getContainerPIDs();
+            std::cout << detected_containers << "개의 컨테이너를 감지했습니다.\n";
+
+            for (const auto &container : ContainerManager::containers) {
+                __u32 key_pid = static_cast<__u32>(container.pid);
+                __u32 value_pid = 1;
+                __u64 key_inode = static_cast<__u64>(ContainerManager::getContainerInode(container.id));
+                __u64 value_inode = 1;
+
+                err = bpf_map_update_elem(container_map_fd, &key_pid, &value_pid, BPF_ANY);
+                if (err) {
+                    std::cerr << "컨테이너 PID " << container.pid << "를 맵에 추가하는데 실패했습니다: " << strerror(errno) << "\n";
+                    continue;
+                }
+
+                err = bpf_map_update_elem(cgroup_map_fd, &key_inode, &value_inode, BPF_ANY);
+                if (err) {
+                    std::cerr << "컨테이너 inode " << key_inode << "를 맵에 추가하는데 실패했습니다: " << strerror(errno) << "\n";
+                    // PID 맵에서 제거
+                    bpf_map_delete_elem(container_map_fd, &key_pid);
+                    continue;
+                }
+
+                std::cout << "컨테이너 ID: " << container.id << ", PID: " << container.pid << ", inode: " << key_inode << "를 모니터링 중\n";
+            }
+        }
+
         if (update_policy_with_file(map_fd, POLICY_FILE_PATH) == 0) {
             std::cout << "update_policy_with_file called successfully.\n" << std::endl;
         } else {
@@ -796,7 +828,10 @@ int main(int argc, char **argv) {
 
             if (file_exists(POLICY_FILE_PATH)) {
                 // Create a new thread to periodically update the policy
-                std::thread policy_update_thread(update_policy_periodically, map_fd);
+                int container_map_fd, cgroup_map_fd;
+                container_map_fd = bpf_map__fd(skel->maps.container_pids);
+                cgroup_map_fd = bpf_map__fd(skel->maps.container_cgroup_id);
+                std::thread policy_update_thread(update_policy_periodically, map_fd, container_map_fd, cgroup_map_fd);
                 
                 // Detach the thread so it runs independently
                 policy_update_thread.detach();
