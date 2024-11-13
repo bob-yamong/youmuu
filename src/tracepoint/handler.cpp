@@ -236,7 +236,7 @@ static int handle_exit_accept(const struct event_t *e, const db_event_t& base_ev
 
     event.ret = e->ret;
     if (e->is_null) {
-        event.additional_info = "socket address info is not requested";
+        event.arg0 = "socket address info is not requested";
     }
     if (e->is_valid) {
         char ip_str[INET6_ADDRSTRLEN];
@@ -263,7 +263,7 @@ static int handle_exit_accept4(const struct event_t *e, const db_event_t& base_e
 
     event.ret = e->ret;
     if (e->is_null) {
-        event.additional_info = "socket address info is not requested";
+        event.arg0 = "socket address info is not requested";
     }
     if (e->is_valid) {
         char ip_str[INET6_ADDRSTRLEN];
@@ -331,7 +331,7 @@ static int handle_exit_recvfrom(const struct event_t *e, const db_event_t& base_
 
     event.ret = e->ret;
     if (e->is_null) {
-        event.additional_info = "socket address info is not requested";
+        event.arg0 = "socket address info is not requested";
     }
     if (e->is_valid) {
         char ip_str[INET6_ADDRSTRLEN];
@@ -829,1207 +829,1141 @@ static int handle_exit_fallocate(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-// static int handle_enter_mkdir(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter mkdir: %s, pathname=%s, mode=%#x\n",
-//                 e->arg_str, e->arg_u32[0]);
-//     } else {
-//         printf("Enter mkdir: %s, failed to read pathname, mode=%#x\n",
-//                 e->arg_u32[0]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_mkdir(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit mkdir: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit mkdir: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_mkdirat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter mkdirat: %s, dirfd=%d, pathname=%s, mode=%#x\n",
-//                 e->arg_s32[0], e->arg_str, e->arg_u32[0]);
-//     } else {
-//         printf("Enter mkdirat: %s, dirfd=%d, failed to read pathname, mode=%#x\n",
-//                 e->arg_s32[0], e->arg_u32[0]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_mkdirat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit mkdirat: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit mkdirat: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_rmdir(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter rmdir: %s, pathname=%s\n",
-//                 e->arg_str);
-//     } else {
-//         printf("Enter rmdir: %s, failed to read pathname\n",
-                
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_rmdir(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit rmdir: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit rmdir: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_getcwd(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter getcwd: %s, size=%llu\n",
-//             e->arg_u64[0]);
-//     return 0;
-// }
-
-// static int handle_exit_getcwd(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit getcwd: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit getcwd: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_chdir(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter chdir: %s, pathname=%s\n",
-//                 e->arg_str);
-//     } else {
-//         printf("Enter chdir: %s, failed to read pathname\n",
-                
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_chdir(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit chdir: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit chdir: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_fchdir(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter fchdir: %s, fd=%d\n",
-//             e->arg_s32[0]);
-//     return 0;
-// }
-
-// static int handle_exit_fchdir(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit fchdir: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit fchdir: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_chroot(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter chroot: %s, pathname=%s\n",
-//                 e->arg_str);
-//     } else {
-//         printf("Enter chroot: %s, failed to read pathname\n",
-                
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_chroot(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit chroot: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit chroot: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_pivot_root(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter pivot_root: %s, new_root=%s, put_old=%s\n",
-//                 e->arg_str, e->arg_str2);
-//     } else {
-//         printf("Enter pivot_root: %s, failed to read new_root, put_old\n",
-                
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_pivot_root(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit pivot_root: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit pivot_root: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_getdents(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter getdents: %s, fd=%u, count=%u\n",
-//             e->arg_u32[0], e->arg_u32[1]);
-//     return 0;
-// }
-
-// static int handle_exit_getdents(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit getdents: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else if (e->is_valid) {
-//         printf("Exit getdents: success, %s, data=%llu, ret=%lld, \n",
-//                 e->arg_u64[0], e->ret);
-//     } else {
-//         printf("Exit getdents: success, %s, failed to read data, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_getdents64(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter getdents64: %s, fd=%d, count=%llu\n",
-//             e->arg_s32[0], e->arg_u64[0]);
-//     return 0;
-// }
-
-// static int handle_exit_getdents64(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit getdents64: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else if (e->is_valid) {
-//         printf("Exit getdents64: success, %s, data=%llu, ret=%lld, \n",
-//                 e->arg_u64[0], e->ret);
-//     } else {
-//         printf("Exit getdents64: success, %s, failed to read data, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_link(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter link: %s, oldpath=%s, newpath=%s\n",
-//                 e->arg_str, e->arg_str2);
-//     } else {
-//         printf("Enter link: %s, failed to read oldpath, newpath\n",
-                
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_link(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit link: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit link: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_linkat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter linkat: %s, olddirfd=%d, oldpath=%s, newdirfd=%d, newpath=%s, flags=%#x\n",
-//                 e->arg_s32[0], e->arg_str, e->arg_s32[1], e->arg_str2, e->arg_s32[2]);
-//     } else {
-//         printf("Enter linkat: %s, olddirfd=%d, newdirfd=%d, failed to read oldpath, newpath, flags=%#x\n",
-//                 e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_linkat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit linkat: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit linkat: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_symlink(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter symlink: %s, target=%s, linkpath=%s\n",
-//                 e->arg_str, e->arg_str2);
-//     } else {
-//         printf("Enter symlink: %s, failed to read target, linkpath\n",
-                
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_symlink(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit symlink: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit symlink: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_symlinkat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter symlinkat: %s, target=%s, newdirfd=%d, linkpath=%s\n",
-//                 e->arg_str, e->arg_s32[0], e->arg_str2);
-//     } else {
-//         printf("Enter symlinkat: %s, newdirfd=%d, failed to read target, linkpath\n",
-//                 e->arg_s32[0]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_symlinkat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit symlinkat: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit symlinkat: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_unlink(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter unlink: %s, pathname=%s\n",
-//                 e->arg_str);
-//     } else {
-//         printf("Enter unlink: %s, failed to read pathname\n",
-                
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_unlink(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit unlink: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit unlink: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_unlinkat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter unlinkat: %s, dirfd=%d, pathname=%s, flags=%#x\n",
-//                 e->arg_s32[0], e->arg_str, e->arg_s32[1]);
-//     } else {
-//         printf("Enter unlinkat: %s, dirfd=%d, failed to read pathname, flags=%#x\n",
-//                 e->arg_s32[0], e->arg_s32[1]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_unlinkat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit unlinkat: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit unlinkat: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_readlink(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter readlink: %s, pathname=%s, size=%llu\n",
-//                 e->arg_str, e->arg_u64[0]);
-//     } else {
-//         printf("Enter readlink: %s, failed to read pathname, size=%llu\n",
-//                 e->arg_u64[0]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_readlink(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit readlink: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit readlink: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_readlinkat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter readlinkat: %s, dirfd=%d, pathname=%s, size=%llu\n",
-//                 e->arg_s32[0], e->arg_str, e->arg_u64[0]);
-//     } else {
-//         printf("Enter readlinkat: %s, dirfd=%d, failed to read pathname, size=%llu\n",
-//                 e->arg_s32[0], e->arg_u64[0]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_readlinkat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit readlinkat: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit readlinkat: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_umask(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter umask: %s, mask=%#x\n",
-//             e->arg_u32[0]);
-//     return 0;
-// }
-
-// static int handle_exit_umask(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit umask: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit umask: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_newstat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter newstat: %s, filename=%s\n",
-//                 e->arg_str);
-//     } else {
-//         printf("Enter newstat: %s, failed to read filename\n",
-                
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_newstat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit newstat: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit newstat: success, %s, ret=%lld, \n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_newlstat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter newlstat: %s, filename=%s\n",
-//                 e->arg_str);
-//     } else {
-//         printf("Enter newlstat: %s, failed to read filename\n",
-                
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_newlstat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit newlstat: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit newlstat: success, %s, ret=%lld, \n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_newfstat(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter newfstat: %s, fd=%d\n",
-//             e->arg_s32[0]);
-//     return 0;
-// }
-
-// static int handle_exit_newfstat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit newfstat: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit newfstat: success, %s, ret=%lld, \n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_newfstatat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter newfstatat: %s, dirfd=%d, pathname=%s, flags=%#x\n",
-//                 e->arg_s32[0], e->arg_str, e->arg_s32[1]);
-//     } else {
-//         printf("Enter newfstatat: %s, dirfd=%d, failed to read pathname, flags=%#x\n",
-//                 e->arg_s32[0], e->arg_s32[1]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_newfstatat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit newfstatat: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit newfstatat: success, %s, ret=%lld, \n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_statx(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter statx: %s, dirfd=%d, pathname=%s, flags=%#x, mask=%#x\n",
-//                 e->arg_s32[0], e->arg_str, e->arg_s32[1], e->arg_u32[0]);
-//     } else {
-//         printf("Enter statx: %s, dirfd=%d, failed to read pathname, flags=%#x, mask=%#x\n",
-//                 e->arg_s32[0], e->arg_s32[1], e->arg_u32[0]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_statx(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit statx: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit statx: success, %s, ret=%lld, \n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_statfs(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter statfs: %s, pathname=%s\n",
-//                 e->arg_str);
-//     } else {
-//         printf("Enter statfs: %s, failed to read pathname\n",
-                
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_statfs(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit statfs: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit statfs: success, %s, ret=%lld, \n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_fstatfs(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter fstatfs: %s, fd=%d\n",
-//             e->arg_s32[0]);
-//     return 0;
-// }
-
-// static int handle_exit_fstatfs(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit fstatfs: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit fstatfs: success, %s, ret=%lld, \n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_chmod(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter chmod: %s, pathname=%s, mode=%#x\n",
-//                 e->arg_str, e->arg_u32[0]);
-//     } else {
-//         printf("Enter chmod: %s, failed to read pathname, mode=%#x\n",
-//                 e->arg_u32[0]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_chmod(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit chmod: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit chmod: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_fchmod(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter fchmod: %s, fd=%d, mode=%#x\n",
-//             e->arg_s32[0], e->arg_u32[0]);
-//     return 0;
-// }
-
-// static int handle_exit_fchmod(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit fchmod: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit fchmod: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_fchmodat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter fchmodat: %s, dirfd=%d, pathname=%s, mode=%#x, flags=%#x\n",
-//                 e->arg_s32[0], e->arg_str, e->arg_u32[0], e->arg_s32[1]);
-//     } else {
-//         printf("Enter fchmodat: %s, dirfd=%d, failed to read pathname, mode=%#x, flags=%#x\n",
-//                 e->arg_s32[0], e->arg_u32[0], e->arg_s32[1]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_fchmodat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit fchmodat: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit fchmodat: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_chown(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter chown: %s, pathname=%s, owner=%u, group=%u\n",
-//                 e->arg_str, e->arg_u32[0], e->arg_u32[1]);
-//     } else {
-//         printf("Enter chown: %s, failed to read pathname, owner=%u, group=%u\n",
-//                 e->arg_u32[0], e->arg_u32[1]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_chown(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit chown: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit chown: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_lchown(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter lchown: %s, pathname=%s, owner=%u, group=%u\n",
-//                 e->arg_str, e->arg_u32[0], e->arg_u32[1]);
-//     } else {
-//         printf("Enter lchown: %s, failed to read pathname, owner=%u, group=%u\n",
-//                 e->arg_u32[0], e->arg_u32[1]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_lchown(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit lchown: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit lchown: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_fchown(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter fchown: %s, fd=%d, owner=%u, group=%u\n",
-//             e->arg_s32[0], e->arg_u32[0], e->arg_u32[1]);
-//     return 0;
-// }
-
-// static int handle_exit_fchown(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit fchown: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit fchown: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_fchownat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter fchownat: %s, dirfd=%d, pathname=%s, owner=%u, group=%u, flags=%#x\n",
-//                 e->arg_s32[0], e->arg_str, e->arg_u32[0], e->arg_u32[1], e->arg_s32[1]);
-//     } else {
-//         printf("Enter fchownat: %s, dirfd=%d, failed to read pathname, owner=%u, group=%u, flags=%#x\n",
-//                 e->arg_s32[0], e->arg_u32[0], e->arg_u32[1], e->arg_s32[1]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_fchownat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit fchownat: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit fchownat: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_access(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter access: %s, pathname=%s, mode=%#x\n",
-//                 e->arg_str, e->arg_s32[0]);
-//     } else {
-//         printf("Enter access: %s, failed to read pathname, mode=%#x\n",
-//                 e->arg_s32[0]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_access(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit access: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit access: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_faccessat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter faccessat: %s, dirfd=%d, pathname=%s, mode=%#x, flags=%#x\n",
-//                 e->arg_s32[0], e->arg_str, e->arg_s32[1], e->arg_s32[2]);
-//     } else {
-//         printf("Enter faccessat: %s, dirfd=%d, failed to read pathname, mode=%#x, flags=%#x\n",
-//                 e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_faccessat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit faccessat: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit faccessat: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_fcntl(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter fcntl: %s, fd=%d, cmd=%#llx, arg=%llu\n",
-//             e->arg_s32[0], e->arg_u64[0], e->arg_u64[1]);
-//     return 0;
-// }
-
-// static int handle_exit_fcntl(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit fcntl: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit fcntl: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_dup(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter dup: %s, oldfd=%d\n",
-//             e->arg_s32[0]);
-//     return 0;
-// }
-
-// static int handle_exit_dup(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit dup: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit dup: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_dup2(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter dup2: %s, oldfd=%d, newfd=%d\n",
-//             e->arg_s32[0], e->arg_s32[1]);
-//     return 0;
-// }
-
-// static int handle_exit_dup2(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit dup2: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit dup2: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_dup3(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter dup3: %s, oldfd=%d, newfd=%d, flags=%#x\n",
-//             e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
-//     return 0;
-// }
-
-// static int handle_exit_dup3(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit dup3: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit dup3: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_flock(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter flock: %s, fd=%d, operation=%d\n",
-//             e->arg_s32[0], e->arg_s32[1]);
-//     return 0;
-// }
-
-// static int handle_exit_flock(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit flock: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit flock: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_read(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter read: %s, fd=%d, count=%llu\n",
-//             e->arg_s32[0], e->arg_u64[0]);
-//     return 0;
-// }
-
-// static int handle_exit_read(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit read: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit read: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_pread64(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter pread: %s, fd=%d, count=%llu, offset=%lld\n",
-//             e->arg_s32[0], e->arg_u64[0], e->arg_s64[0]);
-//     return 0;
-// }
-
-// static int handle_exit_pread64(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit pread: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit pread: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_readv(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter readv: %s, fd=%d, iov_count=%d\n",
-//             e->arg_s32[0], e->arg_s32[1]);
-//     return 0;
-// }
-
-// static int handle_exit_readv(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit readv: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit readv: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_preadv(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter preadv: %s, fd=%d, iov_count=%d, offset=%lld\n",
-//             e->arg_s32[0], e->arg_s32[1], e->arg_s64[0]);
-//     return 0;
-// }
-
-// static int handle_exit_preadv(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit preadv: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit preadv: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_preadv2(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter preadv2: %s, fd=%d, iov_count=%d, offset=%lld, flags=%#x\n",
-//             e->arg_s32[0], e->arg_s32[1], e->arg_s64[0], e->arg_s32[2]);
-//     return 0;
-// }
-
-// static int handle_exit_preadv2(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit preadv2: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit preadv2: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_write(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter write: %s, fd=%d, count=%llu\n",
-//             e->arg_s32[0], e->arg_u64[0]);
-//     return 0;
-// }
-
-// static int handle_exit_write(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit write: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit write: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_pwrite64(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter pwrite: %s, fd=%d, count=%llu, offset=%lld\n",
-//             e->arg_s32[0], e->arg_u64[0], e->arg_s64[0]);
-//     return 0;
-// }
-
-// static int handle_exit_pwrite64(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit pwrite: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit pwrite: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_writev(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter writev: %s, fd=%d, iov_count=%d\n",
-//             e->arg_s32[0], e->arg_s32[1]);
-//     return 0;
-// }
-
-// static int handle_exit_writev(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit writev: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit writev: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_pwritev(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter pwritev: %s, fd=%d, iov_count=%d, offset=%lld\n",
-//             e->arg_s32[0], e->arg_s32[1], e->arg_s64[0]);
-//     return 0;
-// }
-
-// static int handle_exit_pwritev(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit pwritev: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit pwritev: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_pwritev2(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter pwritev2: %s, fd=%d, iov_count=%d, offset=%lld, flags=%#x\n",
-//             e->arg_s32[0], e->arg_s32[1], e->arg_s64[0], e->arg_s32[2]);
-//     return 0;
-// }
-
-// static int handle_exit_pwritev2(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit pwritev2: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit pwritev2: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_lseek(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter lseek: %s, fd=%d, offset=%lld, whence=%d\n",
-//             e->arg_s32[0], e->arg_s64[0], e->arg_s32[1]);
-//     return 0;
-// }
-
-// static int handle_exit_lseek(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit lseek: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit lseek: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_sendfile64(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter sendfile64: %s, out_fd=%d, in_fd=%d, offset=%lld, count=%llu\n",
-//             e->arg_s32[0], e->arg_s32[1], e->arg_s64[0], e->arg_u64[0]);
-//     return 0;
-// }
-
-// static int handle_exit_sendfile64(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit sendfile64: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit sendfile64: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_inotify_init(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter inotify_init: %s\n", 
-//     return 0;
-// }
-
-// static int handle_exit_inotify_init(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit inotify_init: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit inotify_init: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_inotify_init1(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter inotify_init1: %s, flags=%#x\n",
-//             e->arg_s32[0]);
-//     return 0;
-// }
-
-// static int handle_exit_inotify_init1(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit inotify_init1: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit inotify_init1: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_inotify_add_watch(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter inotify_add_watch: %s, fd=%d, pathname=%s, mask=%#x\n",
-//                 e->arg_s32[0], e->arg_str, e->arg_u32[0]);
-//     } else {
-//         printf("Enter inotify_add_watch: %s, fd=%d, failed to read pathname, mask=%#x\n",
-//                 e->arg_s32[0], e->arg_u32[0]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_inotify_add_watch(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit inotify_add_watch: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit inotify_add_watch: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_inotify_rm_watch(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter inotify_rm_watch: %s, fd=%d, wd=%d\n",
-//             e->arg_s32[0], e->arg_s32[1]);
-//     return 0;
-// }
-
-// static int handle_exit_inotify_rm_watch(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit inotify_rm_watch: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit inotify_rm_watch: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_fanotify_init(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter fanotify_init: %s, flags=%#x, event_f_flags=%#x\n",
-//             e->arg_s32[0], e->arg_s32[1]);
-//     return 0;
-// }
-
-// static int handle_exit_fanotify_init(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit fanotify_init: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit fanotify_init: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_fanotify_mark(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_null == false) {
-//         if (e->is_valid) {
-//             printf("Enter fanotify_mark: %s, fanotify_fd=%d, flags=%#x, mask=%#llx, dirfd=%d, pathname=%s\n",
-//                     e->arg_s32[0], e->arg_u32[0], e->arg_u64[0], e->arg_s32[1], e->arg_str);
-//         } else {
-//             printf("Enter fanotify_mark: %s, fanotify_fd=%d, flags=%#x, mask=%#llx, dirfd=%d, failed to read pathname\n",
-//                     e->arg_s32[0], e->arg_u32[0], e->arg_u64[0], e->arg_s32[1]);
-//         }
-//     } else {
-//         printf("Enter fanotify_mark: %s, fanotify_fd=%d, flags=%#x, mask=%#llx, dirfd=%d, pathname is NULL (monitoring directory events)\n",
-//                 e->arg_s32[0], e->arg_u32[0], e->arg_u64[0], e->arg_s32[1]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_fanotify_mark(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit fanotify_mark: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit fanotify_mark: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_mount(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter mount: %s, source=%s, target=%s, filesystemtype=%s, mountflags=%#llx\n",
-//                 e->arg_str, e->arg_str2, e->filesystem_type, e->arg_u64[0]);
-//     } else {
-//         printf("Enter mount: %s, failed to read source, target, filesystemtype, mountflags=%#llx\n",
-//                 e->arg_u64[0]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_mount(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit mount: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit mount: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_umount(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter umount: %s, target=%s, flags=%#x\n",
-//                 e->arg_str, e->arg_s32[0]);
-//     } else {
-//         printf("Enter umount: %s, failed to read target, flags=%#x\n",
-//                 e->arg_s32[0]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_umount(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit umount: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit umount: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_move_mount(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter move_mount: %s, from_fd=%d, from_pathname=%s, to_fd=%d, to_pathname=%s, flags=%#llx\n",
-//                 e->arg_s32[0], e->arg_str, e->arg_s32[1], e->arg_str2, e->arg_u64[0]);
-//     } else {
-//         printf("Enter move_mount: %s, from_fd=%d, to_fd=%d, failed to read from_fd, from_pathname, to_fd, to_pathname, flags=%#llx\n",
-//                 e->arg_s32[0], e->arg_s32[1], e->arg_u64[0]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_move_mount(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit move_mount: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit move_mount: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+static int handle_enter_mkdir(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg1 = std::to_string(e->arg_u32[0]); // mode
+    if (e->is_valid) {
+        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_mkdir(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_mkdirat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // dirfd
+    event.arg2 = std::to_string(e->arg_u32[0]); // mode
+    if (e->is_valid) {
+        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_mkdirat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_rmdir(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    if (e->is_valid) {
+        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_rmdir(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_getcwd(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u64[0]); // size
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_getcwd(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_chdir(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    if (e->is_valid) {
+        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_chdir(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_fchdir(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // fd
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_fchdir(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_chroot(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    if (e->is_valid) {
+        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_chroot(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_pivot_root(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    if (e->is_valid) {
+        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // new_root
+        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str2)); // put_old
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_pivot_root(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_getdents(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u32[0]); // fd
+    event.arg1 = std::to_string(e->arg_u32[1]); // count
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_getdents(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    if (e->is_valid) {
+        event.arg0 = std::to_string(e->arg_u64[0]); // data
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_getdents64(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // fd
+    event.arg1 = std::to_string(e->arg_u64[0]); // count
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_getdents64(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    if (e->is_valid) {
+        event.arg0 = std::to_string(e->arg_u64[0]); // data
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_link(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    if (e->is_valid) {
+        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // oldpath
+        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str2)); // newpath
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_link(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_linkat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // olddirfd
+    event.arg2 = std::to_string(e->arg_s32[1]); // newdirfd
+    event.arg4 = std::to_string(e->arg_u32[0]); // flags
+    if (e->is_valid) {
+        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // oldpath
+        event.arg3 = std::string(reinterpret_cast<const char*>(e->arg_str2)); // newpath
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_linkat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_symlink(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    if (e->is_valid) {
+        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // target
+        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str2)); // linkpath
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_symlink(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_symlinkat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // newdirfd
+    if (e->is_valid) {
+        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // target
+        event.arg2 = std::string(reinterpret_cast<const char*>(e->arg_str2)); // linkpath
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_symlinkat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_unlink(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    if (e->is_valid) {
+        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_unlink(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_unlinkat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // dirfd
+    event.arg2 = std::to_string(e->arg_u32[0]); // flags
+    if (e->is_valid) {
+        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_unlinkat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_readlink(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg1 = std::to_string(e->arg_u64[0]); // size
+    if (e->is_valid) {
+        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_readlink(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_readlinkat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // dirfd
+    event.arg2 = std::to_string(e->arg_u64[0]); // size
+    if (e->is_valid) {
+        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_readlinkat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_umask(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u32[0]); // mask
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_umask(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_newstat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    if (e->is_valid) {
+        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // filename
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_newstat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_newlstat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    if (e->is_valid) {
+        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // filename
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_newlstat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_newfstat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // fd
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_newfstat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_newfstatat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // dirfd
+    event.arg2 = std::to_string(e->arg_s32[1]); // flags
+    if (e->is_valid) {
+        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_newfstatat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_statx(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // dirfd
+    event.arg2 = std::to_string(e->arg_u32[0]); // flags
+    event.arg3 = std::to_string(e->arg_u32[1]); // mask
+    if (e->is_valid) {
+        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_statx(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_statfs(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    if (e->is_valid) {
+        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_statfs(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_fstatfs(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // fd
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_fstatfs(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_chmod(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg1 = std::to_string(e->arg_u32[0]); // mode
+    if (e->is_valid) {
+        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_chmod(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_fchmod(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // fd
+    event.arg1 = std::to_string(e->arg_u32[0]); // mode
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_fchmod(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_fchmodat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // dirfd
+    event.arg2 = std::to_string(e->arg_u32[0]); // mode
+    event.arg3 = std::to_string(e->arg_s32[1]); // flags
+    if (e->is_valid) {
+        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_fchmodat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_chown(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg1 = std::to_string(e->arg_u32[0]); // owner
+    event.arg2 = std::to_string(e->arg_u32[1]); // group
+    if (e->is_valid) {
+        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_chown(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_lchown(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg1 = std::to_string(e->arg_u32[0]); // owner
+    event.arg2 = std::to_string(e->arg_u32[1]); // group
+    if (e->is_valid) {
+        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_lchown(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_fchown(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // fd
+    event.arg1 = std::to_string(e->arg_u32[0]); // owner
+    event.arg2 = std::to_string(e->arg_u32[1]); // group
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_fchown(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_fchownat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // dirfd
+    event.arg2 = std::to_string(e->arg_u32[0]); // owner
+    event.arg3 = std::to_string(e->arg_u32[1]); // group
+    event.arg4 = std::to_string(e->arg_s32[1]); // flags
+    if (e->is_valid) {
+        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_fchownat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_access(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg1 = std::to_string(e->arg_u32[0]); // mode
+    if (e->is_valid) {
+        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_access(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_faccessat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // dirfd
+    event.arg2 = std::to_string(e->arg_s32[1]); // mode
+    event.arg3 = std::to_string(e->arg_s32[2]); // flags
+    if (e->is_valid) {
+        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_faccessat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_fcntl(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // fd
+    event.arg1 = std::to_string(e->arg_u64[0]); // cmd
+    event.arg2 = std::to_string(e->arg_u64[1]); // arg
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_fcntl(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_dup(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // oldfd
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_dup(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_dup2(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // oldfd
+    event.arg1 = std::to_string(e->arg_s32[1]); // newfd
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_dup2(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_dup3(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // oldfd
+    event.arg1 = std::to_string(e->arg_s32[1]); // newfd
+    event.arg2 = std::to_string(e->arg_s32[2]); // flags
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_dup3(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_flock(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // fd
+    event.arg1 = std::to_string(e->arg_s32[1]); // operation
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_flock(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_read(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // fd
+    event.arg1 = std::to_string(e->arg_u64[0]); // count
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_read(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_pread64(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // fd
+    event.arg1 = std::to_string(e->arg_u64[0]); // count
+    event.arg2 = std::to_string(e->arg_s64[0]); // offset
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_pread64(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_readv(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // fd
+    event.arg1 = std::to_string(e->arg_s32[1]); // iov_count
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_readv(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_preadv(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // fd
+    event.arg1 = std::to_string(e->arg_s32[1]); // iov_count
+    event.arg2 = std::to_string(e->arg_s64[0]); // offset
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_preadv(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_preadv2(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // fd
+    event.arg1 = std::to_string(e->arg_s32[1]); // iov_count
+    event.arg2 = std::to_string(e->arg_s64[0]); // offset
+    event.arg3 = std::to_string(e->arg_s32[2]); // flags
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_preadv2(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_write(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // fd
+    event.arg1 = std::to_string(e->arg_u64[0]); // count
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_write(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_pwrite64(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // fd
+    event.arg1 = std::to_string(e->arg_u64[0]); // count
+    event.arg2 = std::to_string(e->arg_s64[0]); // offset
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_pwrite64(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_writev(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // fd
+    event.arg1 = std::to_string(e->arg_s32[1]); // iov_count
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_writev(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_pwritev(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // fd
+    event.arg1 = std::to_string(e->arg_s32[1]); // iov_count
+    event.arg2 = std::to_string(e->arg_s64[0]); // offset
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_pwritev(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_pwritev2(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // fd
+    event.arg1 = std::to_string(e->arg_s32[1]); // iov_count
+    event.arg2 = std::to_string(e->arg_s64[0]); // offset
+    event.arg3 = std::to_string(e->arg_s32[2]); // flags
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_pwritev2(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_lseek(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // fd
+    event.arg1 = std::to_string(e->arg_s64[0]); // offset
+    event.arg2 = std::to_string(e->arg_s32[1]); // whence
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_lseek(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_sendfile64(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // out_fd
+    event.arg1 = std::to_string(e->arg_s32[1]); // in_fd
+    event.arg2 = std::to_string(e->arg_s64[0]); // offset
+    event.arg3 = std::to_string(e->arg_u64[0]); // count
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_sendfile64(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_inotify_init(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_inotify_init(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_inotify_init1(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // flags
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_inotify_init1(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_inotify_add_watch(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // fd
+    event.arg2 = std::to_string(e->arg_u32[0]); // mask
+    if (e->is_valid) {
+        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_inotify_add_watch(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_inotify_rm_watch(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // fd
+    event.arg1 = std::to_string(e->arg_s32[1]); // wd
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_inotify_rm_watch(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_fanotify_init(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // flags
+    event.arg1 = std::to_string(e->arg_s32[1]); // event_f_flags
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_fanotify_init(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_fanotify_mark(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // fanotify_fd
+    event.arg1 = std::to_string(e->arg_u32[0]); // flags
+    event.arg2 = std::to_string(e->arg_u64[0]); // mask
+    event.arg3 = std::to_string(e->arg_s32[1]); // dirfd
+    if (e->is_null == false) {
+        if (e->is_valid) {
+            event.arg4 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+        }
+    }
+    if (e->is_null == true) {
+        event.arg4 = "monitoring directory events";
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_fanotify_mark(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_mount(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg3 = std::to_string(e->arg_u64[0]); // mountflags
+    if (e->is_valid) {
+        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // source
+        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str2)); // target
+        event.arg2 = std::string(reinterpret_cast<const char*>(e->filesystem_type)); // filesystemtype
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_mount(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_umount(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg1 = std::to_string(e->arg_u64[0]); // flags
+    if (e->is_valid) {
+        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // target
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_umount(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_move_mount(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // from_fd
+    event.arg2 = std::to_string(e->arg_s32[1]); // to_fd
+    event.arg4 = std::to_string(e->arg_u64[0]); // flags
+    if (e->is_valid) {
+        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // from_pathname
+        event.arg3 = std::string(reinterpret_cast<const char*>(e->arg_str2)); // to_pathname
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_move_mount(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
 
 // static int handle_enter_clone(const struct event_t *e, const db_event_t& base_event) {
 //     printf("Enter clone: %s, fn_ptr=%llu, flags=%#x\n",
@@ -3267,128 +3201,128 @@ void init_event_handlers(void) {
     event_handler[__NR_ftruncate].exit = handle_exit_ftruncate;
     event_handler[__NR_fallocate].enter = handle_enter_fallocate;
     event_handler[__NR_fallocate].exit = handle_exit_fallocate;
-    // event_handler[__NR_mkdir].enter = handle_enter_mkdir;
-    // event_handler[__NR_mkdir].exit = handle_exit_mkdir;
-    // event_handler[__NR_mkdirat].enter = handle_enter_mkdirat;
-    // event_handler[__NR_mkdirat].exit = handle_exit_mkdirat;
-    // event_handler[__NR_rmdir].enter = handle_enter_rmdir;
-    // event_handler[__NR_rmdir].exit = handle_exit_rmdir;
-    // event_handler[__NR_getcwd].enter = handle_enter_getcwd;
-    // event_handler[__NR_getcwd].exit = handle_exit_getcwd;
-    // event_handler[__NR_chdir].enter = handle_enter_chdir;
-    // event_handler[__NR_chdir].exit = handle_exit_chdir;
-    // event_handler[__NR_fchdir].enter = handle_enter_fchdir;
-    // event_handler[__NR_fchdir].exit = handle_exit_fchdir;
-    // event_handler[__NR_chroot].enter = handle_enter_chroot;
-    // event_handler[__NR_chroot].exit = handle_exit_chroot;
-    // event_handler[__NR_pivot_root].enter = handle_enter_pivot_root;
-    // event_handler[__NR_pivot_root].exit = handle_exit_pivot_root;
-    // event_handler[__NR_getdents].enter = handle_enter_getdents;
-    // event_handler[__NR_getdents].exit = handle_exit_getdents;
-    // event_handler[__NR_getdents64].enter = handle_enter_getdents64;
-    // event_handler[__NR_getdents64].exit = handle_exit_getdents64;
-    // event_handler[__NR_link].enter = handle_enter_link;
-    // event_handler[__NR_link].exit = handle_exit_link;
-    // event_handler[__NR_linkat].enter = handle_enter_linkat;
-    // event_handler[__NR_linkat].exit = handle_exit_linkat;
-    // event_handler[__NR_symlink].enter = handle_enter_symlink;
-    // event_handler[__NR_symlink].exit = handle_exit_symlink;
-    // event_handler[__NR_symlinkat].enter = handle_enter_symlinkat;
-    // event_handler[__NR_symlinkat].exit = handle_exit_symlinkat;
-    // event_handler[__NR_unlink].enter = handle_enter_unlink;
-    // event_handler[__NR_unlink].exit = handle_exit_unlink;
-    // event_handler[__NR_unlinkat].enter = handle_enter_unlinkat;
-    // event_handler[__NR_unlinkat].exit = handle_exit_unlinkat;
-    // event_handler[__NR_readlink].enter = handle_enter_readlink;
-    // event_handler[__NR_readlink].exit = handle_exit_readlink;
-    // event_handler[__NR_readlinkat].enter = handle_enter_readlinkat;
-    // event_handler[__NR_readlinkat].exit = handle_exit_readlinkat;
-    // event_handler[__NR_umask].enter = handle_enter_umask;
-    // event_handler[__NR_umask].exit = handle_exit_umask;
-    // event_handler[__NR_stat].enter = handle_enter_newstat;
-    // event_handler[__NR_stat].exit = handle_exit_newstat;
-    // event_handler[__NR_lstat].enter = handle_enter_newlstat;
-    // event_handler[__NR_lstat].exit = handle_exit_newlstat;
-    // event_handler[__NR_fstat].enter = handle_enter_newfstat;
-    // event_handler[__NR_fstat].exit = handle_exit_newfstat;
-    // event_handler[__NR_newfstatat].enter = handle_enter_newfstatat;
-    // event_handler[__NR_newfstatat].exit = handle_exit_newfstatat;
-    // event_handler[__NR_statx].enter = handle_enter_statx;
-    // event_handler[__NR_statx].exit = handle_exit_statx;
-    // event_handler[__NR_statfs].enter = handle_enter_statfs;
-    // event_handler[__NR_statfs].exit = handle_exit_statfs;
-    // event_handler[__NR_fstatfs].enter = handle_enter_fstatfs;
-    // event_handler[__NR_fstatfs].exit = handle_exit_fstatfs;
-    // event_handler[__NR_chmod].enter = handle_enter_chmod;
-    // event_handler[__NR_chmod].exit = handle_exit_chmod;
-    // event_handler[__NR_fchmod].enter = handle_enter_fchmod;
-    // event_handler[__NR_fchmod].exit = handle_exit_fchmod;
-    // event_handler[__NR_fchmodat].enter = handle_enter_fchmodat;
-    // event_handler[__NR_fchmodat].exit = handle_exit_fchmodat;
-    // event_handler[__NR_chown].enter = handle_enter_chown;
-    // event_handler[__NR_chown].exit = handle_exit_chown;
-    // event_handler[__NR_lchown].enter = handle_enter_lchown;
-    // event_handler[__NR_lchown].exit = handle_exit_lchown;
-    // event_handler[__NR_fchown].enter = handle_enter_fchown;
-    // event_handler[__NR_fchown].exit = handle_exit_fchown;
-    // event_handler[__NR_fchownat].enter = handle_enter_fchownat;
-    // event_handler[__NR_fchownat].exit = handle_exit_fchownat;
-    // event_handler[__NR_access].enter = handle_enter_access;
-    // event_handler[__NR_access].exit = handle_exit_access;
-    // event_handler[__NR_faccessat].enter = handle_enter_faccessat;
-    // event_handler[__NR_faccessat].exit = handle_exit_faccessat;
-    // event_handler[__NR_fcntl].enter = handle_enter_fcntl;
-    // event_handler[__NR_fcntl].exit = handle_exit_fcntl;
-    // event_handler[__NR_dup].enter = handle_enter_dup;
-    // event_handler[__NR_dup].exit = handle_exit_dup;
-    // event_handler[__NR_dup2].enter = handle_enter_dup2;
-    // event_handler[__NR_dup2].exit = handle_exit_dup2;
-    // event_handler[__NR_dup3].enter = handle_enter_dup3;
-    // event_handler[__NR_dup3].exit = handle_exit_dup3;
-    // event_handler[__NR_flock].enter = handle_enter_flock;
-    // event_handler[__NR_flock].exit = handle_exit_flock;
-    // event_handler[__NR_read].enter = handle_enter_read;
-    // event_handler[__NR_read].exit = handle_exit_read;
-    // event_handler[__NR_pread64].enter = handle_enter_pread64;
-    // event_handler[__NR_pread64].exit = handle_exit_pread64;
-    // event_handler[__NR_readv].enter = handle_enter_readv;
-    // event_handler[__NR_readv].exit = handle_exit_readv;
-    // event_handler[__NR_preadv].enter = handle_enter_preadv;
-    // event_handler[__NR_preadv].exit = handle_exit_preadv;
-    // event_handler[__NR_preadv2].enter = handle_enter_preadv2;
-    // event_handler[__NR_preadv2].exit = handle_exit_preadv2;
-    // event_handler[__NR_write].enter = handle_enter_write;
-    // event_handler[__NR_write].exit = handle_exit_write;
-    // event_handler[__NR_pwrite64].enter = handle_enter_pwrite64;
-    // event_handler[__NR_pwrite64].exit = handle_exit_pwrite64;
-    // event_handler[__NR_writev].enter = handle_enter_writev;
-    // event_handler[__NR_writev].exit = handle_exit_writev;
-    // event_handler[__NR_pwritev].enter = handle_enter_pwritev;
-    // event_handler[__NR_pwritev].exit = handle_exit_pwritev;
-    // event_handler[__NR_pwritev2].enter = handle_enter_pwritev2;
-    // event_handler[__NR_pwritev2].exit = handle_exit_pwritev2;
-    // event_handler[__NR_lseek].enter = handle_enter_lseek;
-    // event_handler[__NR_lseek].exit = handle_exit_lseek;
-    // event_handler[__NR_sendfile].enter = handle_enter_sendfile64;
-    // event_handler[__NR_sendfile].exit = handle_exit_sendfile64;
-    // event_handler[__NR_inotify_init].enter = handle_enter_inotify_init;
-    // event_handler[__NR_inotify_init].exit = handle_exit_inotify_init;
-    // event_handler[__NR_inotify_init1].enter = handle_enter_inotify_init1;
-    // event_handler[__NR_inotify_init1].exit = handle_exit_inotify_init1;
-    // event_handler[__NR_inotify_add_watch].enter = handle_enter_inotify_add_watch;
-    // event_handler[__NR_inotify_add_watch].exit = handle_exit_inotify_add_watch;
-    // event_handler[__NR_inotify_rm_watch].enter = handle_enter_inotify_rm_watch;
-    // event_handler[__NR_inotify_rm_watch].exit = handle_exit_inotify_rm_watch;
-    // event_handler[__NR_fanotify_init].enter = handle_enter_fanotify_init;
-    // event_handler[__NR_fanotify_init].exit = handle_exit_fanotify_init;
-    // event_handler[__NR_fanotify_mark].enter = handle_enter_fanotify_mark;
-    // event_handler[__NR_fanotify_mark].exit = handle_exit_fanotify_mark;
-    // event_handler[__NR_mount].enter = handle_enter_mount;
-    // event_handler[__NR_mount].exit = handle_exit_mount;
-    // event_handler[__NR_umount2].enter = handle_enter_umount;
-    // event_handler[__NR_umount2].exit = handle_exit_umount;
-    // event_handler[__NR_move_mount].enter = handle_enter_move_mount;
-    // event_handler[__NR_move_mount].exit = handle_exit_move_mount;
+    event_handler[__NR_mkdir].enter = handle_enter_mkdir;
+    event_handler[__NR_mkdir].exit = handle_exit_mkdir;
+    event_handler[__NR_mkdirat].enter = handle_enter_mkdirat;
+    event_handler[__NR_mkdirat].exit = handle_exit_mkdirat;
+    event_handler[__NR_rmdir].enter = handle_enter_rmdir;
+    event_handler[__NR_rmdir].exit = handle_exit_rmdir;
+    event_handler[__NR_getcwd].enter = handle_enter_getcwd;
+    event_handler[__NR_getcwd].exit = handle_exit_getcwd;
+    event_handler[__NR_chdir].enter = handle_enter_chdir;
+    event_handler[__NR_chdir].exit = handle_exit_chdir;
+    event_handler[__NR_fchdir].enter = handle_enter_fchdir;
+    event_handler[__NR_fchdir].exit = handle_exit_fchdir;
+    event_handler[__NR_chroot].enter = handle_enter_chroot;
+    event_handler[__NR_chroot].exit = handle_exit_chroot;
+    event_handler[__NR_pivot_root].enter = handle_enter_pivot_root;
+    event_handler[__NR_pivot_root].exit = handle_exit_pivot_root;
+    event_handler[__NR_getdents].enter = handle_enter_getdents;
+    event_handler[__NR_getdents].exit = handle_exit_getdents;
+    event_handler[__NR_getdents64].enter = handle_enter_getdents64;
+    event_handler[__NR_getdents64].exit = handle_exit_getdents64;
+    event_handler[__NR_link].enter = handle_enter_link;
+    event_handler[__NR_link].exit = handle_exit_link;
+    event_handler[__NR_linkat].enter = handle_enter_linkat;
+    event_handler[__NR_linkat].exit = handle_exit_linkat;
+    event_handler[__NR_symlink].enter = handle_enter_symlink;
+    event_handler[__NR_symlink].exit = handle_exit_symlink;
+    event_handler[__NR_symlinkat].enter = handle_enter_symlinkat;
+    event_handler[__NR_symlinkat].exit = handle_exit_symlinkat;
+    event_handler[__NR_unlink].enter = handle_enter_unlink;
+    event_handler[__NR_unlink].exit = handle_exit_unlink;
+    event_handler[__NR_unlinkat].enter = handle_enter_unlinkat;
+    event_handler[__NR_unlinkat].exit = handle_exit_unlinkat;
+    event_handler[__NR_readlink].enter = handle_enter_readlink;
+    event_handler[__NR_readlink].exit = handle_exit_readlink;
+    event_handler[__NR_readlinkat].enter = handle_enter_readlinkat;
+    event_handler[__NR_readlinkat].exit = handle_exit_readlinkat;
+    event_handler[__NR_umask].enter = handle_enter_umask;
+    event_handler[__NR_umask].exit = handle_exit_umask;
+    event_handler[__NR_stat].enter = handle_enter_newstat;
+    event_handler[__NR_stat].exit = handle_exit_newstat;
+    event_handler[__NR_lstat].enter = handle_enter_newlstat;
+    event_handler[__NR_lstat].exit = handle_exit_newlstat;
+    event_handler[__NR_fstat].enter = handle_enter_newfstat;
+    event_handler[__NR_fstat].exit = handle_exit_newfstat;
+    event_handler[__NR_newfstatat].enter = handle_enter_newfstatat;
+    event_handler[__NR_newfstatat].exit = handle_exit_newfstatat;
+    event_handler[__NR_statx].enter = handle_enter_statx;
+    event_handler[__NR_statx].exit = handle_exit_statx;
+    event_handler[__NR_statfs].enter = handle_enter_statfs;
+    event_handler[__NR_statfs].exit = handle_exit_statfs;
+    event_handler[__NR_fstatfs].enter = handle_enter_fstatfs;
+    event_handler[__NR_fstatfs].exit = handle_exit_fstatfs;
+    event_handler[__NR_chmod].enter = handle_enter_chmod;
+    event_handler[__NR_chmod].exit = handle_exit_chmod;
+    event_handler[__NR_fchmod].enter = handle_enter_fchmod;
+    event_handler[__NR_fchmod].exit = handle_exit_fchmod;
+    event_handler[__NR_fchmodat].enter = handle_enter_fchmodat;
+    event_handler[__NR_fchmodat].exit = handle_exit_fchmodat;
+    event_handler[__NR_chown].enter = handle_enter_chown;
+    event_handler[__NR_chown].exit = handle_exit_chown;
+    event_handler[__NR_lchown].enter = handle_enter_lchown;
+    event_handler[__NR_lchown].exit = handle_exit_lchown;
+    event_handler[__NR_fchown].enter = handle_enter_fchown;
+    event_handler[__NR_fchown].exit = handle_exit_fchown;
+    event_handler[__NR_fchownat].enter = handle_enter_fchownat;
+    event_handler[__NR_fchownat].exit = handle_exit_fchownat;
+    event_handler[__NR_access].enter = handle_enter_access;
+    event_handler[__NR_access].exit = handle_exit_access;
+    event_handler[__NR_faccessat].enter = handle_enter_faccessat;
+    event_handler[__NR_faccessat].exit = handle_exit_faccessat;
+    event_handler[__NR_fcntl].enter = handle_enter_fcntl;
+    event_handler[__NR_fcntl].exit = handle_exit_fcntl;
+    event_handler[__NR_dup].enter = handle_enter_dup;
+    event_handler[__NR_dup].exit = handle_exit_dup;
+    event_handler[__NR_dup2].enter = handle_enter_dup2;
+    event_handler[__NR_dup2].exit = handle_exit_dup2;
+    event_handler[__NR_dup3].enter = handle_enter_dup3;
+    event_handler[__NR_dup3].exit = handle_exit_dup3;
+    event_handler[__NR_flock].enter = handle_enter_flock;
+    event_handler[__NR_flock].exit = handle_exit_flock;
+    event_handler[__NR_read].enter = handle_enter_read;
+    event_handler[__NR_read].exit = handle_exit_read;
+    event_handler[__NR_pread64].enter = handle_enter_pread64;
+    event_handler[__NR_pread64].exit = handle_exit_pread64;
+    event_handler[__NR_readv].enter = handle_enter_readv;
+    event_handler[__NR_readv].exit = handle_exit_readv;
+    event_handler[__NR_preadv].enter = handle_enter_preadv;
+    event_handler[__NR_preadv].exit = handle_exit_preadv;
+    event_handler[__NR_preadv2].enter = handle_enter_preadv2;
+    event_handler[__NR_preadv2].exit = handle_exit_preadv2;
+    event_handler[__NR_write].enter = handle_enter_write;
+    event_handler[__NR_write].exit = handle_exit_write;
+    event_handler[__NR_pwrite64].enter = handle_enter_pwrite64;
+    event_handler[__NR_pwrite64].exit = handle_exit_pwrite64;
+    event_handler[__NR_writev].enter = handle_enter_writev;
+    event_handler[__NR_writev].exit = handle_exit_writev;
+    event_handler[__NR_pwritev].enter = handle_enter_pwritev;
+    event_handler[__NR_pwritev].exit = handle_exit_pwritev;
+    event_handler[__NR_pwritev2].enter = handle_enter_pwritev2;
+    event_handler[__NR_pwritev2].exit = handle_exit_pwritev2;
+    event_handler[__NR_lseek].enter = handle_enter_lseek;
+    event_handler[__NR_lseek].exit = handle_exit_lseek;
+    event_handler[__NR_sendfile].enter = handle_enter_sendfile64;
+    event_handler[__NR_sendfile].exit = handle_exit_sendfile64;
+    event_handler[__NR_inotify_init].enter = handle_enter_inotify_init;
+    event_handler[__NR_inotify_init].exit = handle_exit_inotify_init;
+    event_handler[__NR_inotify_init1].enter = handle_enter_inotify_init1;
+    event_handler[__NR_inotify_init1].exit = handle_exit_inotify_init1;
+    event_handler[__NR_inotify_add_watch].enter = handle_enter_inotify_add_watch;
+    event_handler[__NR_inotify_add_watch].exit = handle_exit_inotify_add_watch;
+    event_handler[__NR_inotify_rm_watch].enter = handle_enter_inotify_rm_watch;
+    event_handler[__NR_inotify_rm_watch].exit = handle_exit_inotify_rm_watch;
+    event_handler[__NR_fanotify_init].enter = handle_enter_fanotify_init;
+    event_handler[__NR_fanotify_init].exit = handle_exit_fanotify_init;
+    event_handler[__NR_fanotify_mark].enter = handle_enter_fanotify_mark;
+    event_handler[__NR_fanotify_mark].exit = handle_exit_fanotify_mark;
+    event_handler[__NR_mount].enter = handle_enter_mount;
+    event_handler[__NR_mount].exit = handle_exit_mount;
+    event_handler[__NR_umount2].enter = handle_enter_umount;
+    event_handler[__NR_umount2].exit = handle_exit_umount;
+    event_handler[__NR_move_mount].enter = handle_enter_move_mount;
+    event_handler[__NR_move_mount].exit = handle_exit_move_mount;
     // event_handler[__NR_clone].enter = handle_enter_clone;
     // event_handler[__NR_clone].exit = handle_exit_clone;
     // event_handler[__NR_clone3].enter = handle_enter_clone3;
