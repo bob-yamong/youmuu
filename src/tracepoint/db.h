@@ -20,7 +20,6 @@ class DBConnection {
 public:
     DBConnection();
     // event_t를 DB에 삽입하는 함수, 이벤트 목록을 batch insert 쿼리로 생성하여 삽입
-    // void insert_events(const std::vector<event_t>& events);
     void insert_events(const std::vector<db_event_t>& events);
 
 private:

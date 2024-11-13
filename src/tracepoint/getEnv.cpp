@@ -1,19 +1,21 @@
 #include "getEnv.h"
 
 // static 멤버 변수 정의
-std::string env::host = "";
-std::string env::dbname = "";
-std::string env::user = "";
-std::string env::password = "";
-std::string env::port = "";
-std::string env::cgroup_path = "";
-std::string env::proc_path = "";
+std::string env::host;
+std::string env::dbname;
+std::string env::user;
+std::string env::password;
+std::string env::port;
+std::string env::cgroup_path;
+std::string env::proc_path;
 
 // static 멤버 함수 구현
 std::string env::get_env_var(const std::string& var_name, const std::string& default_value) {
     try {
         std::cout << "Getting environment variable: " << var_name << std::endl;
+        // 환경변수 값 가져오기 없으면 null return
         const char* val = std::getenv(var_name.c_str());
+        // null이면 default_value return 
         std::string result = val ? std::string(val) : default_value;
         std::cout << "Value for " << var_name << ": " << result << std::endl;
         return result;
@@ -56,23 +58,6 @@ std::string env::resolveHostname(const std::string& hostname) {
     freeaddrinfo(result);
     throw std::runtime_error("유효한 IP 주소를 찾을 수 없습니다");
 }
-
-// void env::getEnv() {
-//     std::string hostname = get_env_var("POSTGRES_HOST", "localhost");
-//     // hostname이 IP가 아닌 경우에만 resolve
-//     if (hostname.find_first_not_of("0123456789.") != std::string::npos) {
-//         host = resolveHostname(hostname);
-//     } else {
-//         host = hostname;
-//     }
-
-//     dbname = get_env_var("POSTGRES_DB", "yamong_postgres");
-//     user = get_env_var("POSTGRES_USER", "temp_admin");
-//     password = get_env_var("POSTGRES_PASSWORD", "temp_password");
-//     port = get_env_var("POSTGRES_PORT" , "5432");
-//     cgroup_path = get_env_var("CGROUP_SYSTEM_SLICE_PATH", "/sys/fs/cgroup/system.slice/");
-//     proc_path = get_env_var("PROC_PATH", "/proc");
-// }
 
 void env::getEnv() {
     try {

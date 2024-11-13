@@ -36,9 +36,7 @@
 #define MAX_OUTPUT_LEN 256
 
 static volatile bool exiting = false;
-
 std::unique_ptr<pqxx::connection> conn;
-
 using json = nlohmann::json;
 
 void clear_bpf_map(int map_fd);
