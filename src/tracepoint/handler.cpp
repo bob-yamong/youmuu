@@ -1965,796 +1965,774 @@ static int handle_exit_move_mount(const struct event_t *e, const db_event_t& bas
     return 0;
 }
 
-// static int handle_enter_clone(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter clone: %s, fn_ptr=%llu, flags=%#x\n",
-//             e->arg_u64[0], e->arg_s32[0]);
-//     return 0;
-// }
-
-// static int handle_exit_clone(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit clone: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit clone: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_clone3(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter clone3: %s, flags=%#llx, stack=%llu, stack_size=%llu, cgroup=%llu\n",
-//                 e->arg_u64[0], e->arg_u64[1], e->arg_u64[2], e->arg_u64[3]);
-//     } else {
-//         printf("Enter clone3: %s, failed to read flags, stack, stack_size, cgroup\n",
-                
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_clone3(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit clone3: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit clone3: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_fork(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter fork: %s\n", 
-//     return 0;
-// }
-
-// static int handle_exit_fork(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit fork: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit fork: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_vfork(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter vfork: %s\n", 
-//     return 0;
-// }
-
-// static int handle_exit_vfork(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit vfork: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit vfork: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_execve(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter execve: %s, pathname=%s\n",
-//                 e->arg_str);
-//     } else {
-//         printf("Enter execve: %s, failed to read pathname\n",
-                
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_execve(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit execve: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit execve: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_execveat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter execveat: %s, dirfd=%d, pathname=%s, flags=%#x\n",
-//                 e->arg_s32[0], e->arg_str, e->arg_s32[1]);
-//     } else {
-//         printf("Enter execveat: %s, dirfd=%d, failed to read pathname, flags=%#x\n",
-//                 e->arg_s32[0], e->arg_s32[1]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_execveat(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit execveat: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit execveat: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_exit(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter exit: %s, status=%d\n",
-//             e->arg_s32[0]);
-//     return 0;
-// }
-
-// static int handle_exit_exit(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit exit: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit exit: success, %s\n", 
-                
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_exit_group(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter exit_group: %s, status=%d\n",
-//             e->arg_s32[0]);
-//     return 0;
-// }
-
-// static int handle_exit_exit_group(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit exit_group: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit exit_group: success, %s\n", 
-                
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_wait4(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter wait4: %s, pid=%u, status=%d, options=%#x\n",
-//                 e->arg_u32[0], e->arg_s32[1], e->arg_s32[0]);
-//     } else {
-//         printf("Enter wait4: %s, pid=%u, failed to read status, options=%#x\n",
-//                 e->arg_u32[0], e->arg_s32[0]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_wait4(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit wait4: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit wait4: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_waitid(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter waitid: %s, idtype=%d, pid=%u, si_signo=%d, si_code=%d, options=%#x\n",
-//                 e->arg_s32[0], e->arg_u32[0], e->arg_s32[2], e->arg_s32[3], e->arg_s32[1]);
-//     } else {
-//         printf("Enter waitid: %s, idtype=%d, pid=%u, failed to siginfo, options=%#x\n",
-//                 e->arg_s32[0], e->arg_u32[0], e->arg_s32[1]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_waitid(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit waitid: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit waitid: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_getpid(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter getpid: %s\n", 
-//     return 0;
-// }
-
-// static int handle_exit_getpid(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit getpid: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit getpid: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_getppid(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter getppid: %s\n", 
-//     return 0;
-// }
-
-// static int handle_exit_getppid(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit getppid: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit getppid: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_gettid(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter gettid: %s\n", 
-//     return 0;
-// }
-
-// static int handle_exit_gettid(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit gettid: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit gettid: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_setsid(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter setsid: %s\n", 
-//     return 0;
-// }
-
-// static int handle_exit_setsid(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit setsid: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit setsid: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_getsid(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter getsid: %s, pid=%u\n",
-//             e->arg_u32[0]);
-//     return 0;
-// }
-
-// static int handle_exit_getsid(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit getsid: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit getsid: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_setpgid(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter setpgid: %s, pid=%u, pgid=%u\n",
-//             e->arg_u32[0], e->arg_u32[1]);
-//     return 0;
-// }
-
-// static int handle_exit_setpgid(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit setpgid: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit setpgid: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_getpgid(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter getpgid: %s, pid=%u\n",
-//             e->arg_u32[0]);
-//     return 0;
-// }
-
-// static int handle_exit_getpgid(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit getpgid: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit getpgid: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_getpgrp(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter getpgrp: %s\n", 
-//     return 0;
-// }
-
-// static int handle_exit_getpgrp(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit getpgrp: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit getpgrp: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_setuid(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter setreuid: %s, uid=%u\n",
-//             e->arg_u32[0]);
-//     return 0;
-// }
-
-// static int handle_exit_setuid(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit setreuid: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit setreuid: success, %s, ret=%lld\n", 
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_getuid(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter getuid: %s\n", 
-//     return 0;
-// }
-
-// static int handle_exit_getuid(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit getuid: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit getuid: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_setgid(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter setregid: %s, gid=%u\n",
-//             e->arg_u32[0]);
-//     return 0;
-// }
-
-// static int handle_exit_setgid(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit setregid: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit setregid: success, %s, ret=%lld\n", 
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_getgid(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter getgid: %s\n", 
-//     return 0;
-// }
-
-// static int handle_exit_getgid(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit getgid: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit getgid: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_setresuid(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter setresuid: %s, ruid=%u, euid=%u, suid=%u\n",
-//             e->arg_u32[0], e->arg_u32[1], e->arg_u32[2]);
-//     return 0;
-// }
-
-// static int handle_exit_setresuid(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit setresuid: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit setresuid: success, %s, ret=%lld\n", 
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_getresuid(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter getresuid: %s\n", 
-//     return 0;
-// }
-
-// static int handle_exit_getresuid(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit getresuid: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else if (e->is_valid) {
-//         printf("Exit getresuid: success, %s, ruid=%u, euid=%u, suid=%u, ret=%lld\n",
-//                 e->arg_u32[0], e->arg_u32[1], e->arg_u32[2], e->ret);
-//     } else {
-//         printf("Exit getresuid: success, %s, failed to read uid values, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_setresgid(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter setresgid: %s, rgid=%u, egid=%u, sgid=%u\n",
-//             e->arg_u32[0], e->arg_u32[1], e->arg_u32[2]);
-//     return 0;
-// }
-
-// static int handle_exit_setresgid(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit setresgid: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit setresgid: success, %s, ret=%lld\n", 
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_getresgid(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter getresgid: %s\n", 
-//     return 0;
-// }
-
-// static int handle_exit_getresgid(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit getresgid: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else if (e->is_valid) {
-//         printf("Exit getresgid: success, %s, rgid=%u, egid=%u, sgid=%u, ret=%lld\n",
-//                 e->arg_u32[0], e->arg_u32[1], e->arg_u32[2], e->ret);
-//     } else {
-//         printf("Exit getresgid: success, %s, failed to read gid values, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_setreuid(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter setreuid: %s, ruid=%u, euid=%u\n",
-//             e->arg_u32[0], e->arg_u32[1]);
-//     return 0;
-// }
-
-// static int handle_exit_setreuid(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit setreuid: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit setreuid: success, %s, ret=%lld\n", 
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_setregid(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter setregid: %s, rgid=%u, egid=%u\n",
-//             e->arg_u32[0], e->arg_u32[1]);
-//     return 0;
-// }
-
-// static int handle_exit_setregid(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit setregid: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit setregid: success, %s, ret=%lld\n", 
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_geteuid(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter geteuid: %s\n", 
-//     return 0;
-// }
-
-// static int handle_exit_geteuid(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit geteuid: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit geteuid: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_getegid(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter getegid: %s\n", 
-//     return 0;
-// }
-
-// static int handle_exit_getegid(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit getegid: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit getegid: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_setgroups(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter setgroups: %s, size=%llu\n",
-//             e->arg_u64[0]);
-//     return 0;
-// }
-
-// static int handle_exit_setgroups(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit setgroups: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit setgroups: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_getgroups(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter getgroups: %s, size=%d\n",
-//             e->arg_s32[0]);
-//     return 0;
-// }
-
-// static int handle_exit_getgroups(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit getgroups: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit getgroups: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_setns(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter setns: %s, fd=%d, nstype=%d\n",
-//             e->arg_s32[0], e->arg_s32[1]);
-//     return 0;
-// }
-
-// static int handle_exit_setns(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit setns: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit setns: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_setrlimit(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter setrlimit: %s, resource=%d, rlim_cur=%llu, rlim_max=%llu\n",
-//                 e->arg_s32[0], e->arg_u64[0], e->arg_u64[1]);
-//     } else {
-//         printf("Enter setrlimit: %s, resource=%d, failed to read rlim_cur, rlim_max\n",
-//                 e->arg_s32[0]);
-//     }
-//     return 0;
-// }
-
-// static int handle_exit_setrlimit(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit setrlimit: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit setrlimit: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_getrlimit(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter getrlimit: %s, resource=%d\n",
-//             e->arg_s32[0]);
-//     return 0;
-// }
-
-// static int handle_exit_getrlimit(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit getrlimit: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else if (e->is_valid) {
-//         printf("Exit getrlimit: success, %s, rlim_cur=%llu, rlim_max=%llu, ret=%lld\n",
-//                 e->arg_u64[0], e->arg_u64[1], e->ret);
-//     } else {
-//         printf("Exit getrlimit: success, %s, failed to read rlimit info, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_prlimit64(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter prlimit64: %s, pid=%u, resource=%d\n",
-//             e->arg_u32[0], e->arg_s32[0]);
-//     return 0;
-// }
-
-// static int handle_exit_prlimit64(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit prlimit64: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit prlimit64: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_getrusage(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter getrusage: %s, who=%d\n",
-//             e->arg_s32[0]);
-//     return 0;
-// }
-
-// static int handle_exit_getrusage(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit getrusage: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     }else {
-//         printf("Exit getrusage: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_setpriority(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter setpriority: %s, which=%d, who=%u, priority=%d\n",
-//             e->arg_s32[0], e->arg_u32[0], e->arg_s32[1]);
-//     return 0;
-// }
-
-// static int handle_exit_setpriority(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit setpriority: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit setpriority: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_getpriority(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter getpriority: %s, which=%d, who=%u\n",
-//             e->arg_s32[0], e->arg_u32[0]);
-//     return 0;
-// }
-
-// static int handle_exit_getpriority(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit getpriority: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit getpriority: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_ioprio_set(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter ioprio_set: %s, which=%d, who=%d, ioprio=%d\n",
-//             e->arg_s32[0], e->arg_s32[1], e->arg_s32[2]);
-//     return 0;
-// }
-
-// static int handle_exit_ioprio_set(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit ioprio_set: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit ioprio_set: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_ioprio_get(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter ioprio_get: %s, which=%d, who=%d\n",
-//             e->arg_s32[0], e->arg_s32[1]);
-//     return 0;
-// }
-
-// static int handle_exit_ioprio_get(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit ioprio_get: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit ioprio_get: success, %s, ioprio=%d, ret=%lld\n",
-//                 e->arg_s32[2], e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_mmap(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter mmap: %s, addr=%#llx, length=%llu, prot=%#x, flags=%#x, fd=%d, offset=%llu\n",
-//             e->arg_u64[0], e->arg_u64[1], e->arg_s32[0], e->arg_s32[1], e->arg_s32[2], e->arg_u64[2]);
-//     return 0;
-// }
-
-// static int handle_exit_mmap(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit mmap: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit mmap: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_mprotect(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter mprotect: %s, len=%llu, prot=%#x\n",
-//             e->arg_u64[0], e->arg_s32[0]);
-//     return 0;
-// }
-
-// static int handle_exit_mprotect(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit mprotect: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit mprotect: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_capset(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter capset: %s, header_version=%u, header_pid=%u, data_effective=%#x, data_permitted=%#x, data_inheritable=%#x\n",
-//             e->arg_u32[0], e->arg_u32[1], e->arg_u32[2], e->arg_u32[3], e->arg_u32[4]);
-//     return 0;
-// }
-
-// static int handle_exit_capset(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit capset: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit capset: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
-
-// static int handle_enter_ptrace(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter ptrace: %s, request=%d, pid=%u\n",
-//             e->arg_s32[0], e->arg_u32[0]);
-//     return 0;
-// }
-
-// static int handle_exit_ptrace(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit ptrace: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit ptrace: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+static int handle_enter_clone(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u64[0]); // fn_ptr
+    event.arg1 = std::to_string(e->arg_s32[0]); // flags
+    return 0;
+}
+
+static int handle_exit_clone(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_clone3(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    if (e->is_valid) {
+        event.arg0 = std::to_string(e->arg_u64[0]); // flags
+        event.arg1 = std::to_string(e->arg_u64[1]); // stack
+        event.arg2 = std::to_string(e->arg_u64[2]); // stack_size
+        event.arg3 = std::to_string(e->arg_u64[3]); // cgroup
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_clone3(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_fork(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_fork(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_vfork(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_vfork(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_execve(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    if (e->is_valid) {
+        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_execve(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_execveat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // dirfd
+    event.arg2 = std::to_string(e->arg_s32[1]); // flags
+    if (e->is_valid) {
+        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_execveat(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_exit(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // status
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_exit(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_exit_group(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // status
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_exit_group(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_wait4(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u32[0]); // pid
+    if (e->is_valid) {
+        event.arg1 = std::to_string(e->arg_s32[1]); // status
+        event.arg2 = std::to_string(e->arg_s32[0]); // options
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_wait4(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_waitid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // idtype
+    event.arg1 = std::to_string(e->arg_u32[0]); // pid
+    event.arg4 = std::to_string(e->arg_s32[1]); // options
+    if (e->is_valid) {
+        event.arg2 = std::to_string(e->arg_s32[2]); // si_signo
+        event.arg3 = std::to_string(e->arg_s32[3]); // si_code
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_waitid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_getpid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_getpid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_getppid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_getppid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_gettid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_gettid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_setsid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_setsid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_getsid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u32[0]); // pid
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_getsid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_setpgid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u32[0]); // pid
+    event.arg1 = std::to_string(e->arg_u32[1]); // pgid
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_setpgid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_getpgid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u32[0]); // pid
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_getpgid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_getpgrp(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_getpgrp(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_setuid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u32[0]); // uid
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_setuid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_getuid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_getuid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_setgid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u32[0]); // gid
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_setgid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_getgid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_getgid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_setresuid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u32[0]); // ruid
+    event.arg1 = std::to_string(e->arg_u32[1]); // euid
+    event.arg2 = std::to_string(e->arg_u32[2]); // suid
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_setresuid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_getresuid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event_buffer.add_event(event); 
+    return 0;
+}
+
+static int handle_exit_getresuid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    if (e->is_valid) {
+        event.arg0 = std::to_string(e->arg_u32[0]); // ruid
+        event.arg1 = std::to_string(e->arg_u32[1]); // euid
+        event.arg2 = std::to_string(e->arg_u32[2]); // suid
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_setresgid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u32[0]); // rgid
+    event.arg1 = std::to_string(e->arg_u32[1]); // egid
+    event.arg2 = std::to_string(e->arg_u32[2]); // sgid
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_setresgid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_getresgid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event_buffer.add_event(event); 
+    return 0;
+}
+
+static int handle_exit_getresgid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    if (e->is_valid) {
+        event.arg0 = std::to_string(e->arg_u32[0]); // rgid
+        event.arg1 = std::to_string(e->arg_u32[1]); // egid
+        event.arg2 = std::to_string(e->arg_u32[2]); // sgid
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_setreuid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u32[0]); // ruid
+    event.arg1 = std::to_string(e->arg_u32[1]); // euid
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_setreuid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_setregid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u32[0]); // rgid
+    event.arg1 = std::to_string(e->arg_u32[1]); // egid
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_setregid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_geteuid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_geteuid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_getegid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_getegid(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_setgroups(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u64[0]); // size
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_setgroups(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_getgroups(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // size
+    return 0;
+}
+
+static int handle_exit_getgroups(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_setns(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // fd
+    event.arg1 = std::to_string(e->arg_s32[1]); // nstype
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_setns(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_setrlimit(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u64[0]); // resource
+    if (e->is_valid) {
+        event.arg1 = std::to_string(e->arg_u64[1]); // rlim_cur
+        event.arg2 = std::to_string(e->arg_u64[2]); // rlim_max
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_setrlimit(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_getrlimit(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // resource
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_getrlimit(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    if (e->is_valid) {
+        event.arg0 = std::to_string(e->arg_u64[0]); // rlim_cur
+        event.arg1 = std::to_string(e->arg_u64[1]); // rlim_max
+    }
+    return 0;
+}
+
+static int handle_enter_prlimit64(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u32[0]); // pid
+    event.arg1 = std::to_string(e->arg_s32[0]); // resource
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_prlimit64(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_getrusage(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // who
+    return 0;
+}
+
+static int handle_exit_getrusage(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_setpriority(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // which
+    event.arg1 = std::to_string(e->arg_u32[0]); // who
+    event.arg2 = std::to_string(e->arg_s32[1]); // priority
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_setpriority(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_getpriority(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // which
+    event.arg1 = std::to_string(e->arg_u32[0]); // who
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_getpriority(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_ioprio_set(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // which
+    event.arg1 = std::to_string(e->arg_s32[1]); // who
+    event.arg2 = std::to_string(e->arg_s32[2]); // ioprio
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_ioprio_set(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_ioprio_get(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // which
+    event.arg1 = std::to_string(e->arg_s32[1]); // who
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_ioprio_get(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_mmap(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u64[0]); // addr
+    event.arg1 = std::to_string(e->arg_u64[1]); // length
+    event.arg2 = std::to_string(e->arg_s32[0]); // prot
+    event.arg3 = std::to_string(e->arg_s32[1]); // flags
+    event.arg4 = std::to_string(e->arg_s32[2]); // fd
+    event.arg5 = std::to_string(e->arg_u64[2]); // offset
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_mmap(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_mprotect(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u64[0]); // len
+    event.arg1 = std::to_string(e->arg_s32[0]); // prot
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_mprotect(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_capset(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u32[0]); // header_version
+    event.arg1 = std::to_string(e->arg_u32[1]); // header_pid
+    event.arg2 = std::to_string(e->arg_u32[2]); // data_effective
+    event.arg3 = std::to_string(e->arg_u32[3]); // data_permitted
+    event.arg4 = std::to_string(e->arg_u32[4]); // data_inheritable
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_capset(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_ptrace(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // request
+    event.arg1 = std::to_string(e->arg_u32[0]); // pid
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_ptrace(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
 
 // static int handle_enter_process_vm_readv(const struct event_t *e, const db_event_t& base_event) {
 //     printf("Enter process_vm_readv: %s, pid=%u, local_iov_len=%llu, remote_iov_len=%llu, flags=%#llx\n",
@@ -3323,96 +3301,96 @@ void init_event_handlers(void) {
     event_handler[__NR_umount2].exit = handle_exit_umount;
     event_handler[__NR_move_mount].enter = handle_enter_move_mount;
     event_handler[__NR_move_mount].exit = handle_exit_move_mount;
-    // event_handler[__NR_clone].enter = handle_enter_clone;
-    // event_handler[__NR_clone].exit = handle_exit_clone;
-    // event_handler[__NR_clone3].enter = handle_enter_clone3;
-    // event_handler[__NR_clone3].exit = handle_exit_clone3;
-    // event_handler[__NR_fork].enter = handle_enter_fork;
-    // event_handler[__NR_fork].exit = handle_exit_fork;
-    // event_handler[__NR_vfork].enter = handle_enter_vfork;
-    // event_handler[__NR_vfork].exit = handle_exit_vfork;
-    // event_handler[__NR_execve].enter = handle_enter_execve;
-    // event_handler[__NR_execve].exit = handle_exit_execve;
-    // event_handler[__NR_execveat].enter = handle_enter_execveat;
-    // event_handler[__NR_execveat].exit = handle_exit_execveat;
-    // event_handler[__NR_exit].enter = handle_enter_exit;
-    // event_handler[__NR_exit].exit = handle_exit_exit;
-    // event_handler[__NR_exit_group].enter = handle_enter_exit_group;
-    // event_handler[__NR_exit_group].exit = handle_exit_exit_group;
-    // event_handler[__NR_wait4].enter = handle_enter_wait4;
-    // event_handler[__NR_wait4].exit = handle_exit_wait4;
-    // event_handler[__NR_waitid].enter = handle_enter_waitid;
-    // event_handler[__NR_waitid].exit = handle_exit_waitid;
-    // event_handler[__NR_getpid].enter = handle_enter_getpid;
-    // event_handler[__NR_getpid].exit = handle_exit_getpid;
-    // event_handler[__NR_getppid].enter = handle_enter_getppid;
-    // event_handler[__NR_getppid].exit = handle_exit_getppid;
-    // event_handler[__NR_gettid].enter = handle_enter_gettid;
-    // event_handler[__NR_gettid].exit = handle_exit_gettid;
-    // event_handler[__NR_setsid].enter = handle_enter_setsid;
-    // event_handler[__NR_setsid].exit = handle_exit_setsid;
-    // event_handler[__NR_getsid].enter = handle_enter_getsid;
-    // event_handler[__NR_getsid].exit = handle_exit_getsid;
-    // event_handler[__NR_setpgid].enter = handle_enter_setpgid;
-    // event_handler[__NR_setpgid].exit = handle_exit_setpgid;
-    // event_handler[__NR_getpgid].enter = handle_enter_getpgid;
-    // event_handler[__NR_getpgid].exit = handle_exit_getpgid;
-    // event_handler[__NR_getpgrp].enter = handle_enter_getpgrp;
-    // event_handler[__NR_getpgrp].exit = handle_exit_getpgrp;
-    // event_handler[__NR_setuid].enter = handle_enter_setuid;
-    // event_handler[__NR_setuid].exit = handle_exit_setuid;
-    // event_handler[__NR_getuid].enter = handle_enter_getuid;
-    // event_handler[__NR_getuid].exit = handle_exit_getuid;
-    // event_handler[__NR_setgid].enter = handle_enter_setgid;
-    // event_handler[__NR_setgid].exit = handle_exit_setgid;
-    // event_handler[__NR_getgid].enter = handle_enter_getgid;
-    // event_handler[__NR_getgid].exit = handle_exit_getgid;
-    // event_handler[__NR_setresuid].enter = handle_enter_setresuid;
-    // event_handler[__NR_setresuid].exit = handle_exit_setresuid;
-    // event_handler[__NR_getresuid].enter = handle_enter_getresuid;
-    // event_handler[__NR_getresuid].exit = handle_exit_getresuid;
-    // event_handler[__NR_setresgid].enter = handle_enter_setresgid;
-    // event_handler[__NR_setresgid].exit = handle_exit_setresgid;
-    // event_handler[__NR_getresgid].enter = handle_enter_getresgid;
-    // event_handler[__NR_getresgid].exit = handle_exit_getresgid;
-    // event_handler[__NR_setreuid].enter = handle_enter_setreuid;
-    // event_handler[__NR_setreuid].exit = handle_exit_setreuid;
-    // event_handler[__NR_setregid].enter = handle_enter_setregid;
-    // event_handler[__NR_setregid].exit = handle_exit_setregid;
-    // event_handler[__NR_geteuid].enter = handle_enter_geteuid;
-    // event_handler[__NR_geteuid].exit = handle_exit_geteuid;
-    // event_handler[__NR_getegid].enter = handle_enter_getegid;
-    // event_handler[__NR_getegid].exit = handle_exit_getegid;
-    // event_handler[__NR_setgroups].enter = handle_enter_setgroups;
-    // event_handler[__NR_setgroups].exit = handle_exit_setgroups;
-    // event_handler[__NR_getgroups].enter = handle_enter_getgroups;
-    // event_handler[__NR_getgroups].exit = handle_exit_getgroups;
-    // event_handler[__NR_setns].enter = handle_enter_setns;
-    // event_handler[__NR_setns].exit = handle_exit_setns;
-    // event_handler[__NR_setrlimit].enter = handle_enter_setrlimit;
-    // event_handler[__NR_setrlimit].exit = handle_exit_setrlimit;
-    // event_handler[__NR_getrlimit].enter = handle_enter_getrlimit;
-    // event_handler[__NR_getrlimit].exit = handle_exit_getrlimit;
-    // event_handler[__NR_prlimit64].enter = handle_enter_prlimit64;
-    // event_handler[__NR_prlimit64].exit = handle_exit_prlimit64;
-    // event_handler[__NR_getrusage].enter = handle_enter_getrusage;
-    // event_handler[__NR_getrusage].exit = handle_exit_getrusage;
-    // event_handler[__NR_setpriority].enter = handle_enter_setpriority;
-    // event_handler[__NR_setpriority].exit = handle_exit_setpriority;
-    // event_handler[__NR_getpriority].enter = handle_enter_getpriority;
-    // event_handler[__NR_getpriority].exit = handle_exit_getpriority;
-    // event_handler[__NR_ioprio_set].enter = handle_enter_ioprio_set;
-    // event_handler[__NR_ioprio_set].exit = handle_exit_ioprio_set;
-    // event_handler[__NR_ioprio_get].enter = handle_enter_ioprio_get;
-    // event_handler[__NR_ioprio_get].exit = handle_exit_ioprio_get;
-    // event_handler[__NR_mmap].enter = handle_enter_mmap;
-    // event_handler[__NR_mmap].exit = handle_exit_mmap;
-    // event_handler[__NR_mprotect].enter = handle_enter_mprotect;
-    // event_handler[__NR_mprotect].exit = handle_exit_mprotect;
-    // event_handler[__NR_capset].enter = handle_enter_capset;
-    // event_handler[__NR_capset].exit = handle_exit_capset;
-    // event_handler[__NR_ptrace].enter = handle_enter_ptrace;
-    // event_handler[__NR_ptrace].exit = handle_exit_ptrace;
+    event_handler[__NR_clone].enter = handle_enter_clone;
+    event_handler[__NR_clone].exit = handle_exit_clone;
+    event_handler[__NR_clone3].enter = handle_enter_clone3;
+    event_handler[__NR_clone3].exit = handle_exit_clone3;
+    event_handler[__NR_fork].enter = handle_enter_fork;
+    event_handler[__NR_fork].exit = handle_exit_fork;
+    event_handler[__NR_vfork].enter = handle_enter_vfork;
+    event_handler[__NR_vfork].exit = handle_exit_vfork;
+    event_handler[__NR_execve].enter = handle_enter_execve;
+    event_handler[__NR_execve].exit = handle_exit_execve;
+    event_handler[__NR_execveat].enter = handle_enter_execveat;
+    event_handler[__NR_execveat].exit = handle_exit_execveat;
+    event_handler[__NR_exit].enter = handle_enter_exit;
+    event_handler[__NR_exit].exit = handle_exit_exit;
+    event_handler[__NR_exit_group].enter = handle_enter_exit_group;
+    event_handler[__NR_exit_group].exit = handle_exit_exit_group;
+    event_handler[__NR_wait4].enter = handle_enter_wait4;
+    event_handler[__NR_wait4].exit = handle_exit_wait4;
+    event_handler[__NR_waitid].enter = handle_enter_waitid;
+    event_handler[__NR_waitid].exit = handle_exit_waitid;
+    event_handler[__NR_getpid].enter = handle_enter_getpid;
+    event_handler[__NR_getpid].exit = handle_exit_getpid;
+    event_handler[__NR_getppid].enter = handle_enter_getppid;
+    event_handler[__NR_getppid].exit = handle_exit_getppid;
+    event_handler[__NR_gettid].enter = handle_enter_gettid;
+    event_handler[__NR_gettid].exit = handle_exit_gettid;
+    event_handler[__NR_setsid].enter = handle_enter_setsid;
+    event_handler[__NR_setsid].exit = handle_exit_setsid;
+    event_handler[__NR_getsid].enter = handle_enter_getsid;
+    event_handler[__NR_getsid].exit = handle_exit_getsid;
+    event_handler[__NR_setpgid].enter = handle_enter_setpgid;
+    event_handler[__NR_setpgid].exit = handle_exit_setpgid;
+    event_handler[__NR_getpgid].enter = handle_enter_getpgid;
+    event_handler[__NR_getpgid].exit = handle_exit_getpgid;
+    event_handler[__NR_getpgrp].enter = handle_enter_getpgrp;
+    event_handler[__NR_getpgrp].exit = handle_exit_getpgrp;
+    event_handler[__NR_setuid].enter = handle_enter_setuid;
+    event_handler[__NR_setuid].exit = handle_exit_setuid;
+    event_handler[__NR_getuid].enter = handle_enter_getuid;
+    event_handler[__NR_getuid].exit = handle_exit_getuid;
+    event_handler[__NR_setgid].enter = handle_enter_setgid;
+    event_handler[__NR_setgid].exit = handle_exit_setgid;
+    event_handler[__NR_getgid].enter = handle_enter_getgid;
+    event_handler[__NR_getgid].exit = handle_exit_getgid;
+    event_handler[__NR_setresuid].enter = handle_enter_setresuid;
+    event_handler[__NR_setresuid].exit = handle_exit_setresuid;
+    event_handler[__NR_getresuid].enter = handle_enter_getresuid;
+    event_handler[__NR_getresuid].exit = handle_exit_getresuid;
+    event_handler[__NR_setresgid].enter = handle_enter_setresgid;
+    event_handler[__NR_setresgid].exit = handle_exit_setresgid;
+    event_handler[__NR_getresgid].enter = handle_enter_getresgid;
+    event_handler[__NR_getresgid].exit = handle_exit_getresgid;
+    event_handler[__NR_setreuid].enter = handle_enter_setreuid;
+    event_handler[__NR_setreuid].exit = handle_exit_setreuid;
+    event_handler[__NR_setregid].enter = handle_enter_setregid;
+    event_handler[__NR_setregid].exit = handle_exit_setregid;
+    event_handler[__NR_geteuid].enter = handle_enter_geteuid;
+    event_handler[__NR_geteuid].exit = handle_exit_geteuid;
+    event_handler[__NR_getegid].enter = handle_enter_getegid;
+    event_handler[__NR_getegid].exit = handle_exit_getegid;
+    event_handler[__NR_setgroups].enter = handle_enter_setgroups;
+    event_handler[__NR_setgroups].exit = handle_exit_setgroups;
+    event_handler[__NR_getgroups].enter = handle_enter_getgroups;
+    event_handler[__NR_getgroups].exit = handle_exit_getgroups;
+    event_handler[__NR_setns].enter = handle_enter_setns;
+    event_handler[__NR_setns].exit = handle_exit_setns;
+    event_handler[__NR_setrlimit].enter = handle_enter_setrlimit;
+    event_handler[__NR_setrlimit].exit = handle_exit_setrlimit;
+    event_handler[__NR_getrlimit].enter = handle_enter_getrlimit;
+    event_handler[__NR_getrlimit].exit = handle_exit_getrlimit;
+    event_handler[__NR_prlimit64].enter = handle_enter_prlimit64;
+    event_handler[__NR_prlimit64].exit = handle_exit_prlimit64;
+    event_handler[__NR_getrusage].enter = handle_enter_getrusage;
+    event_handler[__NR_getrusage].exit = handle_exit_getrusage;
+    event_handler[__NR_setpriority].enter = handle_enter_setpriority;
+    event_handler[__NR_setpriority].exit = handle_exit_setpriority;
+    event_handler[__NR_getpriority].enter = handle_enter_getpriority;
+    event_handler[__NR_getpriority].exit = handle_exit_getpriority;
+    event_handler[__NR_ioprio_set].enter = handle_enter_ioprio_set;
+    event_handler[__NR_ioprio_set].exit = handle_exit_ioprio_set;
+    event_handler[__NR_ioprio_get].enter = handle_enter_ioprio_get;
+    event_handler[__NR_ioprio_get].exit = handle_exit_ioprio_get;
+    event_handler[__NR_mmap].enter = handle_enter_mmap;
+    event_handler[__NR_mmap].exit = handle_exit_mmap;
+    event_handler[__NR_mprotect].enter = handle_enter_mprotect;
+    event_handler[__NR_mprotect].exit = handle_exit_mprotect;
+    event_handler[__NR_capset].enter = handle_enter_capset;
+    event_handler[__NR_capset].exit = handle_exit_capset;
+    event_handler[__NR_ptrace].enter = handle_enter_ptrace;
+    event_handler[__NR_ptrace].exit = handle_exit_ptrace;
     // event_handler[__NR_process_vm_readv].enter = handle_enter_process_vm_readv;
     // event_handler[__NR_process_vm_readv].exit = handle_exit_process_vm_readv;
     // event_handler[__NR_process_vm_writev].enter = handle_enter_process_vm_writev;
