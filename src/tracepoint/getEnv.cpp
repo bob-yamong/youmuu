@@ -74,8 +74,14 @@ void env::getEnv() {
         std::string temp_proc = get_env_var("PROC_PATH", "/proc");
         std::string temp_update_interval = get_env_var("UPDATE_INTERVAL", "60");
 
+        // hostname이 IP가 아닌 경우에만 resolve
+        if (temp_host.find_first_not_of("0123456789.") != std::string::npos) {
+            host = resolveHostname(temp_host);
+        } else {
+            host = temp_host;
+        }
+
         // 멤버 변수에 할당
-        host = temp_host;
         dbname = temp_dbname;
         user = temp_user;
         password = temp_password;
