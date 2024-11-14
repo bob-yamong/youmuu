@@ -30,7 +30,7 @@
 
 #define BPF_FS_PATH "/sys/fs/bpf"
 #define POLICY_FILE_PATH "/policy/policy.yaml"
-#define POLICY_UPDATE_INTERVAL 60
+
 
 #define MAX_CMD_LEN 1024
 #define MAX_OUTPUT_LEN 256
@@ -617,7 +617,7 @@ void update_policy_periodically(int map_fd, int container_map_fd, int cgroup_map
         }
         
         // Sleep for 60 seconds
-        std::this_thread::sleep_for(std::chrono::seconds(POLICY_UPDATE_INTERVAL));
+        std::this_thread::sleep_for(std::chrono::seconds(env::update_interval));
     }
 }
 
@@ -840,7 +840,7 @@ int main(int argc, char **argv) {
                 status = SHOW_LOG;
             } else {
                 std::cout << "Policy file not found\n";
-                sleep(POLICY_UPDATE_INTERVAL);
+                sleep(env::update_interval);
             }
             break;
         case DELETE_POLICY:

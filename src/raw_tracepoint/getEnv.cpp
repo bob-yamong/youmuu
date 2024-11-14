@@ -11,6 +11,8 @@ std::string env::user;
 std::string env::password;
 std::string env::port;
 std::string env::cgroup_path;
+std::string env::proc_path;
+int env::update_interval;
 
 // static 멤버 함수 구현
 std::string env::get_env_var(const std::string& var_name) {
@@ -69,4 +71,6 @@ void env::getEnv() {
     password = get_env_var("POSTGRES_PASSWORD");
     port = get_env_var("POSTGRES_PORT");
     cgroup_path = get_env_var("CGROUP_SYSTEM_SLICE_PATH");
+    proc_path = get_env_var("PROC_PATH");
+    update_interval = std::stoi(get_env_var("UPDATE_INTERVAL"));
 }
