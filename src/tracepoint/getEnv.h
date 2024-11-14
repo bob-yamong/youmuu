@@ -7,10 +7,10 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <cstdio>   //onlny use tp
-#include <memory>   //onlny use tp
-#include <array>    //onlny use tp
-#include <iostream> //onlny use tp
+#include <cstdio>   //only use tp
+#include <memory>   //only use tp
+#include <array>    //only use tp
+#include <iostream> //only use tp
 
 class env {
 public:
