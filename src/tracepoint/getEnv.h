@@ -7,10 +7,10 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <cstdio>
-#include <memory>
-#include <array>
-#include <iostream>
+#include <cstdio>   //only use tp
+#include <memory>   //only use tp
+#include <array>    //only use tp
+#include <iostream> //only use tp
 
 class env {
 public:
@@ -21,6 +21,7 @@ public:
     static std::string port;
     static std::string cgroup_path;
     static std::string proc_path;
+    static int update_interval;
 
     // static 함수로 변경
     static void getEnv();
