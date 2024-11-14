@@ -26,7 +26,6 @@
 #define ALLOW 0
 #define BLOCK 1
 #define LOGGING 2
-#define POLICY_UPDATE_INTERVAL 60
 #define POLICY_FILE_PATH const_cast<char*>("/policy/policy.yaml")
 
 static volatile bool running = true;
@@ -229,7 +228,7 @@ void update_policy_periodically(struct bpf_map *event_policy_map) {
         }
         
         // Sleep for 60 seconds
-        std::this_thread::sleep_for(std::chrono::seconds(POLICY_UPDATE_INTERVAL));
+        std::this_thread::sleep_for(std::chrono::seconds(env::update_interval));
     }
 }
 

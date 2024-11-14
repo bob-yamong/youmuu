@@ -16,6 +16,8 @@ public:
     static std::string password;
     static std::string port;
     static std::string cgroup_path;
+    static std::string proc_path;
+    static int update_interval;
 
     // static 함수로 변경
     static void getEnv();

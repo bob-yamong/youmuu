@@ -178,7 +178,7 @@ void ringbuf_thread_func(struct ring_buffer *rb)
 void policy_reload_thread(const std::string &yaml_file_path) {
     std::unique_lock<std::mutex> lock(cv_m);
     while (!exiting.load(std::memory_order_relaxed)) {
-        if(cv.wait_for(lock, std::chrono::minutes(1), []{ return exiting.load(); })) // 1분에 한번씩 정책을 감지 
+        if(cv.wait_for(lock, std::chrono::minutes(env::update_interval), []{ return exiting.load(); })) // 1분에 한번씩 정책을 감지 
             break;
 
         std::cout << "정책을 재로딩합니다: " << yaml_file_path << "\n";

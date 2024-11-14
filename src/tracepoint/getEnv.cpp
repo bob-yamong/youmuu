@@ -8,6 +8,7 @@ std::string env::password;
 std::string env::port;
 std::string env::cgroup_path;
 std::string env::proc_path;
+int env::update_interval;
 
 // static 멤버 함수 구현
 std::string env::get_env_var(const std::string& var_name, const std::string& default_value) {
@@ -71,6 +72,7 @@ void env::getEnv() {
         std::string temp_port = get_env_var("POSTGRES_PORT", "5432");
         std::string temp_cgroup = get_env_var("CGROUP_SYSTEM_SLICE_PATH", "/sys/fs/cgroup/system.slice/");
         std::string temp_proc = get_env_var("PROC_PATH", "/proc");
+        std::string temp_update_interval = get_env_var("UPDATE_INTERVAL", "60");
 
         // 멤버 변수에 할당
         host = temp_host;
@@ -80,6 +82,7 @@ void env::getEnv() {
         port = temp_port;
         cgroup_path = temp_cgroup;
         proc_path = temp_proc;
+        update_interval = std::stoi(temp_update_interval);
 
         std::cout << "=== Environment initialization completed ===" << std::endl;
         std::cout << "Final values:" << std::endl
