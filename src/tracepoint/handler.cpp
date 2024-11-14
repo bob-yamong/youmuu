@@ -2734,373 +2734,377 @@ static int handle_exit_ptrace(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-// static int handle_enter_process_vm_readv(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter process_vm_readv: %s, pid=%u, local_iov_len=%llu, remote_iov_len=%llu, flags=%#llx\n",
-//             e->arg_u32[0], e->arg_u64[0], e->arg_u64[1], e->arg_u64[2]);
-//     return 0;
-// }
+static int handle_enter_process_vm_readv(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_process_vm_readv(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit process_vm_readv: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit process_vm_readv: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.arg0 = std::to_string(e->arg_u32[0]); // pid
+    event.arg1 = std::to_string(e->arg_u64[0]); // local_iov_len
+    event.arg2 = std::to_string(e->arg_u64[1]); // remote_iov_len
+    event.arg3 = std::to_string(e->arg_u64[2]); // flags
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_process_vm_writev(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter process_vm_writev: %s, pid=%u, local_iov_len=%llu, remote_iov_len=%llu, flags=%#llx\n",
-//             e->arg_u32[0], e->arg_u64[0], e->arg_u64[1], e->arg_u64[2]);
-//     return 0;
-// }
+static int handle_exit_process_vm_readv(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_process_vm_writev(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit process_vm_writev: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit process_vm_writev: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_init_module(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter init_module: %s, len=%llu, param=%s\n",
-//                 e->arg_u64[0], e->arg_str);
-//     } else {
-//         printf("Enter init_module: %s, len=%llu, failed to read param\n",
-//                 e->arg_u64[0]);
-//     }
-//     return 0;
-// }
+static int handle_enter_process_vm_writev(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_init_module(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit init_module: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit init_module: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.arg0 = std::to_string(e->arg_u32[0]); // pid
+    event.arg1 = std::to_string(e->arg_u64[0]); // local_iov_len
+    event.arg2 = std::to_string(e->arg_u64[1]); // remote_iov_len
+    event.arg3 = std::to_string(e->arg_u64[2]); // flags
+    return 0;
+}
 
-// static int handle_enter_finit_module(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->is_valid) {
-//         printf("Enter finit_module: %s, fd=%d, param=%s, flags=%#x\n",
-//                 e->arg_s32[0], e->arg_str, e->arg_s32[1]);
-//     } else {
-//         printf("Enter finit_module: %s, fd=%d, failed to read param\n",
-//                 e->arg_s32[0]);
-//     }
-//     return 0;
-// }
+static int handle_exit_process_vm_writev(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_finit_module(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit finit_module: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit finit_module: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_delete_module(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter delete_module: %s, name=%s, flags=%#x\n",
-//             e->arg_str, e->arg_s32[0]);
-//     return 0;
-// }
+static int handle_enter_init_module(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_delete_module(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit delete_module: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit delete_module: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.arg0 = std::to_string(e->arg_u64[0]); // len
+    if (e->is_valid) {
+        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // param
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_munmap(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter munmap: %s, addr=%#llx, len=%llu\n",
-//             e->arg_u64[0], e->arg_u64[1]);
-//     return 0;
-// }
+static int handle_exit_init_module(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_munmap(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit munmap: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit munmap: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_mremap(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter mremap: %s, old_addr=%#llx, old_len=%llu, new_len=%llu, flags=%#x, new_addr=%#llx\n",
-//             e->arg_u64[0], e->arg_u64[1], e->arg_u64[2], e->arg_s32[0], e->arg_u64[3]);
-//     return 0;
-// }
+static int handle_enter_finit_module(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_mremap(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit mremap: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit mremap: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.arg0 = std::to_string(e->arg_s32[0]); // fd
+    event.arg2 = std::to_string(e->arg_s32[1]); // flags
+    if (e->is_valid) {
+        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // param
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_madvise(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter madvise: %s, addr=%#llx, len=%llu, advice=%d\n",
-//             e->arg_u64[0], e->arg_u64[1], e->arg_s32[0]);
-//     return 0;
-// }
+static int handle_exit_finit_module(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_madvise(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit madvise: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit madvise: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_mlock(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter mlock: %s, addr=%#llx, len=%llu\n",
-//             e->arg_u64[0], e->arg_u64[1]);
-//     return 0;
-// }
+static int handle_enter_delete_module(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_mlock(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit mlock: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit mlock: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // name
+    event.arg1 = std::to_string(e->arg_s32[0]); // flags
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_mlock2(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter mlock2: %s, addr=%#llx, len=%llu, flags=%#x\n",
-//             e->arg_u64[0], e->arg_u64[1], e->arg_s32[0]);
-//     return 0;
-// }
+static int handle_exit_delete_module(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_mlock2(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit mlock2: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit mlock2: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_munlock(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter munlock: %s, addr=%#llx, len=%llu\n",
-//             e->arg_u64[0], e->arg_u64[1]);
-//     return 0;
-// }
+static int handle_enter_munmap(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_munlock(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit munlock: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit munlock: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.arg0 = std::to_string(e->arg_u64[0]); // addr
+    event.arg1 = std::to_string(e->arg_u64[1]); // len
+    return 0;
+}
 
-// static int handle_enter_mlockall(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter mlockall: %s, flags=%#x\n",
-//             e->arg_s32[0]);
-//     return 0;
-// }
+static int handle_exit_munmap(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_mlockall(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit mlockall: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit mlockall: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_munlockall(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter munlockall: %s\n", 
-//     return 0;
-// }
+static int handle_enter_mremap(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_munlockall(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit munlockall: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit munlockall: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.arg0 = std::to_string(e->arg_u64[0]); // old_addr
+    event.arg1 = std::to_string(e->arg_u64[1]); // old_len
+    event.arg2 = std::to_string(e->arg_u64[2]); // new_len
+    event.arg3 = std::to_string(e->arg_s32[0]); // flags
+    event.arg4 = std::to_string(e->arg_u64[3]); // new_addr
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_mincore(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter mincore: %s, addr=%#llx, len=%llu\n",
-//             e->arg_u64[0], e->arg_u64[1]);
-//     return 0;
-// }
+static int handle_exit_mremap(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_mincore(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit mincore: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit mincore: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_membarrier(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter membarrier: %s, cmd=%d, flags=%#x, cpu_id=%d\n", 
-//             e->arg_s32[0], e->arg_u32[0], e->arg_s32[1]);
-//     return 0;
-// }
+static int handle_enter_madvise(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_membarrier(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit membarrier: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit membarrier: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.arg0 = std::to_string(e->arg_u64[0]); // addr
+    event.arg1 = std::to_string(e->arg_u64[1]); // len
+    event.arg2 = std::to_string(e->arg_s32[0]); // advice
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_capget(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter capget: %s\n", 
-//     return 0;
-// }
+static int handle_exit_madvise(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_capget(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit capget: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else if (e->is_valid) {
-//         printf("Enter capget: success, %s, header_version=%u, header_pid=%u, data_effective=%#x, data_permitted=%#x, data_inheritable=%#x, ret=%lld\n",
-//             e->arg_u32[0], e->arg_u32[1], e->arg_u32[2], e->arg_u32[3], e->arg_u32[4], e->ret);
-//     } else {
-//         printf("Exit capget: success, %s, failed to read cap values, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_prctl(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter prctl: %s, option=%d\n",
-//             e->arg_s32[0]);
-//     return 0;
-// }
+static int handle_enter_mlock(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_prctl(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit prctl: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit prctl: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.arg0 = std::to_string(e->arg_u64[0]); // addr
+    event.arg1 = std::to_string(e->arg_u64[1]); // len
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_arch_prctl(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter arch_prctl: %s, option=%d, addr=%#llx\n",
-//             e->arg_s32[0], e->arg_u64[0]);
-//     return 0;
-// }
+static int handle_exit_mlock(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_arch_prctl(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit arch_prctl: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit arch_prctl: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_kill(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter kill: %s, pid=%u, sig=%d\n",
-//             e->arg_u32[0], e->arg_s32[0]);
-//     return 0;
-// }
+static int handle_enter_mlock2(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_kill(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit kill: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit kill: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.arg0 = std::to_string(e->arg_u64[0]); // addr
+    event.arg1 = std::to_string(e->arg_u64[1]); // len
+    event.arg2 = std::to_string(e->arg_s32[0]); // flags
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_tkill(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter tkill: %s, tid=%u, sig=%d\n",
-//             e->arg_u32[0], e->arg_s32[0]);
-//     return 0;
-// }
+static int handle_exit_mlock2(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_tkill(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit tkill: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit tkill: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
 
-// static int handle_enter_tgkill(const struct event_t *e, const db_event_t& base_event) {
-//     printf("Enter tgkill: %s, tgid=%u, tid=%u, sig=%d\n",
-//             e->arg_u32[0], e->arg_u32[1], e->arg_s32[0]);
-//     return 0;
-// }
+static int handle_enter_munlock(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
 
-// static int handle_exit_tgkill(const struct event_t *e, const db_event_t& base_event) {
-//     if (e->ret < 0) {
-//         printf("Exit tgkill: failed, %s, error_code=%lld\n",
-//                 e->ret);
-//     } else {
-//         printf("Exit tgkill: success, %s, ret=%lld\n",
-//                 e->ret);
-//     }
-//     return 0;
-// }
+    event.arg0 = std::to_string(e->arg_u64[0]); // addr
+    event.arg1 = std::to_string(e->arg_u64[1]); // len
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_munlock(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_mlockall(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // flags
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_mlockall(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_munlockall(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event_buffer.add_event(event); 
+    return 0;
+}
+
+static int handle_exit_munlockall(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_mincore(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u64[0]); // addr
+    event.arg1 = std::to_string(e->arg_u64[1]); // len
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_mincore(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_membarrier(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // cmd
+    event.arg1 = std::to_string(e->arg_u32[0]); // flags
+    event.arg2 = std::to_string(e->arg_s32[1]); // cpu_id
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_membarrier(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_capget(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_capget(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    if (e->is_valid) {
+        event.arg0 = std::to_string(e->arg_u32[0]); // header_version
+        event.arg1 = std::to_string(e->arg_u32[1]); // header_pid
+        event.arg2 = std::to_string(e->arg_u32[2]); // data_effective
+        event.arg3 = std::to_string(e->arg_u32[3]); // data_permitted
+        event.arg4 = std::to_string(e->arg_u32[4]); // data_inheritable
+    }
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_prctl(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // option
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_prctl(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_arch_prctl(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // option
+    event.arg1 = std::to_string(e->arg_u64[0]); // addr
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_arch_prctl(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_kill(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u32[0]); // pid
+    event.arg1 = std::to_string(e->arg_s32[0]); // sig
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_kill(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_tkill(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u32[0]); // tid
+    event.arg1 = std::to_string(e->arg_s32[0]); // sig
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_tkill(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_enter_tgkill(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u32[0]); // tgid
+    event.arg1 = std::to_string(e->arg_u32[1]); // tid
+    event.arg2 = std::to_string(e->arg_s32[0]); // sig
+    event_buffer.add_event(event);
+    return 0;
+}
+
+static int handle_exit_tgkill(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    event_buffer.add_event(event);
+    return 0;
+}
 
 static struct socket_handlers event_handler[MAX_EVENT_ID] = {0};
 
@@ -3391,48 +3395,48 @@ void init_event_handlers(void) {
     event_handler[__NR_capset].exit = handle_exit_capset;
     event_handler[__NR_ptrace].enter = handle_enter_ptrace;
     event_handler[__NR_ptrace].exit = handle_exit_ptrace;
-    // event_handler[__NR_process_vm_readv].enter = handle_enter_process_vm_readv;
-    // event_handler[__NR_process_vm_readv].exit = handle_exit_process_vm_readv;
-    // event_handler[__NR_process_vm_writev].enter = handle_enter_process_vm_writev;
-    // event_handler[__NR_process_vm_writev].exit = handle_exit_process_vm_writev;
-    // event_handler[__NR_init_module].enter = handle_enter_init_module;
-    // event_handler[__NR_init_module].exit = handle_exit_init_module;
-    // event_handler[__NR_finit_module].enter = handle_enter_finit_module;
-    // event_handler[__NR_finit_module].exit = handle_exit_finit_module;
-    // event_handler[__NR_delete_module].enter = handle_enter_delete_module;
-    // event_handler[__NR_delete_module].exit = handle_exit_delete_module;
-    // event_handler[__NR_munmap].enter = handle_enter_munmap;
-    // event_handler[__NR_munmap].exit = handle_exit_munmap;
-    // event_handler[__NR_mremap].enter = handle_enter_mremap;
-    // event_handler[__NR_mremap].exit = handle_exit_mremap;
-    // event_handler[__NR_madvise].enter = handle_enter_madvise;
-    // event_handler[__NR_madvise].exit = handle_exit_madvise;
-    // event_handler[__NR_mlock].enter = handle_enter_mlock;
-    // event_handler[__NR_mlock].exit = handle_exit_mlock;
-    // event_handler[__NR_mlock2].enter = handle_enter_mlock2;
-    // event_handler[__NR_mlock2].exit = handle_exit_mlock2;
-    // event_handler[__NR_munlock].enter = handle_enter_munlock;
-    // event_handler[__NR_munlock].exit = handle_exit_munlock;
-    // event_handler[__NR_mlockall].enter = handle_enter_mlockall;
-    // event_handler[__NR_mlockall].exit = handle_exit_mlockall;
-    // event_handler[__NR_munlockall].enter = handle_enter_munlockall;
-    // event_handler[__NR_munlockall].exit = handle_exit_munlockall;
-    // event_handler[__NR_mincore].enter = handle_enter_mincore;
-    // event_handler[__NR_mincore].exit = handle_exit_mincore;
-    // event_handler[__NR_membarrier].enter = handle_enter_membarrier;
-    // event_handler[__NR_membarrier].exit = handle_exit_membarrier;
-    // event_handler[__NR_capget].enter = handle_enter_capget;
-    // event_handler[__NR_capget].exit = handle_exit_capget;
-    // event_handler[__NR_prctl].enter = handle_enter_prctl;
-    // event_handler[__NR_prctl].exit = handle_exit_prctl;
-    // event_handler[__NR_arch_prctl].enter = handle_enter_arch_prctl;
-    // event_handler[__NR_arch_prctl].exit = handle_exit_arch_prctl;
-    // event_handler[__NR_kill].enter = handle_enter_kill;
-    // event_handler[__NR_kill].exit = handle_exit_kill;
-    // event_handler[__NR_tkill].enter = handle_enter_tkill;
-    // event_handler[__NR_tkill].exit = handle_exit_tkill;
-    // event_handler[__NR_tgkill].enter = handle_enter_tgkill;
-    // event_handler[__NR_tgkill].exit = handle_exit_tgkill;
+    event_handler[__NR_process_vm_readv].enter = handle_enter_process_vm_readv;
+    event_handler[__NR_process_vm_readv].exit = handle_exit_process_vm_readv;
+    event_handler[__NR_process_vm_writev].enter = handle_enter_process_vm_writev;
+    event_handler[__NR_process_vm_writev].exit = handle_exit_process_vm_writev;
+    event_handler[__NR_init_module].enter = handle_enter_init_module;
+    event_handler[__NR_init_module].exit = handle_exit_init_module;
+    event_handler[__NR_finit_module].enter = handle_enter_finit_module;
+    event_handler[__NR_finit_module].exit = handle_exit_finit_module;
+    event_handler[__NR_delete_module].enter = handle_enter_delete_module;
+    event_handler[__NR_delete_module].exit = handle_exit_delete_module;
+    event_handler[__NR_munmap].enter = handle_enter_munmap;
+    event_handler[__NR_munmap].exit = handle_exit_munmap;
+    event_handler[__NR_mremap].enter = handle_enter_mremap;
+    event_handler[__NR_mremap].exit = handle_exit_mremap;
+    event_handler[__NR_madvise].enter = handle_enter_madvise;
+    event_handler[__NR_madvise].exit = handle_exit_madvise;
+    event_handler[__NR_mlock].enter = handle_enter_mlock;
+    event_handler[__NR_mlock].exit = handle_exit_mlock;
+    event_handler[__NR_mlock2].enter = handle_enter_mlock2;
+    event_handler[__NR_mlock2].exit = handle_exit_mlock2;
+    event_handler[__NR_munlock].enter = handle_enter_munlock;
+    event_handler[__NR_munlock].exit = handle_exit_munlock;
+    event_handler[__NR_mlockall].enter = handle_enter_mlockall;
+    event_handler[__NR_mlockall].exit = handle_exit_mlockall;
+    event_handler[__NR_munlockall].enter = handle_enter_munlockall;
+    event_handler[__NR_munlockall].exit = handle_exit_munlockall;
+    event_handler[__NR_mincore].enter = handle_enter_mincore;
+    event_handler[__NR_mincore].exit = handle_exit_mincore;
+    event_handler[__NR_membarrier].enter = handle_enter_membarrier;
+    event_handler[__NR_membarrier].exit = handle_exit_membarrier;
+    event_handler[__NR_capget].enter = handle_enter_capget;
+    event_handler[__NR_capget].exit = handle_exit_capget;
+    event_handler[__NR_prctl].enter = handle_enter_prctl;
+    event_handler[__NR_prctl].exit = handle_exit_prctl;
+    event_handler[__NR_arch_prctl].enter = handle_enter_arch_prctl;
+    event_handler[__NR_arch_prctl].exit = handle_exit_arch_prctl;
+    event_handler[__NR_kill].enter = handle_enter_kill;
+    event_handler[__NR_kill].exit = handle_exit_kill;
+    event_handler[__NR_tkill].enter = handle_enter_tkill;
+    event_handler[__NR_tkill].exit = handle_exit_tkill;
+    event_handler[__NR_tgkill].enter = handle_enter_tgkill;
+    event_handler[__NR_tgkill].exit = handle_exit_tgkill;
 }
 
 int handle_event(void *ctx, void *data, size_t data_sz) {
