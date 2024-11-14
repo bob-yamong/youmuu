@@ -583,7 +583,7 @@ void update_policy_periodically(int map_fd, int container_map_fd, int cgroup_map
             clear_bpf_map(container_map_fd);
             clear_bpf_map(cgroup_map_fd);
             ContainerManager::containers.clear();
-            
+          
             std::cout << "컨테이너 PID 자동 감지 중...\n";
             int detected_containers = ContainerManager::getContainerPIDs();
             std::cout << detected_containers << "개의 컨테이너를 감지했습니다.\n";
