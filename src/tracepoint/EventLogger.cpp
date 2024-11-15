@@ -1,11 +1,5 @@
 // EventLogger.cpp
 #include "EventLogger.h"
-#include <iostream>
-#include <iomanip>
-#include <exception>
-#include <cstring>
-#include <sstream>
-#include <string_view> 
 
 EventLogger::EventLogger(size_t bufferSize, const std::string& dbConnectionStr)
     : bufferSize_(bufferSize),
