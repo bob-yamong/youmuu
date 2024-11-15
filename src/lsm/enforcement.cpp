@@ -696,8 +696,18 @@ int main(int argc, char **argv) {
 
     env::getEnv();
 
-    // DB 연결
-    conn = std::make_unique<pqxx::connection>("dbname=" + env::dbname + " user=" + env::user + " password=" + env::password + " host=" + env::host + " port=" + env::port);
+    std::cout << "DB Info: " << env::dbname << ", " << env::user << ", " 
+          << env::password << ", " << env::host << ", " << env::port << std::endl;
+
+
+    conn = std::make_unique<pqxx::connection>(
+    "dbname=" + env::dbname + 
+    " user=" + env::user + 
+    " password=" + env::password + 
+    " host=" + env::host + 
+    " port=" + env::port
+    );
+
 
     /* Set up libbpf errors and debug info callback */
     // libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
