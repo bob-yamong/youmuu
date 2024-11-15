@@ -1,4 +1,3 @@
-// EventLogger.cpp
 #include "EventLogger.h"
 
 EventLogger::EventLogger(size_t bufferSize, const std::string& dbConnectionStr)

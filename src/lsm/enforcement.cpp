@@ -22,7 +22,6 @@
 #include <nlohmann/json.hpp>
  
 #include "enforcement.skel.h"
-
 #include "container_info.h"
 #include "policy_map_structs.h"
 #include "parser.h"

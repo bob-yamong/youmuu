@@ -8,6 +8,9 @@
 #include <glob.h>
 #include <sys/stat.h>
 #include <limits.h>
+#include <iostream>
+#include <memory>
+#include <algorithm>
 
 #include "getEnv.h"
 

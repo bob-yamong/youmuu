@@ -14,6 +14,14 @@
 #include <pqxx/pqxx>
 #include <syscall.h>
 #include <chrono>
+#include <iostream>
+#include <iomanip>
+#include <exception>
+#include <cstring>
+#include <sstream>
+#include <zlib.h>
+#include <string_view> 
+
 #include "event.h"
 #include "container_info.h"
 

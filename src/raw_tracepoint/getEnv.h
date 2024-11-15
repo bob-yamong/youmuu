@@ -7,6 +7,9 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <cstdio>
+#include <memory>
+#include <array>
 
 class env {
 public:

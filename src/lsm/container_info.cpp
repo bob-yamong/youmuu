@@ -1,6 +1,4 @@
 #include "container_info.h"
-#include <iostream>
-#include <memory>
 
 std::vector<ContainerInfo> ContainerManager::containers;
 

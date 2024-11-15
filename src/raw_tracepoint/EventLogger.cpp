@@ -1,16 +1,5 @@
 // EventLogger.cpp
 #include "EventLogger.h"
-#include <iostream>
-#include <iomanip>
-#include <exception>
-#include <cstring>
-#include <sstream>
-#include <zlib.h>
-#include <string_view> 
-
-// 정적 assert로 구조체 크기 검증 (eBPF와 C++ 간 일치 확인)
-// static_assert(sizeof(event) == 8 + 8 + 4 + 4 + 4 + 4 + 4 + 8 + 8 + TASK_COMM_LEN + 16 + 48 + MAX_FILENAME_LEN + (MAX_ARGS * MAX_ARG_LEN) + MAX_CGROUP_NAME_LEN,
-//               "Size of event struct does not match expected size");
 
 EventLogger::EventLogger(size_t bufferSize, const std::string& logFilePath, const std::string& dbConnectionStr)
     : bufferSize_(bufferSize),

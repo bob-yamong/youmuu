@@ -1,8 +1,4 @@
-// getEnv.cpp
 #include "getEnv.h"
-#include <cstdio>
-#include <memory>
-#include <array>
 
 // static 멤버 변수 정의
 std::string env::host;

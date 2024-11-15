@@ -1,7 +1,4 @@
 #include "container_info.h"
-#include <iostream>
-#include <memory>
-#include <algorithm>
 
 // 정적 멤버 초기화
 std::vector<ContainerInfo> ContainerManager::containers;
