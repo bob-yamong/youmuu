@@ -30,8 +30,7 @@ EventLogger::EventLogger(size_t bufferSize, const std::string& dbConnectionStr)
     flushThread_ = std::thread(&EventLogger::flushThreadFunc, this);
 }
 
-EventLogger::~EventLogger()
-{
+EventLogger::~EventLogger() {
     // 종료 플래그 설정
     shutdown_.store(true);
     cv_.notify_all();
@@ -55,11 +54,9 @@ EventLogger::~EventLogger()
         insertEventsToDB(*bufferToFlush);
         bufferToFlush->clear();
     }
-
 }
 
-void EventLogger::addEvent(const db_event_t& e)
-{
+void EventLogger::addEvent(const db_event_t& e) {
     std::unique_lock<std::mutex> lock(mtx_);
     currentBuffer_->push_back(e);
 
@@ -112,8 +109,7 @@ void EventLogger::addEvent(const db_event_t& e)
     }
 }
 
-void EventLogger::flushThreadFunc()
-{
+void EventLogger::flushThreadFunc() {
     try {
         while (!shutdown_.load()) {
             std::unique_lock<std::mutex> lock(mtx_);
