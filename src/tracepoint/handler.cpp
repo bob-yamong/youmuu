@@ -355,8 +355,7 @@ static int handle_enter_recvmsg(const struct event_t *e, const db_event_t& base_
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
-    event.arg1 = std::to_string(e->arg_u64[0]); // msg_len
-    event.arg2 = std::to_string(e->arg_s32[1]); // flags
+    event.arg1 = std::to_string(e->arg_s32[1]); // flags
     add_event(event);
     return 0;
 }
