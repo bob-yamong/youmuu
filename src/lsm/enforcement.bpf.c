@@ -15,8 +15,6 @@
 
 char LICENSE[] SEC("license") = "GPL";
 
-// Process
-
 SEC("lsm/bprm_check_security")
 int BPF_PROG(bprm_check_security, struct linux_binprm *bprm)
 {
@@ -72,11 +70,91 @@ clear:
     return ret;
 }
 
-// SEC("lsm/task_fix_setuid")
-// int BPF_PROG(task_fix_setuid, struct cred *new, const struct cred *old,
-// 	 int flags)
+SEC("lsm/file_open")
+int BPF_PROG(file_open, struct file *file)
+{   
+
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+    
+    __u64 cgroup_id = bpf_get_current_cgroup_id();
+
+    if (!should_monitor(ppid, cgroup_id)) {
+        return 0;
+    }
+
+    event *e;
+    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        bpf_printk("Failed ringbuf_reserve");
+        return 0;
+    }
+
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+
+    if (bpf_d_path(&file->f_path, e->data.path, sizeof(e->data.path)) < 0) {
+        //bpf_printk("Failed to get file path");
+    }
+
+    get_process_path(e->data.source, sizeof(e->data.source));
+
+    __u32 flags = match_policy(task, POLICY_FILE, e->data.path);
+
+    //bpf_printk("file_open at %s flag is %u and file_flags is %u \n", e->data.path, flags, file->f_flags);
+    //if (!flags) goto clear;
+    //맵에 해당 경로에 대한 정책이 없으면 플래그가 반환이 안됨, 하지만 이걸 화이트리스트로 하려고하면 플래그가 반환이 안되면 차단을 해야됨.
+    //결국 flag는 해당 경로에 대한 체킹포인트가 되는거임. => 화이트 리스트가 반영되는 순간 결국 모든 경로에 대한 후킹 체크는 들어가야함
+
+    ret = 0;
+    // __u8 mode = flags & POLICY_ALLOW;
+    // if (mode) e->retval = -1;
+
+    //(파일을 생성하면 파일을 생성하는 경로가 아닌 생성되는 파일의 경로이므로 /test에 대해서 파일 작업을 막으려면 /test/filename을 막아야함)
+    //r => 블랙리스트
+    //w => 화이트리스트, 근데 해당 경로만 허락이 되는게 아닌 recursive하게 선언하면 결국 이것도 마찬가지로 다 됨
+    //e => 블랙리스트
+    if ((flags & POLICY_FILE_READ) && ((file->f_flags & O_WRONLY) == 0))  {
+        //bpf_printk("block read at %s %d \n", e->data.path, flags);
+        ret -= 1;
+    }
+    if ((!flags) && (file->f_flags & (O_WRONLY | O_RDWR))) {
+        bpf_printk("block write at %s %d \n", e->data.path, flags);
+        ret -= 1;
+    }
+    else if((flags & POLICY_FILE_WRITE) && (file->f_flags & (O_WRONLY | O_RDWR))) {
+        bpf_printk("allow write at %s %d \n", e->data.path, flags);
+        ret = 0;
+    }
+    // if ((flags & POLICY_FILE_WRITE) && (file->f_flags & (O_WRONLY | O_RDWR))) {
+    //     //bpf_printk("block write at %s %d \n", e->data.path, flags);
+    //     ret -= 1;
+    // }
+    if ((flags & POLICY_FILE_EXEC) && (file->f_flags & FMODE_EXEC)) {
+        //bpf_printk("block execute at %s %d \n", e->data.path, flags);
+        ret -= 1;
+    }
+
+    e->event_id = SECID_FILE_OPEN;
+    e->retval = ret;
+    if (flags & POLICY_AUDIT) bpf_ringbuf_submit(e, 0);
+    else goto clear;
+
+    return ret;
+
+clear:
+    bpf_ringbuf_discard(e, 0);
+    return ret;
+}
+
+// SEC("lsm/sb_mount")
+// int BPF_PROG(sb_mount, const char *dev_name, const struct path *path,
+// 	const char *type, unsigned long flags, void *data)
 // {
-// 	////bpf_printk("lsm_hook: task: task_fix_setuid\n");
+// 	////bpf_printk("lsm_hook: fs: sb_mount\n");
 
 // 	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 //     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
@@ -99,10 +177,10 @@ clear:
 //         bpf_ringbuf_discard(e, 0);
 //         return 0;
 //     }
-    
-//     get_process_path(e->data.source, sizeof(e->data.source));
 
-//     e->event_id = SECID_TASK_FIX_SETUID;
+//     get_process_path(e->data.source, sizeof(e->data.source));
+    
+//     e->event_id = SECID_SB_MOUNT;
 //     e->retval = 0; 
     
 //     bpf_ringbuf_discard(e, 0);
@@ -110,7 +188,79 @@ clear:
 // 	return 0;
 // }
 
-// Network
+// SEC("lsm/sb_remount")
+// int BPF_PROG(sb_remount, struct super_block *sb, void *mnt_opts)
+// {
+// 	////bpf_printk("lsm_hook: fs: sb_remount\n");
+
+// 	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+    
+//     __u64 cgroup_id = bpf_get_current_cgroup_id();
+
+//     if (!should_monitor(ppid, cgroup_id)) {
+//         return 0;
+//     }
+
+//     event *e;
+//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+//     if (!e) {
+//         bpf_printk("Failed ringbuf_reserve");
+//         return 0;
+//     }    
+    
+//     int ret = init_context(e);
+//     if (ret < 0) {
+//         bpf_ringbuf_discard(e, 0);
+//         return 0;
+//     }
+
+//     get_process_path(e->data.source, sizeof(e->data.source));
+    
+//     e->event_id = SECID_SB_REMOUNT;
+//     e->retval = 0; 
+    
+//     bpf_ringbuf_discard(e, 0);
+
+// 	return 0;
+// }
+
+// SEC("lsm/sb_umount")
+// int BPF_PROG(sb_umount, struct vfsmount *mnt, int flags)
+// {
+// 	////bpf_printk("lsm_hook: fs: sb_umount\n");
+
+// 	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+    
+//     __u64 cgroup_id = bpf_get_current_cgroup_id();
+
+//     if (!should_monitor(ppid, cgroup_id)) {
+//         return 0;
+//     }
+
+//     event *e;
+//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+//     if (!e) {
+//         bpf_printk("Failed ringbuf_reserve");
+//         return 0;
+//     }    
+    
+//     int ret = init_context(e);
+//     if (ret < 0) {
+//         bpf_ringbuf_discard(e, 0);
+//         return 0;
+//     }
+
+//     get_process_path(e->data.source, sizeof(e->data.source));
+    
+//     e->event_id = SECID_SB_UMOUNT;
+//     e->retval = 0; 
+    
+//     bpf_ringbuf_discard(e, 0);
+
+// 	return 0;
+// }
 
 SEC("lsm/socket_connect")
 int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
@@ -244,283 +394,43 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
     return 0;
 }
 
-// File System
+// SEC("lsm/task_fix_setuid")
+// int BPF_PROG(task_fix_setuid, struct cred *new, const struct cred *old,
+// 	 int flags)
+// {
+// 	////bpf_printk("lsm_hook: task: task_fix_setuid\n");
 
-SEC("lsm/file_open")
-int BPF_PROG(file_open, struct file *file)
-{   
-
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+// 	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
     
-    __u64 cgroup_id = bpf_get_current_cgroup_id();
+//     __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    if (!should_monitor(ppid, cgroup_id)) {
-        return 0;
-    }
+//     if (!should_monitor(ppid, cgroup_id)) {
+//         return 0;
+//     }
 
-    event *e;
-    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }
-
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
-
-    if (bpf_d_path(&file->f_path, e->data.path, sizeof(e->data.path)) < 0) {
-        //bpf_printk("Failed to get file path");
-    }
-
-    get_process_path(e->data.source, sizeof(e->data.source));
-
-    __u32 flags = match_policy(task, POLICY_FILE, e->data.path);
-
-    if (!flags) goto clear;
-
-    ret = 0;
-    __u8 mode = flags & POLICY_ALLOW;
-    if (mode) e->retval = -1;
-
+//     event *e;
+//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+//     if (!e) {
+//         bpf_printk("Failed ringbuf_reserve");
+//         return 0;
+//     }    
     
-    if ((flags & POLICY_FILE_READ) && ((file->f_flags & O_WRONLY) == 0))  {
-        //bpf_printk("block read at %s %d \n", e->data.path, flags);
-        ret -= 1;
-    }
-    else if ((flags & POLICY_FILE_WRITE) && (file->f_flags & (O_WRONLY | O_RDWR))) {
-        //bpf_printk("block write at %s %d \n", e->data.path, flags);
-        ret -= 1;
-    }
-    if ((flags & POLICY_FILE_EXEC) && (file->f_flags & FMODE_EXEC)) {
-        //bpf_printk("block execute at %s %d \n", e->data.path, flags);
-        ret -= 1;
-    }
-
-    e->event_id = SECID_FILE_OPEN;
-    e->retval = ret;
-    if (flags & POLICY_AUDIT) bpf_ringbuf_submit(e, 0);
-    else goto clear;
-
-    return ret;
-
-clear:
-    bpf_ringbuf_discard(e, 0);
-    return ret;
-}
-
-SEC("lsm/file_permission")
-int BPF_PROG(file_permission, struct file *file, int mask)
-{
-    ////bpf_printk("lsm_hook: file: file_permission\n");
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+//     int ret = init_context(e);
+//     if (ret < 0) {
+//         bpf_ringbuf_discard(e, 0);
+//         return 0;
+//     }
     
-    __u64 cgroup_id = bpf_get_current_cgroup_id();
+//     get_process_path(e->data.source, sizeof(e->data.source));
 
-    if (!should_monitor(ppid, cgroup_id)) {
-        return 0;
-    }
-
-    event *e;
-    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }    
+//     e->event_id = SECID_TASK_FIX_SETUID;
+//     e->retval = 0; 
     
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
-    
-    struct dentry *dentry;
-    if (bpf_probe_read_kernel(&dentry, sizeof(dentry), &file->f_path.dentry) == 0) {
-        const unsigned char *name;
-        if (bpf_probe_read_kernel(&name, sizeof(name), &dentry->d_name.name) == 0) {
-            bpf_probe_read_kernel_str(e->data.path, sizeof(e->data.path), name);
-        }
-    }
+//     bpf_ringbuf_discard(e, 0);
 
-
-    get_process_path(e->data.source, sizeof(e->data.source));
-    
-    e->event_id = SECID_FILE_PERMISSION;
-    e->retval = 0; 
-    
-    bpf_ringbuf_discard(e, 0);
-
-    return 0;
-
-}
-
-SEC("lsm/path_unlink")
-int BPF_PROG(path_unlink, struct path *path)
-{
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
-    
-    __u64 cgroup_id = bpf_get_current_cgroup_id();
-
-    if (!should_monitor(ppid, cgroup_id)) {
-        return 0;
-    }
-
-    event *e;
-    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }    
-    
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
-
-    if (bpf_d_path(path, e->data.path, sizeof(e->data.path)) < 0) {
-        //bpf_printk("Failed to get file path");
-    }
-
-    __u32 flags = match_policy(task, POLICY_FILE, e->data.path);
-    
-    if (!flags) goto clear;
-
-    __u8 allow_mode = flags & POLICY_ALLOW;
-    ret = allow_mode ? 1:0;
-
-    if (flags & POLICY_FILE_DELETE) ret -= 1;       
-    
-    //bpf_printk("Operation not permitted at %s by policy \n",e->data.path);
- 
-    e->retval = ret;
-    if (flags & POLICY_AUDIT) bpf_ringbuf_submit(e, 0);
-    else goto clear;
-    
-    return ret;
-
-clear:
-    bpf_ringbuf_discard(e, 0);
-    return ret;
-}
-
-SEC("lsm/path_mkdir")
-int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
-{    
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
-    
-    __u64 cgroup_id = bpf_get_current_cgroup_id();
-
-    if (!should_monitor(ppid, cgroup_id)) {
-        return 0;
-    }
-
-    event *e;
-    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }    
-    
-    int ret = init_context(e);
-
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }  
-
-    if (bpf_d_path(path, e->data.path, sizeof(e->data.path)) < 0) {
-        //bpf_printk("Failed to get file path");
-    }
-
-    //bpf_printk("lsm_hook: fs: path_mkdir at %s\n",e->data.path);
-
-    __u32 flags = match_policy(task, POLICY_FILE,e->data.path);
-    
-    if (!flags) goto clear;
-
-    __u8 allow_mode = flags & POLICY_ALLOW;
-    ret = allow_mode ? 1:0;
-
-    if (flags & POLICY_FILE_APPEND) ret -= 1;       
-    
-    //bpf_printk("Operation not permitted at %s by policy \n",e->data.path);
- 
-    e->retval = ret;
-    if (flags & POLICY_AUDIT) bpf_ringbuf_submit(e, 0);
-    else goto clear;
-    
-    return ret;
-
-clear:
-    bpf_ringbuf_discard(e, 0);
-    return ret;
-}
-
-SEC("lsm/path_rename")
-int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
-             const struct path *new_dir, struct dentry *new_dentry) {
-    //인자 잘못 선언되어있던 것 수정, 차후 파일 전체 로직 통합 및 수정 필요
-
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
-    
-    __u64 cgroup_id = bpf_get_current_cgroup_id();
-
-    if (!should_monitor(ppid, cgroup_id)) {
-        return 0;
-    }
-
-    event *e;
-    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }       
-    char path[256];
-
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
-
-
-   if (bpf_d_path((struct path *)old_dir, e->data.path, sizeof(e->data.path)) < 0) {   
-        //bpf_printk("Failed to get file path");
-    }
-    __u32 flags = match_policy(task, POLICY_FILE, e->data.path);
-
-    //bpf_printk("lsm_hook: fs: path_rename at %s\n", e->data.path);
-    
-    if (!flags) goto clear;
-
-    __u8 allow_mode = flags & POLICY_ALLOW;
-    ret = allow_mode ? 1 : 0;
-
-    if (flags & POLICY_FILE_RENAME) ret -= 1;    
-    
-    get_process_path(e->data.source, sizeof(e->data.source));
-
-    e->event_id = SECID_PATH_RENAME;   
-    e->retval = ret;
-    
-    if (flags & POLICY_AUDIT) bpf_ringbuf_submit(e, 0);
-    else goto clear;
-    
-    return ret;
-
-clear:
-    bpf_ringbuf_discard(e, 0);
-    return ret;
-}
+// 	return 0;
+// }
 
 // SEC("lsm/kernel_module_request")
 // int BPF_PROG(kernel_module_request, char *kmod_name)
@@ -631,6 +541,52 @@ clear:
 //     return 0;
 
 // }
+
+SEC("lsm/file_permission")
+int BPF_PROG(file_permission, struct file *file, int mask)
+{
+    ////bpf_printk("lsm_hook: file: file_permission\n");
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+    
+    __u64 cgroup_id = bpf_get_current_cgroup_id();
+
+    if (!should_monitor(ppid, cgroup_id)) {
+        return 0;
+    }
+
+    event *e;
+    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        bpf_printk("Failed ringbuf_reserve");
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+    
+    struct dentry *dentry;
+    if (bpf_probe_read_kernel(&dentry, sizeof(dentry), &file->f_path.dentry) == 0) {
+        const unsigned char *name;
+        if (bpf_probe_read_kernel(&name, sizeof(name), &dentry->d_name.name) == 0) {
+            bpf_probe_read_kernel_str(e->data.path, sizeof(e->data.path), name);
+        }
+    }
+
+
+    get_process_path(e->data.source, sizeof(e->data.source));
+    
+    e->event_id = SECID_FILE_PERMISSION;
+    e->retval = 0; 
+    
+    bpf_ringbuf_discard(e, 0);
+
+    return 0;
+
+}
 
 // SEC("lsm/capable")
 // int BPF_PROG(capable, struct task_struct *task, const struct cred *cred, int cap)
@@ -743,6 +699,66 @@ clear:
 
 // }
 
+SEC("lsm/path_unlink")
+//삭제는 블랙리스트
+int BPF_PROG(path_unlink, struct path *path)
+{
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+    
+    __u64 cgroup_id = bpf_get_current_cgroup_id();
+
+    if (!should_monitor(ppid, cgroup_id)) {
+        return 0;
+    }
+
+    event *e;
+    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        bpf_printk("Failed ringbuf_reserve");
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+
+    if (bpf_d_path(path, e->data.path, sizeof(e->data.path)) < 0) {
+        //bpf_printk("Failed to get file path");
+    }
+
+    __u32 flags = match_policy(task, POLICY_FILE, e->data.path);
+    
+    //if (!flags) goto clear;
+
+    __u8 allow_mode = flags & POLICY_ALLOW;
+    ret = allow_mode ? 1:0;
+
+    if (flags & POLICY_FILE_DELETE) {
+        //해당 경로가 선언이 되어있고, 그 플래그가 파일 생성에 대한 플래그가 있을 때
+        ret = 0;       
+    }else{
+        //경로가 선언만 되어있거나, 선언되어있지 않으면 블락
+        ret -= 1; 
+    }
+  
+    
+    //bpf_printk("Operation not permitted at %s by policy \n",e->data.path);
+ 
+    e->retval = ret;
+    if (flags & POLICY_AUDIT) bpf_ringbuf_submit(e, 0);
+    else goto clear;
+    
+    return ret;
+
+clear:
+    bpf_ringbuf_discard(e, 0);
+    return ret;
+}
+
+
 // SEC("lsm/path_symlink")
 // int BPF_PROG(path_symlink, struct path *path, struct path *target)
 // {
@@ -778,7 +794,71 @@ clear:
 
 //     return 0;
 
-// }    
+// }
+
+SEC("lsm/path_mkdir")
+//폴더 생성은 화이트 리스트
+int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
+{    
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+    
+    __u64 cgroup_id = bpf_get_current_cgroup_id();
+
+    if (!should_monitor(ppid, cgroup_id)) {
+        return 0;
+    }
+
+    event *e;
+    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+
+    if (!e) {
+        bpf_printk("Failed ringbuf_reserve");
+        return 0;
+    }    
+    
+    int ret = init_context(e);
+
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }  
+
+    if (bpf_d_path(path, e->data.path, sizeof(e->data.path)) < 0) {
+        //bpf_printk("Failed to get file path");
+    }
+
+    //bpf_printk("lsm_hook: fs: path_mkdir at %s\n",e->data.path);
+
+    __u32 flags = match_policy(task, POLICY_FILE,e->data.path);
+    
+    //if (!flags) goto clear;
+
+    __u8 allow_mode = flags & POLICY_ALLOW;
+    ret = allow_mode ? 1:0;
+
+
+    if (flags & POLICY_FILE_APPEND) {
+        //해당 경로가 선언이 되어있고, 그 플래그가 파일 생성에 대한 플래그가 있을 때
+        ret = 0;       
+    }else{
+        //경로가 선언만 되어있거나, 선언되어있지 않으면 블락
+        ret -= 1; 
+    }
+    //bpf_printk("Operation not permitted at %s by policy \n",e->data.path);
+ 
+    e->retval = ret;
+    if (flags & POLICY_AUDIT) bpf_ringbuf_submit(e, 0);
+    else goto clear;
+    
+    return ret;
+
+clear:
+    bpf_ringbuf_discard(e, 0);
+    return ret;
+}
+
+    
 
 // SEC("lsm/path_link")
 // int BPF_PROG(path_link, struct dentry *old_dentry, struct path *new_dir, struct dentry *new_dentry)
@@ -816,6 +896,73 @@ clear:
 //     return 0;
 
 // }
+
+SEC("lsm/path_rename")
+//이름 변경은 화이트 리스트
+int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
+             const struct path *new_dir, struct dentry *new_dentry) {
+    //인자 잘못 선언되어있던 것 수정, 차후 파일 전체 로직 통합 및 수정 필요
+
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+    
+    __u64 cgroup_id = bpf_get_current_cgroup_id();
+
+    if (!should_monitor(ppid, cgroup_id)) {
+        return 0;
+    }
+
+    event *e;
+    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        bpf_printk("Failed ringbuf_reserve");
+        return 0;
+    }       
+    char path[256];
+
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+
+
+   if (bpf_d_path(old_dir, e->data.path, sizeof(e->data.path)) < 0) {   
+        //bpf_printk("Failed to get file path");
+    }
+    __u32 flags = match_policy(task, POLICY_FILE, e->data.path);
+
+    //bpf_printk("lsm_hook: fs: path_rename at %s\n", e->data.path);
+    
+    //if (!flags) goto clear;
+
+    __u8 allow_mode = flags & POLICY_ALLOW;
+    ret = allow_mode ? 1 : 0;
+
+
+    if (flags & POLICY_FILE_RENAME) {
+        //해당 경로가 선언이 되어있고, 그 플래그가 파일 생성에 대한 플래그가 있을 때
+        ret = 0;       
+    }else{
+        //경로가 선언만 되어있거나, 선언되어있지 않으면 블락
+        ret -= 1; 
+    }
+    //bpf_printk("Operation not permitted at %s by policy \n",e->data.path);
+    
+    get_process_path(e->data.source, sizeof(e->data.source));
+
+    e->event_id = SECID_PATH_RENAME;   
+    e->retval = ret;
+    
+    if (flags & POLICY_AUDIT) bpf_ringbuf_submit(e, 0);
+    else goto clear;
+    
+    return ret;
+
+clear:
+    bpf_ringbuf_discard(e, 0);
+    return ret;
+}
 
 // SEC("lsm/path_chmod")
 // int BPF_PROG(path_chmod, struct path *path, umode_t mode)
@@ -926,116 +1073,4 @@ clear:
 
 //     return 0;
 
-// }
-
-// SEC("lsm/sb_mount")
-// int BPF_PROG(sb_mount, const char *dev_name, const struct path *path,
-// 	const char *type, unsigned long flags, void *data)
-// {
-// 	////bpf_printk("lsm_hook: fs: sb_mount\n");
-
-// 	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
-    
-//     __u64 cgroup_id = bpf_get_current_cgroup_id();
-
-//     if (!should_monitor(ppid, cgroup_id)) {
-//         return 0;
-//     }
-
-//     event *e;
-//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-//     if (!e) {
-//         bpf_printk("Failed ringbuf_reserve");
-//         return 0;
-//     }    
-    
-//     int ret = init_context(e);
-//     if (ret < 0) {
-//         bpf_ringbuf_discard(e, 0);
-//         return 0;
-//     }
-
-//     get_process_path(e->data.source, sizeof(e->data.source));
-    
-//     e->event_id = SECID_SB_MOUNT;
-//     e->retval = 0; 
-    
-//     bpf_ringbuf_discard(e, 0);
-
-// 	return 0;
-// }
-
-// SEC("lsm/sb_remount")
-// int BPF_PROG(sb_remount, struct super_block *sb, void *mnt_opts)
-// {
-// 	////bpf_printk("lsm_hook: fs: sb_remount\n");
-
-// 	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
-    
-//     __u64 cgroup_id = bpf_get_current_cgroup_id();
-
-//     if (!should_monitor(ppid, cgroup_id)) {
-//         return 0;
-//     }
-
-//     event *e;
-//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-//     if (!e) {
-//         bpf_printk("Failed ringbuf_reserve");
-//         return 0;
-//     }    
-    
-//     int ret = init_context(e);
-//     if (ret < 0) {
-//         bpf_ringbuf_discard(e, 0);
-//         return 0;
-//     }
-
-//     get_process_path(e->data.source, sizeof(e->data.source));
-    
-//     e->event_id = SECID_SB_REMOUNT;
-//     e->retval = 0; 
-    
-//     bpf_ringbuf_discard(e, 0);
-
-// 	return 0;
-// }
-
-// SEC("lsm/sb_umount")
-// int BPF_PROG(sb_umount, struct vfsmount *mnt, int flags)
-// {
-// 	////bpf_printk("lsm_hook: fs: sb_umount\n");
-
-// 	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
-    
-//     __u64 cgroup_id = bpf_get_current_cgroup_id();
-
-//     if (!should_monitor(ppid, cgroup_id)) {
-//         return 0;
-//     }
-
-//     event *e;
-//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-//     if (!e) {
-//         bpf_printk("Failed ringbuf_reserve");
-//         return 0;
-//     }    
-    
-//     int ret = init_context(e);
-//     if (ret < 0) {
-//         bpf_ringbuf_discard(e, 0);
-//         return 0;
-//     }
-
-//     get_process_path(e->data.source, sizeof(e->data.source));
-    
-//     e->event_id = SECID_SB_UMOUNT;
-//     e->retval = 0; 
-    
-//     bpf_ringbuf_discard(e, 0);
-
-// 	return 0;
 // }
