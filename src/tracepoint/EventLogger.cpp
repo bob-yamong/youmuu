@@ -204,7 +204,6 @@ void EventLogger::flushThreadFunc()
     }
 }
 
-
 using namespace std::string_view_literals;
 
 void EventLogger::insertEventsToDB(const std::vector<db_event_t>& events) {
