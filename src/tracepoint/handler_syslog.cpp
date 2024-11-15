@@ -1,5 +1,4 @@
 #include "handler.h"
-#include <syslog.h>
 #define NANOSECONDS_IN_A_SECOND 1000000000
 #define MAX_EVENT_ID 1024
 

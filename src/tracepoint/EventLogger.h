@@ -16,6 +16,13 @@
 #include <pqxx/pqxx>
 #include <syscall.h>
 #include <chrono>
+#include <iostream>
+#include <iomanip>
+#include <exception>
+#include <cstring>
+#include <sstream>
+#include <string_view> 
+
 #include "struct.h"
 #include "user_struct.h"
 

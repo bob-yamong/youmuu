@@ -10,6 +10,8 @@
 #include <iostream>
 #include <sys/sysinfo.h>
 #include <asm/unistd_64.h>
+#include <syslog.h>
+
 #include "struct.h"
 #include "user_struct.h"
 #include "container_pid_id.h"
