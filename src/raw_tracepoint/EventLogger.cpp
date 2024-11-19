@@ -3,7 +3,8 @@
 
 EventLogger::EventLogger(size_t bufferSize, const std::string& logFilePath, const std::string& dbConnectionStr)
     : bufferSize_(bufferSize),
-      logFilePath_(logFilePath),
+      logFileBasePath_(logFilePath),
+      currentDate_(""),
       buffer1_(),
       buffer2_(),
       buffer3_(),
@@ -29,11 +30,7 @@ EventLogger::EventLogger(size_t bufferSize, const std::string& logFilePath, cons
     buffer3_.reserve(bufferSize_);
     buffer4_.reserve(bufferSize_);
 
-    // 압축된 파일 열기 (쓰기 모드, 압축 레벨 6)
-    gzFile_ = gzopen(logFilePath_.c_str(), "wb6");
-    if (!gzFile_) {
-        throw std::runtime_error("Failed to open compressed log file: " + logFilePath_);
-    }
+    checkAndRotateLogFile();
 
     // 초기 버퍼 활성화 시간 설정
     current_buffer_time_ = std::chrono::steady_clock::now();
@@ -52,7 +49,7 @@ EventLogger::~EventLogger()
         flushThread_.join();
     }
 
-    // 모든 버퍼 플러시
+    // ��든 버퍼 플러시
     std::lock_guard<std::mutex> lock(mtx_);
 
     // 현재 버퍼가 비어있지 않다면 플러시 버퍼 대기열에 추가
@@ -103,9 +100,9 @@ void EventLogger::addEvent(const event& e)
             currentBuffer_ = &buffer4_;
         }
         else {
-            // 모든 버퍼가 꽉 찼다면, 대기
+            // 모든 버퍼가 꽉 찼다면, ��기
             cv_.wait(lock, [this]() { return !flushBuffers_.empty(); });
-            // 재시도
+            // 재���도
             if (&buffer1_ != currentBuffer_ && buffer1_.size() < bufferSize_) {
                 currentBuffer_ = &buffer1_;
             }
@@ -138,6 +135,9 @@ void EventLogger::flushThreadFunc()
 {
     try {
         while (!shutdown_.load()) {
+            // 로그 파일 날짜 체크 및 교체
+            checkAndRotateLogFile();
+
             std::unique_lock<std::mutex> lock(mtx_);
 
             // 대기 시간 1초로 설정하여 주기적으로 타임아웃을 체크
@@ -219,7 +219,6 @@ void EventLogger::flushThreadFunc()
         std::cerr << "Unknown exception in flushThreadFunc\n";
     }
 }
-
 
 void EventLogger::flushToFile(const std::vector<event>& buffer)
 {
@@ -447,6 +446,44 @@ std::string EventLogger::format_timestamp(uint64_t timestamp_ns) const {
     snprintf(result, sizeof(result), "%s.%09lu", buffer, nanoseconds);
     
     return std::string(result);
+}
+
+std::string EventLogger::getCurrentLogPath() const {
+    auto now = std::chrono::system_clock::now();
+    auto time = std::chrono::system_clock::to_time_t(now);
+    std::stringstream ss;
+    ss << logFileBasePath_ << "/";
+    ss << std::put_time(std::localtime(&time), "%Y%m%d");
+    ss << "_raw.log.gz";
+    return ss.str();
+}
+
+void EventLogger::checkAndRotateLogFile() {
+    auto now = std::chrono::system_clock::now();
+    auto time = std::chrono::system_clock::to_time_t(now);
+    std::stringstream ss;
+    ss << std::put_time(std::localtime(&time), "%Y%m%d");
+    std::string newDate = ss.str();
+
+    if (currentDate_ != newDate) {
+        // 기존 파일이 열려있으면 닫기
+        if (gzFile_) {
+            gzclose(gzFile_);
+            gzFile_ = nullptr;
+        }
+
+        // 새 로그 파일 경로 설정
+        std::string newLogPath = getCurrentLogPath();
+        
+        // 새 파일 열기
+        gzFile_ = gzopen(newLogPath.c_str(), "wb6");
+        if (!gzFile_) {
+            throw std::runtime_error("Failed to open new compressed log file: " + newLogPath);
+        }
+
+        currentDate_ = newDate;
+        logFilePath_ = newLogPath;
+    }
 }
 
 // using namespace std::string_view_literals;

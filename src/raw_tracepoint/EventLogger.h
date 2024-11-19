@@ -40,6 +40,11 @@ private:
     // 로그를 파일에 기록하는 함수
     void flushThreadFunc();
     void flushToFile(const std::vector<event>& buffer);
+
+    std::string getCurrentLogPath() const;
+    void checkAndRotateLogFile();
+    std::string logFileBasePath_;
+    std::string currentDate_;
     
     // 데이터베이스에 이벤트 삽입
     //void insertEventsToDB(const std::vector<event>& buffer);

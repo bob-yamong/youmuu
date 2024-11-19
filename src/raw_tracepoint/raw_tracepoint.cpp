@@ -233,7 +233,7 @@ int main(int argc, char **argv)
 
         // EventLogger 객체 생성
         const size_t BUFFER_SIZE = 100000;
-        const std::string LOG_FILE_PATH = env::log_file_path + "/general.log.gz";
+        const std::string LOG_FILE_PATH = env::log_file_path;
         eventLogger = new EventLogger(BUFFER_SIZE, LOG_FILE_PATH, dbConnectionStr);
 
         // BPF 애플리케이션 로드 및 검증
