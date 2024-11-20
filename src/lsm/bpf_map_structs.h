@@ -68,7 +68,7 @@ static __always_inline int compare_strings(const char *a, const char *b, __u32 l
 
     for (__u32 i = 0; i < len; i++) {
         if (a[i] != b[i]) {
-            if (is_recursive && a[i] == '\0' && a[i-1] == '/') {
+            if (is_recursive && a[i] == '\0' && i > 0 && a[i-1] == '/') {
                 return 0;  
             }
             return 1; 
