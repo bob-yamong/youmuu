@@ -109,7 +109,7 @@ int BPF_PROG(task_fix_setuid, struct cred *new, const struct cred *old,
         return 0;
     };
     
-    if ((eperm & POLICY_PROC_SUDO) && (new_uid == 0)) {
+    if ((eperm & POLICY_PROC_SETUID) && (new_uid == 0)) {
         e->retval = -1;
         bpf_ringbuf_submit(e, 0);
         return -1;
