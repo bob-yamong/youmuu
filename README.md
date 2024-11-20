@@ -7,7 +7,7 @@ Welcome to the **`Youmuu's Ghostblade`**! This project is an eBPF based containe
 ## **How to use**
 
 > [!CAUTION]
-> It is highly recommended to run this project on Linux kernel version 6.8.10 to ensure compatibility and stability.
+> It is highly recommended to run this project on Linux kernel version >= 6.8.0 to ensure compatibility and stability.
 
 ### **1. Clone your new repository**
 
@@ -49,15 +49,15 @@ CONFIG_BPF_LSM=y
 If the output contains CONFIG_BPF_LSM=y, BPF LSM is supported. Provided that the above conditions are met, you can use the following command to check if the output includes the bpf option:
 ```sh
 $ cat /sys/kernel/security/lsm
-ndlock,lockdown,yama,integrity,apparmor
+ndlock,lockdown,yama,integrity,AppArmor,bpf
 ```
 
-If the output does not include the bpf option (as in the example above), you can modify /etc/default/grub:
+If the output does not include the **`bpf`** option (as in the example above), you can modify **`/etc/default/grub`**:
 ```sh
 GRUB_CMDLINE_LINUX="lsm=ndlock,lockdown,yama,integrity,apparmor,bpf"
 ```
 
-Then, update the grub configuration using the `update-grub2` command (the corresponding command may vary depending on the system), and restart the system.
+Then, update the grub configuration using the **`update-grub2`** command (the corresponding command may vary depending on the system), and restart the system.
 
 ### **4. Build the project**
 
