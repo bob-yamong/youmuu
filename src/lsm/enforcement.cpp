@@ -20,6 +20,9 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <nlohmann/json.hpp>
+#include <syslog.h>
+#include <utility>
+#include <sys/sysinfo.h>
  
 #include "enforcement.skel.h"
 #include "container_info.h"
@@ -51,7 +54,15 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
     
     event *e = (event *)data;
     char timestamp[32];
-    time_t event_time = e->ts / 1000000000;
+    struct sysinfo si;
+    if (sysinfo(&si) != 0) {
+        fprintf(stderr, "Error getting system info\n");
+        return -1;
+    }
+    time_t current_time = time(NULL);
+    time_t boot_time = current_time - si.uptime;
+
+    time_t event_time = (e->ts / 1000000000) + boot_time;
     struct tm *tm_info = localtime(&event_time);
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
 
