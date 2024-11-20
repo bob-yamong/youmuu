@@ -124,20 +124,6 @@ struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 1024);
     __type(key, struct map_key);
-    __type(value, __u64);
-} getrusage_args_map SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 1024);
-    __type(key, struct map_key);
-    __type(value, __u64);
-} sched_getaffinity_args_map SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 1024);
-    __type(key, struct map_key);
     __type(value, struct capget_args);
 } capget_args_map SEC(".maps");
 

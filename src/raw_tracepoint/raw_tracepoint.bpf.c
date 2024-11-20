@@ -124,7 +124,9 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     u64 id = bpf_get_current_pid_tgid();
     u32 pid = id >> 32;
     u32 tid = id;
-    u32 uid = bpf_get_current_uid_gid();
+    u64 uid_gid = bpf_get_current_uid_gid();
+    u32 uid = uid_gid ;
+    u32 gid = uid_gid >> 32;
     u32 event_err_flag = 0;
     
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
@@ -169,6 +171,7 @@ int sys_enter(struct trace_event_raw_sys_enter *ctx)
     e->tid = tid;
     e->ppid = ppid;
     e->uid = uid;
+    e->gid = gid;
     e->syscall_nr = syscall_nr;
     e->cgroup_id = cgroup_id;
     bpf_get_current_comm(&e->comm, sizeof(e->comm));

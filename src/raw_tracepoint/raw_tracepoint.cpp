@@ -19,6 +19,7 @@
 #include "syscall_list.h"
 #include "parser.h"
 #include "EventLogger.h"
+#include "getEnv.h"
 
 #define POLICY_FILE_PATH "/policy/policy.yaml"
 
@@ -32,10 +33,17 @@ struct raw_tracepoint_bpf *skel;
 int rb_cnt_1 = 0;
 u_int64_t err_cnt = 0;
 
-// EventLogger 객체 생성 (전역 또는 싱글톤으로 관리 가능)
-const size_t BUFFER_SIZE = 100000;
-const std::string LOG_FILE_PATH = "log/general.log.gz";
-EventLogger eventLogger(BUFFER_SIZE, LOG_FILE_PATH);
+// 전역 EventLogger 포인터 선언
+EventLogger* eventLogger = nullptr;
+
+// 환경 변수 읽기 유틸리티 함수 (main.cpp 내에 정의할 수도 있음)
+std::string get_env_var(const std::string& var_name) {
+    const char* val = std::getenv(var_name.c_str());
+    if (val == nullptr) {
+        throw std::runtime_error("환경 변수 " + var_name + "이(가) 설정되지 않았습니다.");
+    }
+    return std::string(val);
+}
 
 int delete_all_monitoring_map() {
     for(const auto &container : ContainerManager::containers){
@@ -124,7 +132,11 @@ int update_policy_with_file(char* abs_file_name) {
 
 // 이벤트 핸들러 대신 로그 메시지를 큐에 추가하는 함수
 void logging(const struct event& e){
-    eventLogger.addEvent(e);
+    if (eventLogger) {
+        eventLogger->addEvent(e);
+    } else {
+        std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
+    }
 }
 
 // 링버퍼 핸들러1
@@ -166,13 +178,13 @@ void ringbuf_thread_func(struct ring_buffer *rb)
 void policy_reload_thread(const std::string &yaml_file_path) {
     std::unique_lock<std::mutex> lock(cv_m);
     while (!exiting.load(std::memory_order_relaxed)) {
-        if(cv.wait_for(lock, std::chrono::minutes(1), []{ return exiting.load(); })) // 1분에 한번씩 정책을 감지 
+        if(cv.wait_for(lock, std::chrono::seconds(env::update_interval), []{ return exiting.load(); })) // 1분에 한번씩 정책을 감지 
             break;
 
         std::cout << "정책을 재로딩합니다: " << yaml_file_path << "\n";
 
-        int parsing_err = std::filesystem::exists(yaml_file_path);
-        if(parsing_err == 0){
+        bool file_exists = std::filesystem::exists(yaml_file_path);
+        if(!file_exists){
             std::cerr << "YAML 정책 파일을 찾을 수 없습니다.\n";
             delete_all_monitoring_map();
             continue;
@@ -199,7 +211,7 @@ void sig_handler(int signum) {
 
 int main(int argc, char **argv)
 {
-    int err, parsing_err;
+    int err;
     // 시그널 핸들러 등록
     struct sigaction sa;
     sa.sa_handler = sig_handler;
@@ -209,14 +221,27 @@ int main(int argc, char **argv)
 
     try
     {
-        // 로그 디렉토리 생성
-        system("mkdir -p log");
+
+        env::getEnv();
+        
+        // 연결 문자열 구성
+        std::string dbConnectionStr = "dbname=" + env::dbname +
+                                      " user=" + env::user +
+                                      " password=" + env::password +
+                                      " hostaddr=" + env::host +
+                                      " port=" + env::port;
+
+        // EventLogger 객체 생성
+        const size_t BUFFER_SIZE = 100000;
+        const std::string LOG_FILE_PATH = env::log_file_path;
+        eventLogger = new EventLogger(BUFFER_SIZE, LOG_FILE_PATH, dbConnectionStr);
 
         // BPF 애플리케이션 로드 및 검증
         skel = raw_tracepoint_bpf__open_and_load();
         if (!skel)
         {
             std::cerr << "Failed to load BPF skeleton.\n";
+            delete eventLogger;
             return 1;
         }
 
@@ -226,6 +251,7 @@ int main(int argc, char **argv)
         {
             std::cerr << "Failed to attach BPF skeleton.\n";
             raw_tracepoint_bpf__destroy(skel);
+            delete eventLogger;
             return 1;
         }
 
@@ -233,8 +259,8 @@ int main(int argc, char **argv)
 
         // YAML 파일 경로 지정 (예: "policy.yaml")
         std::string yaml_file = POLICY_FILE_PATH;
-        parsing_err = std::filesystem::exists(yaml_file);
-        if (parsing_err)
+        bool file_exists = std::filesystem::exists(yaml_file);
+        if (file_exists)
         {
             std::cout << "YAML 정책 파일을 발견했습니다. 정책을 업데이트합니다...\n";
             err = update_policy_with_file(const_cast<char*>(yaml_file.c_str()));
@@ -262,6 +288,7 @@ int main(int argc, char **argv)
         {
             std::cerr << "Failed to create ring buffer\n";
             raw_tracepoint_bpf__destroy(skel);
+            delete eventLogger;
             return 1;
         }
 
@@ -284,18 +311,25 @@ int main(int argc, char **argv)
         // 링버퍼 읽기 스레드 종료
         ringbuf_thread1.join();
 
-
         // 링버퍼 정리
         ring_buffer__free(rb1);
 
         // BPF 스켈레톤 정리
         raw_tracepoint_bpf__destroy(skel);
+
+        // EventLogger 객체 정리
+        if (eventLogger) {
+            delete eventLogger;
+            eventLogger = nullptr;
+        }
     }
     catch (const std::bad_alloc &e)
     {
         std::cerr << "Memory allocation failed: " << e.what() << "\n";
         if (skel)
             raw_tracepoint_bpf__destroy(skel);
+        if (eventLogger)
+            delete eventLogger;
         return 1;
     }
     catch (const std::exception &e)
@@ -303,6 +337,8 @@ int main(int argc, char **argv)
         std::cerr << "Exception: " << e.what() << "\n";
         if (skel)
             raw_tracepoint_bpf__destroy(skel);
+        if (eventLogger)
+            delete eventLogger;
         return 1;
     }
 

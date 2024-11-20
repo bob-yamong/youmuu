@@ -244,6 +244,7 @@ struct YamlTracepointPolicy {
 
 struct YamlContainerPolicy {
     string container_name;
+    bool raw_tp_policy;
     YamlLsmPolicy lsm_policies;
     YamlTracepointPolicy tracepoint_policy;
 };

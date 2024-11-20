@@ -1,7 +1,4 @@
 #include "container_info.h"
-#include <iostream>
-#include <memory>
-#include <algorithm>
 
 // 정적 멤버 초기화
 std::vector<ContainerInfo> ContainerManager::containers;
@@ -118,7 +115,7 @@ int ContainerManager::getContainerPIDs() {
 
 void ContainerManager::getContainerInode(const std::string &container_id) {
     char pattern[PATH_MAX];
-    snprintf(pattern, sizeof(pattern), "/sys/fs/cgroup/system.slice/docker-%s*", container_id.c_str());
+    snprintf(pattern, sizeof(pattern), (env::cgroup_path + "docker-%s*").c_str(), container_id.c_str());
 
     glob_t globbuf;
     unsigned long inode = 0;

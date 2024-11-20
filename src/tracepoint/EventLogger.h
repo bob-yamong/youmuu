@@ -1,6 +1,8 @@
 #ifndef EVENTLOGGER_H
 #define EVENTLOGGER_H
 
+#pragma once
+
 #include <vector>
 #include <mutex>
 #include <thread>
@@ -19,47 +21,36 @@
 #include <exception>
 #include <cstring>
 #include <sstream>
-#include <zlib.h>
 #include <string_view> 
 
-#include "event.h"
-#include "container_info.h"
+#include "struct.h"
+#include "user_struct.h"
 
 class EventLogger {
 public:
     // 생성자: 버퍼 크기 설정 및 로그 파일 경로 설정
-    EventLogger(size_t bufferSize, const std::string& logFilePath, const std::string& dbConnStr);
+    EventLogger(size_t bufferSize,  const std::string& dbConnStr);
     
     // 소멸자: 모든 쓰레드 종료 및 리소스 정리
     ~EventLogger();
     
     // 로그 이벤트 추가
-    void addEvent(const event& e);
+    void addEvent(const db_event_t& e);
     
 private:
     // 로그를 파일에 기록하는 함수
     void flushThreadFunc();
-    void flushToFile(const std::vector<event>& buffer);
-
-    std::string getCurrentLogPath() const;
-    void checkAndRotateLogFile();
-    std::string logFileBasePath_;
-    std::string currentDate_;
     
     // 데이터베이스에 이벤트 삽입
-    //void insertEventsToDB(const std::vector<event>& buffer);
-
-    static time_t get_boot_time();
-    std::string format_timestamp(uint64_t timestamp_ns) const;
+    void insertEventsToDB(const std::vector<db_event_t>& buffer);
 
     size_t bufferSize_;
-    std::string logFilePath_;
     
     // 4개의 버퍼
-    std::vector<event> buffer1_;
-    std::vector<event> buffer2_;
-    std::vector<event> buffer3_;
-    std::vector<event> buffer4_;
+    std::vector<db_event_t> buffer1_;
+    std::vector<db_event_t> buffer2_;
+    std::vector<db_event_t> buffer3_;
+    std::vector<db_event_t> buffer4_;
 
     // 버퍼의 마지막 활성화 시간
     std::chrono::steady_clock::time_point current_buffer_time_;
@@ -68,8 +59,8 @@ private:
     const std::chrono::seconds FLUSH_TIMEOUT = std::chrono::seconds(10);
     
     // 현재 버퍼와 플러시 버퍼 대기열
-    std::vector<event>* currentBuffer_;
-    std::deque<std::vector<event>*> flushBuffers_;
+    std::vector<db_event_t>* currentBuffer_;
+    std::deque<std::vector<db_event_t>*> flushBuffers_;
     
     std::mutex mtx_;
     std::condition_variable cv_;
@@ -80,14 +71,12 @@ private:
     
     // 쓰레드 종료를 위한 플래그
     std::atomic<bool> shutdown_;
-    
-    // zlib 압축 스트림
-    gzFile gzFile_; // 압축된 파일 스트림 추가
 
     // 데이터베이스 연결 객체
-    // pqxx::connection dbConnection_;
+    pqxx::connection dbConnection_;
     
-    time_t boot_time_;
 };
+
+extern EventLogger* eventLogger;
 
 #endif // EVENTLOGGER_H

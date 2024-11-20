@@ -4,145 +4,134 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
-#include <asm/unistd_64.h>
-#include <bpf/libbpf.h>
-#include <sys/stat.h>
 #include <thread>
 #include <chrono>
+#include <bpf/libbpf.h>
+#include <sys/stat.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <nlohmann/json.hpp>
+#include <syslog.h>
+#include <utility>
+#include <iostream>
+
+#include "getEnv.h"
 #include "tracepoint.skel.h"
-#include "structs.h"
+#include "struct.h"
 #include "handler.h"
 #include "parser.h"
+#include "container_pid_id.h"
+#include "EventLogger.h"
 
-#define MAX_CMD_LEN 1024
-#define MAX_OUTPUT_LEN 256
 #define MAX_PATH 256
 #define ALLOW 0
 #define BLOCK 1
 #define LOGGING 2
-#define POLICY_UPDATE_INTERVAL 60
 #define POLICY_FILE_PATH const_cast<char*>("/policy/policy.yaml")
 
+// 전역 EventLogger 포인터 선언
+EventLogger* eventLogger = nullptr;
+
 static volatile bool running = true;
+using json = nlohmann::json;
 
 static void sig_handler(int sig) {
     running = false;
 }
 
-typedef enum {
-    RUNTIME_UNKNOWN,
-    RUNTIME_DOCKER,
-    RUNTIME_CONTAINERD,
-    RUNTIME_CRIO
-} ContainerRuntime;
-
-ContainerRuntime get_runtime_from_user() {
-    char input[20];
-    struct sigaction sa_int{};
-    sa_int.sa_handler = sig_handler;
-    sa_int.sa_flags = 0;
-    sigemptyset(&sa_int.sa_mask);
-    sigaction(SIGINT, &sa_int, NULL);
+std::string remove_chunked_encoding(const std::string& response) {
+    std::string json_body;
+    size_t pos = 0;
     
-    printf("Enter container runtime (docker/containerd/crio): ");
-    if (fgets(input, sizeof(input), stdin) == NULL || !running) {
-        printf("\nExiting...\n");
-        exit(0);
-    }
-    input[strcspn(input, "\n")] = 0;
+    while (pos < response.size()) {
+        // Find the position of the newline after the chunk size
+        size_t chunk_size_end = response.find("\r\n", pos);
+        if (chunk_size_end == std::string::npos) break;
 
-    if (strcmp(input, "docker") == 0) return RUNTIME_DOCKER;
-    else if (strcmp(input, "containerd") == 0) return RUNTIME_CONTAINERD;
-    else if (strcmp(input, "crio") == 0) return RUNTIME_CRIO;
+        // Convert the chunk size from hexadecimal to decimal
+        std::string chunk_size_hex = response.substr(pos, chunk_size_end - pos);
+        size_t chunk_size = std::stoul(chunk_size_hex, nullptr, 16);
+        
+        // Move to the start of the actual data
+        pos = chunk_size_end + 2;
+
+        // Add the chunk to the JSON body and move to the next chunk
+        json_body += response.substr(pos, chunk_size);
+        pos += chunk_size + 2;  // Skip over the data and the trailing \r\n
+    }
+
+    return json_body;
+}
+
+std::pair<int, std::string> get_docker_pid(const char* container_name) {
+    const char* socket_path = "/var/run/docker.sock";
+    int sock = socket(AF_UNIX, SOCK_STREAM, 0);
     
-    return RUNTIME_UNKNOWN;
-}
-
-int get_docker_pid(const char* container_name) {
-    char cmd[MAX_CMD_LEN];
-    char output[MAX_OUTPUT_LEN];
-    FILE *fp;
-
-    snprintf(cmd, sizeof(cmd), "docker inspect -f '{{.State.Pid}}' %s", container_name);
-    fp = popen(cmd, "r");
-    if (fp == NULL) {
-        perror("Failed to run docker command");
-        return -1;
+    if (sock < 0) {
+        perror("Socket creation failed");
+        return {0, ""};
     }
 
-    if (fgets(output, sizeof(output), fp) == NULL) {
-        pclose(fp);
-        return -1;
-    }
-    pclose(fp);
+    struct sockaddr_un addr{};
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
 
-    return atoi(output);
-}
-
-// 여러개 가능, 현재는 name으로 찾지만 label, namespace 구현 필요
-int get_containerd_pid(const char* container_name) {
-    char cmd[MAX_CMD_LEN];
-    char output[MAX_OUTPUT_LEN];
-    FILE *fp;
-
-    snprintf(cmd, sizeof(cmd), "ctr task ls | awk '$1 == \"%s\" {print $2}'", container_name);
-    fp = popen(cmd, "r");
-    if (fp == NULL) {
-        perror("Failed to run ctr task info command");
-        return -1;
-    }
-    if (fgets(output, sizeof(output), fp) == NULL) {
-        pclose(fp);
-        return -1;
-    }
-    pclose(fp);
-    output[strcspn(output, "\n")] = 0;
-
-    return atoi(output);
-}
-
-// 여러개 가능, 현재는 name인데 사실 pod임 추가로 label, namespace 구현 필요
-int get_crio_pid(const char* container_name) {
-    char cmd[MAX_CMD_LEN];
-    char output[MAX_OUTPUT_LEN];
-    FILE *fp;
-
-    snprintf(cmd, sizeof(cmd), "crictl inspect $(crictl ps | grep \"\\b%s\\b\" | awk '{print $1}') 2>/dev/null | grep -Po '\"pid\":\\s*\\K[0-9]+'", container_name);
-    fp = popen(cmd, "r");
-    if (fp == NULL) {
-        perror("Failed to run crictl inspect command");
-        return -1;
+    if (connect(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        perror("Connection to Docker socket failed");
+        close(sock);
+        return {0, ""};
     }
 
-    if (fgets(output, sizeof(output), fp) == NULL) {
-        pclose(fp);
-        return -1;
-    }
-    pclose(fp);
-    output[strcspn(output, "\n")] = 0;
-
-    return atoi(output);
-}
-
-int get_container_pid(const char* container_name) {
-    ContainerRuntime runtime = get_runtime_from_user();
+    // Formulate HTTP request to get container info
+    std::string request = "GET /containers/" + std::string(container_name) + "/json HTTP/1.1\r\n"
+                          "Host: localhost\r\n"
+                          "Connection: close\r\n\r\n";
     
-    switch(runtime) {
-        case RUNTIME_DOCKER:
-            return get_docker_pid(container_name);
-        case RUNTIME_CONTAINERD:
-            return get_containerd_pid(container_name);
-        case RUNTIME_CRIO:
-            return get_crio_pid(container_name);
-        default:
-            fprintf(stderr, "Unknown or unsupported container runtime\n");
-            return -1;
+    // Send request
+    if (send(sock, request.c_str(), request.size(), 0) < 0) {
+        perror("Send request failed");
+        close(sock);
+        return {0, ""};
+    }
+
+    // Receive response
+    std::string response;
+    char buffer[4096];
+    int bytes_received;
+    while ((bytes_received = recv(sock, buffer, sizeof(buffer), 0)) > 0) {
+        response.append(buffer, bytes_received);
+    }
+    close(sock);
+
+    // Find the start of JSON data after HTTP headers
+    auto pos = response.find("\r\n\r\n");
+    if (pos == std::string::npos) {
+        std::cerr << "Invalid response format" << std::endl;
+        return {0, ""};
+    }
+
+    // Extract the JSON body
+    std::string json_str = remove_chunked_encoding(response.substr(pos + 4));
+
+    try {
+        json container_info = json::parse(json_str);
+        int pid = container_info["State"]["Pid"].get<int>();
+        std::string id = container_info["Id"].get<std::string>();
+        return {pid, id};
+    } catch (const json::parse_error& e) {
+        std::cerr << "JSON parse error: " << e.what() << std::endl;
+        return {0, ""};
+    } catch (const json::type_error& e) {
+        std::cerr << "JSON type error: " << e.what() << std::endl;
+        return {0, ""};
     }
 }
 
 __u32 get_namespace_id(int container_pid) {
     char path[MAX_PATH];
-    snprintf(path, sizeof(path), "/proc/%d/ns/pid", container_pid);
+
+    std::string full_path = env::proc_path + "/" + std::to_string(container_pid) + "/ns/pid";
+    snprintf(path, sizeof(path), "%s", full_path.c_str());
     
     int fd = open(path, O_RDONLY);
     if (fd < 0) {
@@ -193,28 +182,34 @@ int update_policy_with_file(struct bpf_map *event_policy_map, char* abs_file_nam
         return -1;
     }
 
-    for (const YamlContainerPolicy& container: policy.containers) {
-        struct event_key key{};
-        vector<int> syscall_list = string_to_syscalls(container.tracepoint_policy.syscalls);
+    // clearing monitoring data
+    pid_namespace_to_container_id.clear();
 
-        __u32 container_pid = get_docker_pid(container.container_name.c_str());
-        if (!container_pid) {
-            fprintf(stderr, "Failed to get container pid: %s\n", container.container_name.c_str());
+    for (const YamlContainerPolicy& container: policy.containers) {
+    struct event_key key{};
+    vector<int> syscall_list = string_to_syscalls(container.tracepoint_policy.syscalls);
+
+    auto [container_pid, container_id] = get_docker_pid(container.container_name.c_str());
+    if (!container_pid) {
+        fprintf(stderr, "Failed to get container pid: %s\n", container.container_name.c_str());
+        continue;
+    }
+    __u32 pid_namespace = get_namespace_id(container_pid);
+
+    // Store the pid_namespace and container_id in the hash map
+    pid_namespace_to_container_id[pid_namespace] = container_id;
+
+    for (size_t i = 0; i < syscall_list.size(); i++) {
+        key.pid_namespace = pid_namespace;
+        key.event_id = syscall_list[i];
+        
+        err = bpf_map__update_elem(event_policy_map, &key, sizeof(key), &action, sizeof(action), BPF_ANY);
+        if (err) {
+            fprintf(stderr, "Failed to update map for enter event: %d\n", err);
             continue;
         }
-        __u32 ns_id = get_namespace_id(container_pid);
-
-        for (size_t i = 0; i < syscall_list.size(); i++) {
-            key.ns_id = ns_id;
-            key.event_id = syscall_list[i];
-            
-            err = bpf_map__update_elem(event_policy_map, &key, sizeof(key), &action, sizeof(action), BPF_ANY);
-            if (err) {
-                fprintf(stderr, "Failed to update map for enter event: %d\n", err);
-                continue;
-            }
-            
-            printf("Updated map for syscall %d\n", syscall_list[i]);
+        
+        printf("Updated map for syscall %d, Container ID: %s\n", syscall_list[i], container_id.c_str());
         }
     }
 
@@ -236,7 +231,7 @@ void update_policy_periodically(struct bpf_map *event_policy_map) {
         }
         
         // Sleep for 60 seconds
-        std::this_thread::sleep_for(std::chrono::seconds(POLICY_UPDATE_INTERVAL));
+        std::this_thread::sleep_for(std::chrono::seconds(env::update_interval));
     }
 }
 
@@ -247,6 +242,22 @@ int main(int argc, char **argv) {
     struct tracepoint_bpf *skel;
     struct ring_buffer *rb;
     int err;
+    
+    env::getEnv();
+        
+    // 연결 문자열 구성
+    std::string dbConnectionStr = "dbname=" + env::dbname +
+                                    " user=" + env::user +
+                                    " password=" + env::password +
+                                    " hostaddr=" + env::host +
+                                    " port=" + env::port;
+
+    // EventLogger 객체 생성
+    const size_t BUFFER_SIZE = 100000;
+    eventLogger = new EventLogger(BUFFER_SIZE, dbConnectionStr);
+
+    // Syslog 초기화
+    openlog("tracepoint", LOG_PID | LOG_CONS, LOG_USER);
 
     boot_time = get_boot_time();
     if (boot_time == -1) {
@@ -310,7 +321,13 @@ int main(int argc, char **argv) {
     }
     
 cleanup:
+    closelog();
+    // 종료 시 정리
+    delete eventLogger;
+    eventLogger = nullptr;
     running = false;
+    if (rb)
+        ring_buffer__free(rb);
     tracepoint_bpf__destroy(skel);
     return err != 0;
 }

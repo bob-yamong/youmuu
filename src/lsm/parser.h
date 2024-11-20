@@ -33,7 +33,7 @@ map<string, __u32> flags_map = {
     {"POLICY_PROC_FORK", POLICY_PROC_FORK},
     {"POLICY_PROC_EXEC", POLICY_PROC_EXEC},
     {"POLICY_PROC_KILL", POLICY_PROC_KILL},
-    {"POLICY_PROC_PTRACE", POLICY_PROC_PTRACE}
+    {"POLICY_PROC_SETUID", POLICY_PROC_SETUID}
 };
 
 __u32 string_to_flags(vector<string> str_flags){
@@ -98,6 +98,7 @@ struct YamlTracepointPolicy {
 
 struct YamlContainerPolicy {
     string container_name;
+    bool raw_tp_policy;
     YamlLsmPolicy lsm_policies;
     YamlTracepointPolicy tracepoint_policy;
 };

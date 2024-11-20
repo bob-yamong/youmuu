@@ -21,7 +21,7 @@ struct {
     __uint(max_entries, MAX_CONTAINERS);
     __type(key, struct policy_key);
     __type(value, struct policy_value);
-    __uint(pinning, LIBBPF_PIN_BY_NAME);
+    // __uint(pinning, LIBBPF_PIN_BY_NAME);
 } policy_map SEC(".maps");
 
 struct {
@@ -30,20 +30,6 @@ struct {
     __type(key, __u32);
     __type(value, char[MAX_PATH_LENGTH]);
 } path_buffer SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 1024);
-    __type(key, u32);
-    __type(value, u32);
-} container_pids SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 1024);
-    __type(key, u64);
-    __type(value, u64);
-} container_cgroup_id SEC(".maps");
 
 static __always_inline __u16 bpf_ntohs(__u16 val) {
     return (val << 8) | (val >> 8);
@@ -63,18 +49,17 @@ static __always_inline __u64 get_cgroup_id() {
     return cgroup_id;
 }
 
-static __always_inline int should_monitor(u32 ppid, u64 cgroup_id) {
-    u32 *monitored;
+static __always_inline int should_monitor(struct task_struct *task) {
+    struct policy_key key = {};
+    
+    key.pid_ns_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
+    key.mnt_ns_id = BPF_CORE_READ(task, nsproxy, mnt_ns, ns.inum);
+    
+    struct policy_value *value = bpf_map_lookup_elem(&policy_map, &key);
+    
+    if (!value) return 0;
 
-    monitored = bpf_map_lookup_elem(&container_cgroup_id, &cgroup_id);
-    if (monitored)
-        return 1;
-    
-    monitored = bpf_map_lookup_elem(&container_pids, &ppid);
-    if (monitored)
-        return 1;
-    
-    return 0;
+    return 1;
 }
 
 // Custom strncmp function for BPF
@@ -176,9 +161,9 @@ static __always_inline __u32 match_policy(struct task_struct *task, enum policy_
     
     struct policy_value *value = bpf_map_lookup_elem(&policy_map, &key);
     
-    bpf_printk("match policy request from pid_ns_id: %u, mnt_ns_id: %u\n", key.pid_ns_id, key.mnt_ns_id);
+    // bpf_printk("match policy request from pid_ns_id: %u, mnt_ns_id: %u\n", key.pid_ns_id, key.mnt_ns_id);
     if (!value) return 0;
-    bpf_printk("start comparing from pid_ns_id: %u, mnt_ns_id: %u\n", key.pid_ns_id, key.mnt_ns_id);
+    // bpf_printk("start comparing from pid_ns_id: %u, mnt_ns_id: %u\n", key.pid_ns_id, key.mnt_ns_id);
 
     switch (type) {
         case POLICY_FILE: {
