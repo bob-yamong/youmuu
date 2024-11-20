@@ -103,13 +103,13 @@ int BPF_PROG(task_fix_setuid, struct cred *new, const struct cred *old,
     e->event_id = SECID_TASK_FIX_SETUID;
     e->retval = 0;
 
-    __u32 flags = match_policy(task, POLICY_PROCESS, "sudo");
-    if (!flags) {
+    __u32 eperm = match_policy(task, POLICY_PROCESS, "setuid");
+    if (!eperm) {
         bpf_ringbuf_discard(e, 0);
         return 0;
     };
     
-    if ((flags & POLICY_PROC_SUDO) && (new_uid == 0)) {
+    if ((eperm & POLICY_PROC_SUDO) && (new_uid == 0)) {
         e->retval = -1;
         bpf_ringbuf_submit(e, 0);
         return -1;
