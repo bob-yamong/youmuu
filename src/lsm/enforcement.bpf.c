@@ -23,11 +23,8 @@ int BPF_PROG(bprm_check_security, struct linux_binprm *bprm)
 {
     ////bpf_printk("lsm_hook: exec: bprm_check_security\n");
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
-    
-    __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    if (!should_monitor(ppid, cgroup_id)) {
+    if (!should_monitor(task)) {
         return 0;
     }
 
@@ -73,43 +70,54 @@ clear:
     return ret;
 }
 
-// SEC("lsm/task_fix_setuid")
-// int BPF_PROG(task_fix_setuid, struct cred *new, const struct cred *old,
-// 	 int flags)
-// {
-// 	////bpf_printk("lsm_hook: task: task_fix_setuid\n");
+SEC("lsm/task_fix_setuid")
+int BPF_PROG(task_fix_setuid, struct cred *new, const struct cred *old,
+	 int flags)
+{
+	////bpf_printk("lsm_hook: task: task_fix_setuid\n");
 
-// 	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+
+    if (!should_monitor(task)) {
+        return 0;
+    }
+
+    __u32 new_uid, old_uid;
+
+    bpf_core_read(&new_uid, sizeof(new_uid), &new->uid.val);
+    bpf_core_read(&old_uid, sizeof(old_uid), &old->uid.val);
+
+    event *e;
+    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        bpf_printk("Failed ringbuf_reserve");
+        return 0;
+    }
     
-//     __u64 cgroup_id = bpf_get_current_cgroup_id();
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+  
+    e->event_id = SECID_TASK_FIX_SETUID;
+    e->retval = 0;
 
-//     if (!should_monitor(ppid, cgroup_id)) {
-//         return 0;
-//     }
-
-//     event *e;
-//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-//     if (!e) {
-//         bpf_printk("Failed ringbuf_reserve");
-//         return 0;
-//     }    
+    __u32 eperm = match_policy(task, POLICY_PROCESS, "setuid");
+    if (!eperm) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    };
     
-//     int ret = init_context(e);
-//     if (ret < 0) {
-//         bpf_ringbuf_discard(e, 0);
-//         return 0;
-//     }
-    
-//     get_process_path(e->data.source, sizeof(e->data.source));
+    if ((eperm & POLICY_PROC_SETUID) && (new_uid == 0)) {
+        e->retval = -1;
+        bpf_ringbuf_submit(e, 0);
+        return -1;
+    }
 
-//     e->event_id = SECID_TASK_FIX_SETUID;
-//     e->retval = 0; 
-    
-//     bpf_ringbuf_discard(e, 0);
-
-// 	return 0;
-// }
+    bpf_ringbuf_discard(e, 0);
+	return 0;
+}
 
 /********************************
  *         FILE SYSTEM          *
@@ -119,11 +127,8 @@ int BPF_PROG(file_open, struct file *file)
 {   
 
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
-    
-    __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    if (!should_monitor(ppid, cgroup_id)) {
+    if (!should_monitor(task)) {
         return 0;
     }
 
@@ -199,11 +204,8 @@ int BPF_PROG(file_permission, struct file *file, int mask)
 {
     ////bpf_printk("lsm_hook: file: file_permission\n");
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
-    
-    __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    if (!should_monitor(ppid, cgroup_id)) {
+    if (!should_monitor(task)) {
         return 0;
     }
 
@@ -245,11 +247,8 @@ SEC("lsm/path_unlink")
 int BPF_PROG(path_unlink, struct path *path)
 {
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
-    
-    __u64 cgroup_id = bpf_get_current_cgroup_id();
 
-    if (!should_monitor(ppid, cgroup_id)) {
+    if (!should_monitor(task)) {
         return 0;
     }
 
@@ -303,12 +302,9 @@ SEC("lsm/path_mkdir")
 //폴더 생성은 화이트 리스트
 int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
 {    
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
-    
-    __u64 cgroup_id = bpf_get_current_cgroup_id();
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();   
 
-    if (!should_monitor(ppid, cgroup_id)) {
+    if (!should_monitor(task)) {
         return 0;
     }
 
@@ -368,11 +364,11 @@ int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
     //인자 잘못 선언되어있던 것 수정, 차후 파일 전체 로직 통합 및 수정 필요
 
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
     
-    __u64 cgroup_id = bpf_get_current_cgroup_id();
+    
+    
 
-    if (!should_monitor(ppid, cgroup_id)) {
+    if (!should_monitor(task)) {
         return 0;
     }
 
@@ -437,11 +433,11 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
 {
 
 	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
     
-    __u64 cgroup_id = bpf_get_current_cgroup_id();
+    
+    
 
-    if (!should_monitor(ppid, cgroup_id)) {
+    if (!should_monitor(task)) {
         return 0;
     }
 
@@ -511,11 +507,11 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
 SEC("lsm/socket_recvmsg")
 int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, int flags) {
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
     
-    __u64 cgroup_id = bpf_get_current_cgroup_id();
+    
+    
 
-    if (!should_monitor(ppid, cgroup_id)) {
+    if (!should_monitor(task)) {
         return 0;
     }
 
@@ -568,11 +564,11 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
 // {
 //     ////bpf_printk("lsm_hook: task: capable\n");
 //     // struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+//     
     
-//     __u64 cgroup_id = bpf_get_current_cgroup_id();
+//     
 
-//     if (!should_monitor(ppid, cgroup_id)) {
+//     if (!should_monitor(task)) {
 //         return 0;
 //     }
 
@@ -605,11 +601,11 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
 // {
 //     ////bpf_printk("lsm_hook: fs: path_mknod\n");
 //     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+//     
     
-//     __u64 cgroup_id = bpf_get_current_cgroup_id();
+//     
 
-//     if (!should_monitor(ppid, cgroup_id)) {
+//     if (!should_monitor(task)) {
 //         return 0;
 //     }
 
@@ -642,11 +638,11 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
 // {
 //     ////bpf_printk("lsm_hook: fs: path_rmdir\n");
 //     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+//     
     
-//     __u64 cgroup_id = bpf_get_current_cgroup_id();
+//     
 
-//     if (!should_monitor(ppid, cgroup_id)) {
+//     if (!should_monitor(task)) {
 //         return 0;
 //     }
 
@@ -679,11 +675,11 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
 // {
 //     ////bpf_printk("lsm_hook: fs: path_symlink\n");
 //     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+//     
     
-//     __u64 cgroup_id = bpf_get_current_cgroup_id();
+//     
 
-//     if (!should_monitor(ppid, cgroup_id)) {
+//     if (!should_monitor(task)) {
 //         return 0;
 //     }
 
@@ -717,11 +713,11 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
 // {
 //     ////bpf_printk("lsm_hook: fs: path_link\n");
 //     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+//     
     
-//     __u64 cgroup_id = bpf_get_current_cgroup_id();
+//     
 
-//     if (!should_monitor(ppid, cgroup_id)) {
+//     if (!should_monitor(task)) {
 //         return 0;
 //     }
 
@@ -756,11 +752,11 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
 // {
 //     ////bpf_printk("lsm_hook: fs: path_chmod\n");
 //     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+//     
     
-//     __u64 cgroup_id = bpf_get_current_cgroup_id();
+//     
 
-//     if (!should_monitor(ppid, cgroup_id)) {
+//     if (!should_monitor(task)) {
 //         return 0;
 //     }
 
@@ -793,11 +789,11 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
 // {
 //     ////bpf_printk("lsm_hook: fs: path_truncate\n");
 //     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+//     
     
-//     __u64 cgroup_id = bpf_get_current_cgroup_id();
+//     
 
-//     if (!should_monitor(ppid, cgroup_id)) {
+//     if (!should_monitor(task)) {
 //         return 0;
 //     }
 
@@ -829,11 +825,11 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
 // int BPF_PROG(mmap_file, struct file *file, unsigned long reqprot, unsigned long prot, unsigned long flags)
 // {
 //     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+//     
     
-//     __u64 cgroup_id = bpf_get_current_cgroup_id();
+//     
 
-//     if (!should_monitor(ppid, cgroup_id)) {
+//     if (!should_monitor(task)) {
 //         return 0;
 //     }
 
@@ -869,11 +865,11 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
 // 	////bpf_printk("lsm_hook: fs: sb_mount\n");
 
 // 	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+//     
     
-//     __u64 cgroup_id = bpf_get_current_cgroup_id();
+//     
 
-//     if (!should_monitor(ppid, cgroup_id)) {
+//     if (!should_monitor(task)) {
 //         return 0;
 //     }
 
@@ -906,11 +902,11 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
 // 	////bpf_printk("lsm_hook: fs: sb_remount\n");
 
 // 	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+//     
     
-//     __u64 cgroup_id = bpf_get_current_cgroup_id();
+//     
 
-//     if (!should_monitor(ppid, cgroup_id)) {
+//     if (!should_monitor(task)) {
 //         return 0;
 //     }
 
@@ -943,11 +939,11 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
 // 	////bpf_printk("lsm_hook: fs: sb_umount\n");
 
 // 	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+//     
     
-//     __u64 cgroup_id = bpf_get_current_cgroup_id();
+//     
 
-//     if (!should_monitor(ppid, cgroup_id)) {
+//     if (!should_monitor(task)) {
 //         return 0;
 //     }
 
@@ -979,11 +975,11 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
 // {
 //     ////bpf_printk("lsm_hook: kernel: kernel_module_request\n");
 //     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+//     
     
-//     __u64 cgroup_id = bpf_get_current_cgroup_id();
+//     
 
-//     if (!should_monitor(ppid, cgroup_id)) {
+//     if (!should_monitor(task)) {
 //         return 0;
 //     }
 
@@ -1015,11 +1011,11 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
 // {
 //     ////bpf_printk("lsm_hook: kernel: kernel_read_file\n");
 //     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+//     
     
-//     __u64 cgroup_id = bpf_get_current_cgroup_id();
+//     
 
-//     if (!should_monitor(ppid, cgroup_id)) {
+//     if (!should_monitor(task)) {
 //         return 0;
 //     }
 
@@ -1052,11 +1048,11 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
 // {
 //     ////bpf_printk("lsm_hook: exec: bprm_creds_from_file\n");
 //     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-//     u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
+//     
     
-//     __u64 cgroup_id = bpf_get_current_cgroup_id();
+//     
 
-//     if (!should_monitor(ppid, cgroup_id)) {
+//     if (!should_monitor(task)) {
 //         return 0;
 //     }
 
