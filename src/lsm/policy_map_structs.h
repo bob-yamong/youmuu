@@ -84,7 +84,7 @@ struct network_policy {
 #define POLICY_PROC_FORK    (1 << 11)  // 프로세스 포크 허용
 #define POLICY_PROC_EXEC    (1 << 12)  // 새 프로그램 실행 허용
 #define POLICY_PROC_KILL    (1 << 13)  // 프로세스 종료 허용
-#define POLICY_PROC_PTRACE  (1 << 14)  // ptrace 사용 허용
+#define POLICY_PROC_SUDO    (1 << 14)  // 권한상승 차단
 struct process_policy {
     char comm[16];
     int uid[MAX_UID_LIST];

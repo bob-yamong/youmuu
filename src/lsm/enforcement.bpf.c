@@ -92,21 +92,30 @@ int BPF_PROG(task_fix_setuid, struct cred *new, const struct cred *old,
     if (!e) {
         bpf_printk("Failed ringbuf_reserve");
         return 0;
-    }    
+    }
     
     int ret = init_context(e);
     if (ret < 0) {
         bpf_ringbuf_discard(e, 0);
         return 0;
     }
-    
-    get_process_path(e->data.source, sizeof(e->data.source));
-
+  
     e->event_id = SECID_TASK_FIX_SETUID;
-    e->retval = 0; 
-    
-    bpf_ringbuf_discard(e, 0);
+    e->retval = 0;
 
+    __u32 flags = match_policy(task, POLICY_PROCESS, "sudo");
+    if (!flags) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    };
+    
+    if ((flags & POLICY_PROC_SUDO) && (new_uid == 0)) {
+        e->retval = -1;
+        bpf_ringbuf_submit(e, 0);
+        return -1;
+    }
+
+    bpf_ringbuf_discard(e, 0);
 	return 0;
 }
 
