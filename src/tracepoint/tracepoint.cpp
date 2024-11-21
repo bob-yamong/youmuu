@@ -24,9 +24,7 @@
 #include "EventLogger.h"
 
 #define MAX_PATH 256
-#define ALLOW 0
-#define BLOCK 1
-#define LOGGING 2
+#define MAX_SYSCALL_NR 548
 #define POLICY_FILE_PATH const_cast<char*>("/policy/policy.yaml")
 
 // 전역 EventLogger 포인터 선언
@@ -171,8 +169,7 @@ static time_t get_boot_time() {
     return current_time - si.uptime;
 }
 
-int update_policy_with_file(struct bpf_map *event_policy_map, char* abs_file_name) {
-    __u32 action = LOGGING;
+int update_policy_with_file(struct bpf_map *syscall_array, char* abs_file_name) {
     int err;
     const rfl::Result<YamlPolicy> result = rfl::yaml::load<YamlPolicy>(abs_file_name);
     YamlPolicy policy = result.value();
@@ -186,31 +183,48 @@ int update_policy_with_file(struct bpf_map *event_policy_map, char* abs_file_nam
     pid_namespace_to_container_id.clear();
 
     for (const YamlContainerPolicy& container: policy.containers) {
-    struct event_key key{};
-    vector<int> syscall_list = string_to_syscalls(container.tracepoint_policy.syscalls);
+        vector<int> syscall_list = string_to_syscalls(container.tracepoint_policy.syscalls);
 
-    auto [container_pid, container_id] = get_docker_pid(container.container_name.c_str());
-    if (!container_pid) {
-        fprintf(stderr, "Failed to get container pid: %s\n", container.container_name.c_str());
-        continue;
-    }
-    __u32 pid_namespace = get_namespace_id(container_pid);
+        syscall_list.erase(
+            std::remove_if(syscall_list.begin(), syscall_list.end(),
+                [](int syscall) { return syscall == -1; }),
+            syscall_list.end()
+        );
 
-    // Store the pid_namespace and container_id in the hash map
-    pid_namespace_to_container_id[pid_namespace] = container_id;
+        if (syscall_list.size() > 120) {
+            fprintf(stderr, "Warning: Container %s has more than 120 syscalls. Only first 120 will be monitored.\n",
+                    container.container_name.c_str());
+            syscall_list.resize(120);
+        }
 
-    for (size_t i = 0; i < syscall_list.size(); i++) {
-        key.pid_namespace = pid_namespace;
-        key.event_id = syscall_list[i];
-        
-        err = bpf_map__update_elem(event_policy_map, &key, sizeof(key), &action, sizeof(action), BPF_ANY);
-        if (err) {
-            fprintf(stderr, "Failed to update map for enter event: %d\n", err);
+        auto [container_pid, container_id] = get_docker_pid(container.container_name.c_str());
+        if (!container_pid) {
+            fprintf(stderr, "Failed to get container pid: %s\n", container.container_name.c_str());
             continue;
         }
-        
-        printf("Updated map for syscall %d, Container ID: %s\n", syscall_list[i], container_id.c_str());
+        __u32 pid_namespace = get_namespace_id(container_pid);
+
+        // Store the pid_namespace and container_id in the hash map
+        pid_namespace_to_container_id[pid_namespace] = container_id;
+
+        __s32 syscalls[120];
+        for (int i = 0; i < 120; i++) {
+            syscalls[i] = -1;
         }
+        for (size_t i = 0; i < syscall_list.size(); i++) {
+            syscalls[i] = syscall_list[i];
+        }
+
+        // 맵 업데이트
+        err = bpf_map__update_elem(syscall_array, &pid_namespace, sizeof(pid_namespace),
+                                  syscalls, sizeof(syscalls), BPF_ANY);
+        if (err) {
+            fprintf(stderr, "Failed to update syscall array for container: %s\n", container_id.c_str());
+            continue;
+        }
+
+        printf("Updated policy for container %s: monitoring %zu syscalls\n", 
+               container_id.c_str(), syscall_list.size());
     }
 
     return 0;
@@ -221,10 +235,10 @@ bool file_exists(const char *file_path) {
     return stat(file_path, &buffer) == 0;
 }
 
-void update_policy_periodically(struct bpf_map *event_policy_map) {
+void update_policy_periodically(struct bpf_map *syscall_array) {
     while (true) {
         // Call the update function
-        if (update_policy_with_file(event_policy_map, POLICY_FILE_PATH) == 0) {
+        if (update_policy_with_file(syscall_array, POLICY_FILE_PATH) == 0) {
             std::cout << "update_policy_with_file called successfully.\n" << std::endl;
         } else {
             std::cerr << "Failed to call update_policy_with_file." << std::endl;
@@ -296,7 +310,7 @@ int main(int argc, char **argv) {
     while (running) {
         if (file_exists(POLICY_FILE_PATH)) {
             // Create a new thread to periodically update the policy
-            std::thread policy_update_thread(update_policy_periodically, skel->maps.event_policy_map);
+            std::thread policy_update_thread(update_policy_periodically, skel->maps.syscall_array);
             
             // Detach the thread so it runs independently
             policy_update_thread.detach();
