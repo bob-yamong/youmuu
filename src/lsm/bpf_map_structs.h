@@ -49,7 +49,7 @@ static __always_inline __u64 get_cgroup_id() {
     return cgroup_id;
 }
 
-static __always_inline int should_monitor(struct task_struct *task) {
+static __always_inline int should_monitor(struct task_struct *task, enum policy_type type) {
     struct policy_key key = {};
     
     key.pid_ns_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
@@ -59,7 +59,18 @@ static __always_inline int should_monitor(struct task_struct *task) {
     
     if (!value) return 0;
 
-    return 1;
+    switch (type) {
+        case POLICY_FILE: {
+            if (value->num_file_policies > 0) return 1;
+        }
+        case POLICY_NETWORK: {
+            if (value->num_network_policies > 0) return 1;
+        }
+        case POLICY_PROCESS: {
+            if (value->num_process_policies > 0) return 1;
+        }
+    }
+    return 0;
 }
 
 // Custom strncmp function for BPF

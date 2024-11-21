@@ -25,7 +25,6 @@
 #include <sys/sysinfo.h>
  
 #include "enforcement.skel.h"
-#include "container_info.h"
 #include "policy_map_structs.h"
 #include "parser.h"
 #include "getEnv.h"
