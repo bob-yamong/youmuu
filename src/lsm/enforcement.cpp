@@ -530,8 +530,8 @@ int update_policy_with_file(int map_fd, char* abs_file_name) {
         printf("Container %s(%u %u)-%d\n", container.container_name.c_str(), key.pid_ns_id, key.mnt_ns_id, container_pid);
         
         //file policies
+        value.num_file_policies = 0;
         if (!(container.lsm_policies.file.empty())) {
-            value.num_file_policies = 0;
             for (const auto& file : container.lsm_policies.file) {
                 strcpy(value.file_policies[value.num_file_policies].path, file.path.c_str());
                 value.file_policies[value.num_file_policies].flags = string_to_flags(file.flags);
@@ -544,8 +544,8 @@ int update_policy_with_file(int map_fd, char* abs_file_name) {
         }
         
         // network policies
+        value.num_network_policies = 0;
         if (!(container.lsm_policies.network.empty())) {
-            value.num_network_policies = 0;
             for (const auto& network : container.lsm_policies.network) {
                 char ip_str[INET_ADDRSTRLEN];
                 IpAddress ip = parse_ip(network.ip);
@@ -565,8 +565,8 @@ int update_policy_with_file(int map_fd, char* abs_file_name) {
         }
         
         // process policies
+        value.num_process_policies = 0;
         if (!(container.lsm_policies.process.empty())) {
-            value.num_process_policies = 0;
             for (const auto& process : container.lsm_policies.process) {
                 strcpy(value.process_policies[value.num_process_policies].comm, process.comm.c_str());
                 value.process_policies[value.num_process_policies].flags = string_to_flags(process.flags);
