@@ -49,7 +49,7 @@ static __always_inline __u64 get_cgroup_id() {
     return cgroup_id;
 }
 
-static __always_inline int should_monitor(struct task_struct *task) {
+static __always_inline int should_monitor(struct task_struct *task, enum policy_type type) {
     struct policy_key key = {};
     
     key.pid_ns_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
@@ -59,7 +59,24 @@ static __always_inline int should_monitor(struct task_struct *task) {
     
     if (!value) return 0;
 
-    return 1;
+    switch (type) {
+        case POLICY_FILE: {
+            bpf_printk("file policy num:%d from pid_ns_id: %u, mnt_ns_id: %u\n", value->num_file_policies, key.pid_ns_id, key.mnt_ns_id);
+            if (value->num_file_policies > 0) return 1;
+            break;
+        }
+        case POLICY_NETWORK: {
+            bpf_printk("network policy num:%d from pid_ns_id: %u, mnt_ns_id: %u\n", value->num_network_policies, key.pid_ns_id, key.mnt_ns_id);
+            if (value->num_network_policies > 0) return 1;
+            break;
+        }
+        case POLICY_PROCESS: {
+            bpf_printk("process policy num:%d from pid_ns_id: %u, mnt_ns_id: %u\n", value->num_process_policies, key.pid_ns_id, key.mnt_ns_id);
+            if (value->num_process_policies > 0) return 1;
+            break;
+        }
+    }
+    return 0;
 }
 
 // Custom strncmp function for BPF

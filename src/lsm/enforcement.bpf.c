@@ -24,7 +24,7 @@ int BPF_PROG(bprm_check_security, struct linux_binprm *bprm)
     ////bpf_printk("lsm_hook: exec: bprm_check_security\n");
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
-    if (!should_monitor(task)) {
+    if (!should_monitor(task, POLICY_PROCESS)) {
         return 0;
     }
 
@@ -78,7 +78,7 @@ int BPF_PROG(task_fix_setuid, struct cred *new, const struct cred *old,
 
 	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
-    if (!should_monitor(task)) {
+    if (!should_monitor(task,  POLICY_PROCESS)) {
         return 0;
     }
 
@@ -128,7 +128,7 @@ int BPF_PROG(file_open, struct file *file)
 
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
-    if (!should_monitor(task)) {
+    if (!should_monitor(task, POLICY_FILE)) {
         return 0;
     }
 
@@ -205,7 +205,7 @@ int BPF_PROG(file_permission, struct file *file, int mask)
     ////bpf_printk("lsm_hook: file: file_permission\n");
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
-    if (!should_monitor(task)) {
+    if (!should_monitor(task, POLICY_FILE)) {
         return 0;
     }
 
@@ -248,7 +248,7 @@ int BPF_PROG(path_unlink, struct path *path)
 {
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
-    if (!should_monitor(task)) {
+    if (!should_monitor(task, POLICY_FILE)) {
         return 0;
     }
 
@@ -304,7 +304,7 @@ int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
 {    
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();   
 
-    if (!should_monitor(task)) {
+    if (!should_monitor(task, POLICY_FILE)) {
         return 0;
     }
 
@@ -363,12 +363,9 @@ int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
              const struct path *new_dir, struct dentry *new_dentry) {
     //인자 잘못 선언되어있던 것 수정, 차후 파일 전체 로직 통합 및 수정 필요
 
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    
-    
-    
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();  
 
-    if (!should_monitor(task)) {
+    if (!should_monitor(task, POLICY_FILE)) {
         return 0;
     }
 
@@ -433,11 +430,8 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
 {
 
 	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    
-    
-    
 
-    if (!should_monitor(task)) {
+    if (!should_monitor(task, POLICY_NETWORK)) {
         return 0;
     }
 
@@ -507,11 +501,8 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
 SEC("lsm/socket_recvmsg")
 int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, int flags) {
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    
-    
-    
 
-    if (!should_monitor(task)) {
+    if (!should_monitor(task, POLICY_NETWORK)) {
         return 0;
     }
 
