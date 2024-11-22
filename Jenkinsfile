@@ -12,7 +12,7 @@ pipeline {
                     // Store the tags in environment variables for later use
                     env.IMAGE_TAG_WITH_HASH = imageTags.imageTagWithHash
                     env.IMAGE_TAG_BRANCH_ONLY = imageTags.imageTagBranchOnly
-
+                    sh "git submodule update --init --recursive"
                     sh "docker build -t ${env.IMAGE_NAME}:${env.IMAGE_TAG_WITH_HASH} ."
                     sh "docker tag ${env.IMAGE_NAME}:${env.IMAGE_TAG_WITH_HASH} ${env.IMAGE_NAME}:${env.IMAGE_TAG_BRANCH_ONLY}"
                     sh "docker tag ${env.IMAGE_NAME}:${env.IMAGE_TAG_WITH_HASH} ${env.IMAGE_NAME}:latest"
