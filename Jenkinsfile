@@ -10,7 +10,7 @@ pipeline {
                     def commitHash = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
                     def imageTagWithHash = "${sanitizedBranchName}-${commitHash}"
                     def imageTagBranchOnly = "${sanitizedBranchName}"
-
+                    sh "git submodule update --init --recursive"
                     sh "docker build -t ${imageName}:${imageTagWithHash} ."
 
                     sh "docker tag ${imageName}:${imageTagWithHash} ${imageName}:${imageTagBranchOnly}"
