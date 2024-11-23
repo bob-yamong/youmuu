@@ -6,6 +6,9 @@
 #include "struct.h"
 #include "map.h"
 
+#define ALLOW 0
+#define BLOCK 1
+#define LOGGING 2
 #define AF_INET 2
 #define AF_INET6 10
 
@@ -63,20 +66,13 @@ static __always_inline struct map_key get_map_key(struct current_task *ct) {
 }
 
 static __always_inline bool should_log_event(__u32 pid_namespace, __s32 event_id) {
-    __s32 *syscall_list = bpf_map_lookup_elem(&syscall_array, &pid_namespace);
-    if (!syscall_list)
-        return false;
+    struct event_key event_key = {
+        .pid_namespace = pid_namespace,
+        .event_id = event_id,
+    };
 
-    // 배열 검색
-    #pragma unroll
-    for (int i = 0; i < 120; i++) {
-        if (syscall_list[i] == event_id)
-            return true;
-        if (syscall_list[i] == -1)
-            return false;
-    }
-
-    return false;
+    __u32 *watched = bpf_map_lookup_elem(&event_policy_map, &event_key);
+    return (watched && *watched == LOGGING);
 }
 
 static __always_inline struct event_t* handle_enter_event(__s32 event_id) {
