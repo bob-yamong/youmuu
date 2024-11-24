@@ -19,15 +19,17 @@
 #include <cstring>
 #include <sstream>
 #include <string_view> 
-#include <syslog.h> // syslog 헤더 추가
 
 #include "struct.h"
 #include "user_struct.h"
 
+// librdkafka 헤더 추가
+#include <librdkafka/rdkafkacpp.h>
+
 class EventLogger {
 public:
-    // 생성자: 버퍼 크기 설정
-    EventLogger(size_t bufferSize);
+    // 생성자: 버퍼 크기 설정 및 Kafka 초기화
+    EventLogger(size_t bufferSize, const std::string& brokers, const std::string& topic);
     
     // 소멸자: 모든 쓰레드 종료 및 리소스 정리
     ~EventLogger();
@@ -36,11 +38,11 @@ public:
     void addEvent(const db_event_t& e);
     
 private:
-    // 로그를 syslog에 기록하는 함수
+    // 로그를 Kafka에 기록하는 함수
     void flushThreadFunc();
     
-    // CEF 포맷으로 변환하여 syslog에 전송
-    void sendEventsAsCEF(const std::vector<db_event_t>& buffer);
+    // Kafka에 이벤트 전송
+    void sendEventsToKafka(const std::vector<db_event_t>& buffer);
 
     size_t bufferSize_;
     
@@ -69,6 +71,15 @@ private:
     
     // 쓰레드 종료를 위한 플래그
     std::atomic<bool> shutdown_;
+    
+    // Kafka 프로듀서 관련
+    RdKafka::Producer* producer_;
+    std::string topic_str_;
+    RdKafka::Topic* topic_;
+    
+    // Kafka 설정
+    RdKafka::Conf* conf_;
+    RdKafka::Conf* tconf_;
 };
 
 extern EventLogger* eventLogger;
