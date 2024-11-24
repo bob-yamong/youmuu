@@ -1,11 +1,11 @@
 #include "getEnv.h"
 
 // static 멤버 변수 정의
-std::string env::host;
-std::string env::dbname;
-std::string env::user;
-std::string env::password;
-std::string env::port;
+// std::string env::host;
+// std::string env::dbname;
+// std::string env::user;
+// std::string env::password;
+// std::string env::port;
 std::string env::cgroup_path;
 std::string env::proc_path;
 int env::update_interval;
@@ -64,38 +64,38 @@ void env::getEnv() {
     try {
         std::cout << "=== Starting environment initialization ===" << std::endl;
 
-        // 임시 변수에 저장 후 멤버 변수에 할당
-        std::string temp_host = get_env_var("POSTGRES_HOST", "0.0.0.0");
-        std::string temp_dbname = get_env_var("POSTGRES_DB", "yamong_postgres");
-        std::string temp_user = get_env_var("POSTGRES_USER", "temp_admin");
-        std::string temp_password = get_env_var("POSTGRES_PASSWORD", "temp_password");
-        std::string temp_port = get_env_var("POSTGRES_PORT", "5432");
+        // // 임시 변수에 저장 후 멤버 변수에 할당
+        // std::string temp_host = get_env_var("POSTGRES_HOST", "0.0.0.0");
+        // std::string temp_dbname = get_env_var("POSTGRES_DB", "yamong_postgres");
+        // std::string temp_user = get_env_var("POSTGRES_USER", "temp_admin");
+        // std::string temp_password = get_env_var("POSTGRES_PASSWORD", "temp_password");
+        // std::string temp_port = get_env_var("POSTGRES_PORT", "5432");
         std::string temp_cgroup = get_env_var("CGROUP_SYSTEM_SLICE_PATH", "/sys/fs/cgroup/system.slice/");
         std::string temp_proc = get_env_var("PROC_PATH", "/proc");
         std::string temp_update_interval = get_env_var("UPDATE_INTERVAL", "60");
 
         // hostname이 IP가 아닌 경우에만 resolve
-        if (temp_host.find_first_not_of("0123456789.") != std::string::npos) {
-            host = resolveHostname(temp_host);
-        } else {
-            host = temp_host;
-        }
+        // if (temp_host.find_first_not_of("0123456789.") != std::string::npos) {
+        //     host = resolveHostname(temp_host);
+        // } else {
+        //     host = temp_host;
+        // }
 
         // 멤버 변수에 할당
-        dbname = temp_dbname;
-        user = temp_user;
-        password = temp_password;
-        port = temp_port;
+        // dbname = temp_dbname;
+        // user = temp_user;
+        // password = temp_password;
+        // port = temp_port;
         cgroup_path = temp_cgroup;
         proc_path = temp_proc;
         update_interval = std::stoi(temp_update_interval);
 
-        std::cout << "=== Environment initialization completed ===" << std::endl;
-        std::cout << "Final values:" << std::endl
-                  << "Host: " << host << std::endl
-                  << "DB: " << dbname << std::endl
-                  << "User: " << user << std::endl
-                  << "Port: " << port << std::endl;
+        // std::cout << "=== Environment initialization completed ===" << std::endl;
+        // std::cout << "Final values:" << std::endl
+        //           << "Host: " << host << std::endl
+        //           << "DB: " << dbname << std::endl
+        //           << "User: " << user << std::endl
+        //           << "Port: " << port << std::endl;
 
     } catch (const std::exception& e) {
         std::cerr << "Critical error in getEnv: " << e.what() << std::endl;

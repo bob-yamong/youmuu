@@ -10,11 +10,8 @@
 #include <string>
 #include <condition_variable>
 #include <deque>
-#include <zlib.h>
 #include <sys/sysinfo.h>
 #include <ctime>
-#include <pqxx/pqxx>
-#include <syscall.h>
 #include <chrono>
 #include <iostream>
 #include <iomanip>
@@ -22,14 +19,15 @@
 #include <cstring>
 #include <sstream>
 #include <string_view> 
+#include <syslog.h> // syslog 헤더 추가
 
 #include "struct.h"
 #include "user_struct.h"
 
 class EventLogger {
 public:
-    // 생성자: 버퍼 크기 설정 및 로그 파일 경로 설정
-    EventLogger(size_t bufferSize,  const std::string& dbConnStr);
+    // 생성자: 버퍼 크기 설정
+    EventLogger(size_t bufferSize);
     
     // 소멸자: 모든 쓰레드 종료 및 리소스 정리
     ~EventLogger();
@@ -38,11 +36,11 @@ public:
     void addEvent(const db_event_t& e);
     
 private:
-    // 로그를 파일에 기록하는 함수
+    // 로그를 syslog에 기록하는 함수
     void flushThreadFunc();
     
-    // 데이터베이스에 이벤트 삽입
-    void insertEventsToDB(const std::vector<db_event_t>& buffer);
+    // CEF 포맷으로 변환하여 syslog에 전송
+    void sendEventsAsCEF(const std::vector<db_event_t>& buffer);
 
     size_t bufferSize_;
     
@@ -71,10 +69,6 @@ private:
     
     // 쓰레드 종료를 위한 플래그
     std::atomic<bool> shutdown_;
-
-    // 데이터베이스 연결 객체
-    pqxx::connection dbConnection_;
-    
 };
 
 extern EventLogger* eventLogger;

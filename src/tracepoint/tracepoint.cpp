@@ -258,17 +258,10 @@ int main(int argc, char **argv) {
     int err;
     
     env::getEnv();
-        
-    // 연결 문자열 구성
-    std::string dbConnectionStr = "dbname=" + env::dbname +
-                                    " user=" + env::user +
-                                    " password=" + env::password +
-                                    " hostaddr=" + env::host +
-                                    " port=" + env::port;
-
+    
     // EventLogger 객체 생성
     const size_t BUFFER_SIZE = 100000;
-    eventLogger = new EventLogger(BUFFER_SIZE, dbConnectionStr);
+    eventLogger = new EventLogger(BUFFER_SIZE);
 
     // Syslog 초기화
     openlog("tracepoint", LOG_PID | LOG_CONS, LOG_USER);
