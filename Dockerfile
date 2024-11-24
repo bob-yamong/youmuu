@@ -23,6 +23,8 @@ RUN apt-get update && apt-get install -y \
     wget \
     pkg-config \
     nlohmann-json3-dev \
+    tini\
+    rsyslog \
     && rm -rf /var/lib/apt/lists/*
 
 
@@ -59,6 +61,7 @@ RUN make
 
 WORKDIR /
 
+ENTRYPOINT ["/usr/bin/tini", "--"]
 # 애플리케이션 실행
 # CMD \
 # CMD tail -f /dev/null
