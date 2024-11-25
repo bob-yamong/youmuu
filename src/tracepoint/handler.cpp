@@ -3112,6 +3112,71 @@ static int handle_exit_tgkill(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
+static int handle_enter_brk(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u64[0]); // addr
+    add_event(event);
+    return 0;
+}
+
+static int handle_exit_brk(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    add_event(event);
+    return 0;
+}
+
+static int handle_enter_sched_setscheduler(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u32[0]); // pid
+    event.arg1 = std::to_string(e->arg_s32[0]); // policy
+    add_event(event);
+    return 0;
+}
+
+static int handle_exit_sched_setscheduler(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    add_event(event);
+    return 0;
+}
+
+static int handle_enter_sched_setaffinity(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u32[0]); // pid
+    event.arg1 = std::to_string(e->arg_u64[0]); // cpusetsize
+    add_event(event);
+    return 0;
+}
+
+static int handle_exit_sched_setaffinity(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    add_event(event);
+    return 0;
+}
+
+static int handle_enter_sysinfo(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    add_event(event);
+    return 0;
+}
+
+static int handle_exit_sysinfo(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    add_event(event);
+    return 0;
+}
+
 static struct socket_handlers event_handler[MAX_EVENT_ID] = {0};
 
 void init_event_handlers(void) {
@@ -3443,6 +3508,14 @@ void init_event_handlers(void) {
     event_handler[__NR_tkill].exit = handle_exit_tkill;
     event_handler[__NR_tgkill].enter = handle_enter_tgkill;
     event_handler[__NR_tgkill].exit = handle_exit_tgkill;
+    event_handler[__NR_brk].enter = handle_enter_brk;
+    event_handler[__NR_brk].exit = handle_exit_brk;
+    event_handler[__NR_sched_setscheduler].enter = handle_enter_sched_setscheduler;
+    event_handler[__NR_sched_setscheduler].exit = handle_exit_sched_setscheduler;
+    event_handler[__NR_sched_setaffinity].enter = handle_enter_sched_setaffinity;
+    event_handler[__NR_sched_setaffinity].exit = handle_exit_sched_setaffinity;
+    event_handler[__NR_sysinfo].enter = handle_enter_sysinfo;
+    event_handler[__NR_sysinfo].exit = handle_exit_sysinfo;
 }
 
 int handle_event(void *ctx, void *data, size_t data_sz) {
