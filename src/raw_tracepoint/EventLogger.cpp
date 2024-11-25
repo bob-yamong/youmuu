@@ -1,14 +1,10 @@
+// EventLogger.cpp
 #include "EventLogger.h"
 
-// JSON 직렬화를 위해 nlohmann/json 라이브러리 사용 (필요 시 설치)
-#include <nlohmann/json.hpp>
-
-// 편의상 네임스페이스 사용
-using json = nlohmann::json;
-
-// 생성자
-EventLogger::EventLogger(size_t bufferSize, const std::string& brokers, const std::string& topic)
+EventLogger::EventLogger(size_t bufferSize, const std::string& logFilePath, const std::string& dbConnectionStr)
     : bufferSize_(bufferSize),
+      logFileBasePath_(logFilePath),
+      currentDate_(""),
       buffer1_(),
       buffer2_(),
       buffer3_(),
@@ -17,82 +13,34 @@ EventLogger::EventLogger(size_t bufferSize, const std::string& brokers, const st
       flushBuffers_(),
       isFlushing_(false),
       shutdown_(false),
-      producer_(nullptr),
-      topic_str_(topic),
-      topic_(nullptr),
-      conf_(RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL)),
-      tconf_(RdKafka::Conf::create(RdKafka::Conf::CONF_TOPIC))
+      gzFile_(nullptr),
+    //   dbConnection_(dbConnectionStr),
+      boot_time_(get_boot_time())
 {
-    // 버퍼 예약
+    if (boot_time_ == 0) {
+        throw std::runtime_error("Failed to get system boot time");
+    }
+
+    // if (!dbConnection_.is_open()) {
+    //     throw std::runtime_error(std::string("Failed to open database connection: ") + dbConnection_.dbname());
+    // }
+
     buffer1_.reserve(bufferSize_);
     buffer2_.reserve(bufferSize_);
     buffer3_.reserve(bufferSize_);
     buffer4_.reserve(bufferSize_);
 
+    checkAndRotateLogFile();
+
     // 초기 버퍼 활성화 시간 설정
     current_buffer_time_ = std::chrono::steady_clock::now();
-
-    // Kafka 브로커 설정
-    std::string errstr;
-    if (conf_->set("bootstrap.servers", brokers, errstr) != RdKafka::Conf::CONF_OK) {
-        std::cerr << "Kafka 설정 오류: " << errstr << std::endl;
-        throw std::runtime_error("Kafka 설정 실패");
-    }
-
-    // 배치 및 압축 처리 설정
-    if (conf_->set("queue.buffering.max.messages", "500000", errstr) != RdKafka::Conf::CONF_OK) { // 500,000개
-        std::cerr << "Kafka 설정 오류 (queue.buffering.max.messages): " << errstr << std::endl;
-        throw std::runtime_error("Kafka 설정 실패");
-    }
-
-    if (conf_->set("queue.buffering.max.kbytes", "1048576", errstr) != RdKafka::Conf::CONF_OK) { // 1GB
-        std::cerr << "Kafka 설정 오류 (queue.buffering.max.kbytes): " << errstr << std::endl;
-        throw std::runtime_error("Kafka 설정 실패");
-    }
-
-    if (conf_->set("compression.type", "gzip", errstr) != RdKafka::Conf::CONF_OK) { // gzip 압축 사용
-        std::cerr << "Kafka 설정 오류 (compression.type): " << errstr << std::endl;
-        throw std::runtime_error("Kafka 설정 실패");
-    }
-
-    if (conf_->set("batch.size", "163840", errstr) != RdKafka::Conf::CONF_OK) { // 160KB
-        std::cerr << "Kafka 설정 오류 (batch.size): " << errstr << std::endl;
-        throw std::runtime_error("Kafka 설정 실패");
-    }
-
-    if (conf_->set("linger.ms", "1000", errstr) != RdKafka::Conf::CONF_OK) { // 3초
-        std::cerr << "Kafka 설정 오류 (linger.ms): " << errstr << std::endl;
-        throw std::runtime_error("Kafka 설정 실패");
-    }
-
-    // if (conf_->set("enable.idempotence", "true", errstr) != RdKafka::Conf::CONF_OK) {
-    //     std::cerr << "Kafka 설정 오류: " << errstr << std::endl;
-    //     throw std::runtime_error("Kafka 설정 실패");
-    // }
-
-    // 프로듀서 객체 생성
-    producer_ = RdKafka::Producer::create(conf_, errstr);
-    if (!producer_) {
-        std::cerr << "Kafka 프로듀서 생성 실패: " << errstr << std::endl;
-        throw std::runtime_error("Kafka 프로듀서 생성 실패");
-    }
-
-    // 토픽 객체 생성
-    topic_ = RdKafka::Topic::create(producer_, topic_str_, tconf_, errstr);
-    if (!topic_) {
-        std::cerr << "Kafka 토픽 생성 실패: " << errstr << std::endl;
-        throw std::runtime_error("Kafka 토픽 생성 실패");
-    }
-
-    delete conf_;
-    delete tconf_;
 
     // 플러시 쓰레드 시작
     flushThread_ = std::thread(&EventLogger::flushThreadFunc, this);
 }
 
-// 소멸자
-EventLogger::~EventLogger() {
+EventLogger::~EventLogger()
+{
     // 종료 플래그 설정
     shutdown_.store(true);
     cv_.notify_all();
@@ -101,7 +49,7 @@ EventLogger::~EventLogger() {
         flushThread_.join();
     }
 
-    // 모든 버퍼 플러시
+    // ��든 버퍼 플러시
     std::lock_guard<std::mutex> lock(mtx_);
 
     // 현재 버퍼가 비어있지 않다면 플러시 버퍼 대기열에 추가
@@ -113,23 +61,24 @@ EventLogger::~EventLogger() {
     while(!flushBuffers_.empty()) {
         std::vector<event>* bufferToFlush = flushBuffers_.front();
         flushBuffers_.pop_front();
-        sendEventsToKafka(*bufferToFlush);
+        flushToFile(*bufferToFlush);
         bufferToFlush->clear();
     }
 
-    // Kafka 프로듀서 정리
-    if (producer_) {
-        producer_->flush(10000); // 최대 10초 동안 메시지 전송 시도
-        delete producer_;
+    // 압축된 파일 닫기
+    if (gzFile_) {
+        gzclose(gzFile_);
+        gzFile_ = nullptr;
     }
 
-    if (topic_) {
-        delete topic_;
-    }
+    // 데이터베이스 연결 종료 (필요 시 활성화)
+    // if (dbConnection_.is_open()) {
+    //     dbConnection_.disconnect();
+    // }
 }
 
-// 로그 이벤트 추가
-void EventLogger::addEvent(const event& e) {
+void EventLogger::addEvent(const event& e)
+{
     std::unique_lock<std::mutex> lock(mtx_);
     currentBuffer_->push_back(e);
 
@@ -151,9 +100,9 @@ void EventLogger::addEvent(const event& e) {
             currentBuffer_ = &buffer4_;
         }
         else {
-            // 모든 버퍼가 꽉 찼다면, 대기
+            // 모든 버퍼가 꽉 찼다면, ��기
             cv_.wait(lock, [this]() { return !flushBuffers_.empty(); });
-            // 재시도
+            // 재���도
             if (&buffer1_ != currentBuffer_ && buffer1_.size() < bufferSize_) {
                 currentBuffer_ = &buffer1_;
             }
@@ -182,123 +131,13 @@ void EventLogger::addEvent(const event& e) {
     }
 }
 
-// Kafka에 이벤트 비동기 전송 (배치 처리)
-void EventLogger::sendEventsToKafka(const std::vector<event>& events) {
-    if (events.empty()) return;
-
-    // 비동기 작업 시작
-    std::async(std::launch::async, [this, events]() {
-        auto start = std::chrono::steady_clock::now();
-        size_t messageCount = 0;
-
-        // 비동기 전송을 위한 배치 설정
-        const size_t max_batch_size = 20 * 1024 * 1024; // 20MB
-        std::vector<std::string> batch;
-        size_t current_batch_size = 0;
-
-        for (const auto& event : events) {
-            // event를 JSON으로 직렬화
-            json j;
-            j["syscall"] = event.syscall;
-            j["ppid"] = event.ppid;
-            j["pid"] = event.pid;
-            j["tid"] = event.tid;
-            j["uid"] = event.uid;
-            j["gid"] = event.gid;
-            j["comm"] = event.comm;
-            j["arg0"] = event.args[0];
-            j["arg1"] = event.args[1];
-            j["arg2"] = event.args[2];
-            j["arg3"] = event.args[3];
-            j["arg4"] = event.args[4];
-            j["arg5"] = event.args[5];
-            j["cgroup_id"] = event.cgroup_id;
-            j["data_type"] = "db_event"; // DB 소비자를 위한 데이터 타입 명시
-
-            std::string message = j.dump();
-            batch.push_back(message);
-            current_batch_size += message.size();
-
-            // 배치 크기 초과 시 전송
-            if (current_batch_size >= max_batch_size) {
-                // 배치를 비동기로 전송
-                std::vector<std::string> sending_batch = std::move(batch);
-                std::async(std::launch::async, [this, sending_batch]() {
-                    for (const auto& msg : sending_batch) {
-                        RdKafka::ErrorCode resp = producer_->produce(
-                            topic_, 
-                            RdKafka::Topic::PARTITION_UA, 
-                            RdKafka::Producer::RK_MSG_COPY, 
-                            const_cast<char*>(msg.c_str()), 
-                            msg.size(),
-                            nullptr, // 키 없음
-                            nullptr  // 사용자 데이터 없음
-                        );
-
-                        if (resp != RdKafka::ERR_NO_ERROR) {
-                            std::cerr << "Failed to produce to Kafka: " << RdKafka::err2str(resp) << std::endl;
-                        } else {
-                            // 성공적으로 전송된 메시지 수 증가
-                        }
-
-                        // 프로듀서의 큐를 처리
-                        producer_->poll(0);
-                    }
-
-                    // 모든 메시지가 전송되었는지 확인
-                    producer_->flush(10000); // 최대 10초 동안 대기
-                });
-
-                // 새로운 배치 시작
-                batch.clear();
-                current_batch_size = 0;
-                messageCount += sending_batch.size();
-            }
-        }
-
-        // 남은 메시지 전송
-        if (!batch.empty()) {
-            std::vector<std::string> sending_batch = std::move(batch);
-            std::async(std::launch::async, [this, sending_batch]() {
-                for (const auto& msg : sending_batch) {
-                    RdKafka::ErrorCode resp = producer_->produce(
-                        topic_, 
-                        RdKafka::Topic::PARTITION_UA, 
-                        RdKafka::Producer::RK_MSG_COPY, 
-                        const_cast<char*>(msg.c_str()), 
-                        msg.size(),
-                        nullptr, // 키 없음
-                        nullptr  // 사용자 데이터 없음
-                    );
-
-                    if (resp != RdKafka::ERR_NO_ERROR) {
-                        std::cerr << "Failed to produce to Kafka: " << RdKafka::err2str(resp) << std::endl;
-                    } else {
-                        // 성공적으로 전송된 메시지 수 증가
-                    }
-
-                    // 프로듀서의 큐를 처리
-                    producer_->poll(0);
-                }
-
-                // 모든 메시지가 전송되었는지 확인
-                producer_->flush(10000); // 최대 10초 동안 대기
-            });
-
-            messageCount += sending_batch.size();
-        }
-
-        auto end = std::chrono::steady_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-
-        std::cout << "Sent " << messageCount << " messages to Kafka in " << duration << " ms." << std::endl;
-    });
-}
-
-// 플러시 쓰레드 함수
-void EventLogger::flushThreadFunc() {
+void EventLogger::flushThreadFunc()
+{
     try {
         while (!shutdown_.load()) {
+            // 로그 파일 날짜 체크 및 교체
+            checkAndRotateLogFile();
+
             std::unique_lock<std::mutex> lock(mtx_);
 
             // 대기 시간 1초로 설정하여 주기적으로 타임아웃을 체크
@@ -313,11 +152,28 @@ void EventLogger::flushThreadFunc() {
                     std::vector<event>* bufferToFlush = flushBuffers_.front();
                     flushBuffers_.pop_front();
 
-                    // 비동기 전송
-                    sendEventsToKafka(*bufferToFlush);
+                    // 플러시 플래그 해제 (대기열이 비었을 때)
+                    if(flushBuffers_.empty()) {
+                        isFlushing_.store(false);
+                    }
+
+                    // 잠금 해제
+                    lock.unlock();
+
+                    // 로그 플러시 시작 로그
+                    std::cerr << "Flushing buffer..." << std::endl;
+
+                    // 파일에 기록 (압축된 형태로)
+                    flushToFile(*bufferToFlush);
 
                     // 버퍼 클리어
                     bufferToFlush->clear();
+
+                    // 로그 플러시 완료 로그
+                    std::cerr << "Buffer flushed." << std::endl;
+
+                    // 잠금 재획득
+                    lock.lock();
                 }
             }
 
@@ -325,7 +181,7 @@ void EventLogger::flushThreadFunc() {
             auto now = std::chrono::steady_clock::now();
 
             if (std::chrono::duration_cast<std::chrono::seconds>(now - current_buffer_time_) >= FLUSH_TIMEOUT && !currentBuffer_->empty()) {
-                // currentBuffer_를 플러시 버퍼 대기열에 추가
+                // currentBuffer_를 플러시 대기열에 추가
                 flushBuffers_.push_back(currentBuffer_);
                 isFlushing_.store(true);
                 cv_.notify_one();
@@ -363,3 +219,369 @@ void EventLogger::flushThreadFunc() {
         std::cerr << "Unknown exception in flushThreadFunc\n";
     }
 }
+
+void EventLogger::flushToFile(const std::vector<event>& buffer)
+{
+    try {
+        if (!gzFile_) {
+            std::cerr << "Compressed log file is not open.\n";
+            return;
+        }
+
+        for (const auto& e : buffer) {
+            std::ostringstream oss;
+            oss << "[" << std::setw(13) << std::setfill('0') << e.cnt << "] "
+                << format_timestamp(e.timestamp) << " "
+                << "Process syscall: " << e.syscall
+                << " (nr=" << e.syscall_nr
+                << ", pid=" << e.pid
+                << ", tid=" << e.tid
+                << ", ppid=" << e.ppid
+                << ", uid=" << e.uid
+                << ", comm=" << std::string(e.comm)
+                << ", cgroup_id=" << e.cgroup_id
+                << ", cgroup_name=" << std::string(e.cgroup_name) << ")\n";
+            
+            // 시스템 콜 별 처리
+            switch (e.syscall_nr)
+            {
+                // 프로세스 관련
+                case __NR_fork:
+                case __NR_vfork:
+                case __NR_clone:
+                    oss << "New process creation\n";
+                    break;
+                case __NR_execve:
+                case __NR_execveat:
+                    oss << "Executing new program: " << std::string(e.filename) << "\n";
+                    for (int i = 0; i < MAX_ARGS && e.argv[i][0] != '\0'; i++) {
+                        oss << "Arg " << i << ": " << std::string(e.argv[i]) << "\n";
+                    }
+                    break;
+                case __NR_exit:
+                case __NR_exit_group:
+                    oss << "Process exit\n";
+                    break;
+                case __NR_wait4:
+                case __NR_waitid:
+                    oss << "Waiting for child process\n";
+                    break;
+                case __NR_kill:
+                case __NR_tkill:
+                case __NR_tgkill:
+                    oss << "Sending signal " << e.args[1] << " to process/thread\n";
+                    break;
+                case __NR_ptrace:
+                    oss << "Ptrace call with request " << e.args[0] << "\n";
+                    break;
+        
+                // 파일 시스템 관련
+                case __NR_open:
+                case __NR_openat:
+                case __NR_unlink:
+                case __NR_unlinkat:
+                case __NR_mkdir:
+                case __NR_mkdirat:
+                case __NR_rmdir:
+                case __NR_renameat:
+                case __NR_renameat2:
+                case __NR_symlink:
+                case __NR_symlinkat:
+                case __NR_link:
+                case __NR_linkat:
+                case __NR_chmod:
+                case __NR_fchmodat:
+                case __NR_chown:
+                case __NR_lchown:
+                case __NR_fchownat:
+                case __NR_access:
+                case __NR_faccessat:
+                case __NR_stat:
+                case __NR_lstat:
+                case __NR_newfstatat:
+                case __NR_truncate:
+                case __NR_readlink:
+                case __NR_readlinkat:
+                    if (e.filename[0] != '\0') {
+                        oss << "File operation: " << e.syscall << " on file: " << std::string(e.filename) << "\n";
+                    }
+                    break;
+                case __NR_close:
+                    oss << "Closing file descriptor: " << e.args[0] << "\n";
+                    break;
+                case __NR_read:
+                case __NR_write:
+                    oss << ((e.syscall_nr == __NR_read) ? "Read" : "Write")
+                        << " operation on fd " << e.args[0]
+                        << ", " << e.args[2] << " bytes\n";
+                    break;
+                case __NR_mount:
+                    oss << "Mounting filesystem\n";
+                    break;
+                case __NR_umount2:
+                    oss << "Unmounting filesystem\n";
+                    break;
+        
+                // 네트워크 관련
+                case __NR_socket:
+                    oss << "Creating socket: domain " << e.args[0]
+                        << ", type " << e.args[1]
+                        << ", protocol " << e.args[2] << "\n";
+                    break;
+                case __NR_connect:
+                    oss << "Connecting to socket\n";
+                    break;
+                case __NR_accept:
+                    oss << "Accepting connection on socket\n";
+                    break;
+                case __NR_bind:
+                    oss << "Binding socket\n";
+                    break;
+                case __NR_listen:
+                    oss << "Listening on socket\n";
+                    break;
+                case __NR_sendto:
+                case __NR_recvfrom:
+                    oss << ((e.syscall_nr == __NR_sendto) ? "Sending" : "Receiving")
+                        << " on socket " << e.args[0]
+                        << ", " << e.args[2] << " bytes\n";
+                    break;
+                case __NR_setsockopt:
+                case __NR_getsockopt:
+                    oss << ((e.syscall_nr == __NR_setsockopt) ? "Setting" : "Getting")
+                        << " socket option\n";
+                    break;
+        
+                // 프로세스 제어 관련
+                case __NR_setpgid:
+                case __NR_setsid:
+                case __NR_setuid:
+                case __NR_setgid:
+                case __NR_setreuid:
+                case __NR_setregid:
+                case __NR_setresuid:
+                case __NR_setresgid:
+                case __NR_setgroups:
+                case __NR_capset:
+                    oss << "Changing process attributes: " << e.syscall << "\n";
+                    break;
+                case __NR_prctl:
+                    oss << "Process control operation: " << e.args[0] << "\n";
+                    break;
+                case __NR_setpriority:
+                case __NR_sched_setscheduler:
+                case __NR_sched_setparam:
+                case __NR_sched_setaffinity:
+                    oss << "Changing process scheduling: " << e.syscall << "\n";
+                    break;
+                case __NR_sched_yield:
+                    oss << "Yielding processor\n";
+                    break;
+                case __NR_mprotect:
+                    oss << "mprotect called with addr=" << e.args[0]
+                        << ", len=" << e.args[1]
+                        << ", prot=" << e.args[2] << "\n";
+                    break;
+                case __NR_mmap:
+                    oss << "mmap called with addr=" << e.args[0]
+                        << ", len=" << e.args[1]
+                        << ", prot=" << e.args[2]
+                        << ", flags=" << e.args[3]
+                        << ", fd=" << e.args[4]
+                        << ", offset=" << e.args[5] << "\n";
+                    break;
+                case __NR_munmap:
+                    oss << "munmap called with addr=" << e.args[0]
+                        << ", len=" << e.args[1] << "\n";
+                    break;
+                default:
+                    oss << "Other system call: " << e.syscall << "\n";
+                    break;
+            }
+
+            // 압축된 파일에 쓰기
+            std::string logEntry = oss.str();
+            int writeResult = gzwrite(gzFile_, logEntry.c_str(), logEntry.size());
+            if (writeResult == 0) {
+                int err_no = 0;
+                const char* error_string = gzerror(gzFile_, &err_no);
+                if (err_no) {
+                    std::cerr << "Error writing to compressed log file: " << error_string << "\n";
+                }
+            }
+        }
+
+        // 데이터 플러시
+        gzflush(gzFile_, Z_SYNC_FLUSH);
+
+        // 데이터베이스에 이벤트 삽입
+        // insertEventsToDB(buffer);
+    }
+    catch (const std::exception& ex) {
+        std::cerr << "Exception in flushToFile: " << ex.what() << "\n";
+    }
+    catch (...) {
+        std::cerr << "Unknown exception in flushToFile\n";
+    }
+}
+
+time_t EventLogger::get_boot_time() {
+    struct sysinfo s_info;
+    if (sysinfo(&s_info) != 0) {
+        return 0;
+    }
+    return time(NULL) - s_info.uptime;
+}
+
+std::string EventLogger::format_timestamp(uint64_t timestamp_ns) const {
+    time_t seconds = boot_time_ + (timestamp_ns / 1000000000);
+    struct tm tm_info;
+    localtime_r(&seconds, &tm_info);
+    
+    char buffer[32];
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &tm_info);
+    
+    uint64_t nanoseconds = timestamp_ns % 1000000000;
+    char result[48];
+    snprintf(result, sizeof(result), "%s.%09lu", buffer, nanoseconds);
+    
+    return std::string(result);
+}
+
+std::string EventLogger::getCurrentLogPath() const {
+    auto now = std::chrono::system_clock::now();
+    auto time = std::chrono::system_clock::to_time_t(now);
+    std::stringstream ss;
+    ss << logFileBasePath_ << "/";
+    ss << std::put_time(std::localtime(&time), "%Y%m%d");
+    ss << "_raw.log.gz";
+    return ss.str();
+}
+
+void EventLogger::checkAndRotateLogFile() {
+    auto now = std::chrono::system_clock::now();
+    auto time = std::chrono::system_clock::to_time_t(now);
+    std::stringstream ss;
+    ss << std::put_time(std::localtime(&time), "%Y%m%d");
+    std::string newDate = ss.str();
+
+    if (currentDate_ != newDate) {
+        // 기존 파일이 열려있으면 닫기
+        if (gzFile_) {
+            gzclose(gzFile_);
+            gzFile_ = nullptr;
+        }
+
+        // 새 로그 파일 경로 설정
+        std::string newLogPath = getCurrentLogPath();
+        
+        // 새 파일 열기
+        gzFile_ = gzopen(newLogPath.c_str(), "wb6");
+        if (!gzFile_) {
+            throw std::runtime_error("Failed to open new compressed log file: " + newLogPath);
+        }
+
+        currentDate_ = newDate;
+        logFilePath_ = newLogPath;
+    }
+}
+
+// using namespace std::string_view_literals;
+
+// void EventLogger::insertEventsToDB(const std::vector<event>& buffer) {
+//     if (buffer.empty()) return;
+
+//     try {
+//         pqxx::work txn(dbConnection_);
+//         auto stream = pqxx::stream_to::table(txn, {"ContainerLog"sv}, {
+//             "systemcall",
+//             "container_name",
+//             "pid",
+//             "ppid",
+//             "tid",
+//             "uid",
+//             "gid",
+//             "command",
+//             "atr_0",
+//             "atr_1",
+//             "atr_2",
+//             "atr_3",
+//             "atr_4",
+//             "atr_5"
+//         });
+
+//         // 개선된 문자열 정제 함수
+//         auto sanitizeString = [](const char* str) -> std::string {
+//             std::string result;
+//             const unsigned char* p = reinterpret_cast<const unsigned char*>(str);
+            
+//             while (*p && result.length() < MAX_ARG_LEN) {
+//                 // UTF-8 유효성 검사 및 필터링
+//                 if (*p < 0x80) { // ASCII 문자
+//                     if (*p >= 0x20 && *p != 0x7F) { // 출력 가능한 ASCII
+//                         result += static_cast<char>(*p);
+//                     }
+//                     p++;
+//                 } else if ((*p & 0xE0) == 0xC0) { // 2바이트 UTF-8
+//                     if (p[1] && (p[1] & 0xC0) == 0x80) {
+//                         result += static_cast<char>(p[0]);
+//                         result += static_cast<char>(p[1]);
+//                         p += 2;
+//                     } else {
+//                         p++;
+//                     }
+//                 } else if ((*p & 0xF0) == 0xE0) { // 3바이트 UTF-8
+//                     if (p[1] && p[2] && 
+//                         (p[1] & 0xC0) == 0x80 && 
+//                         (p[2] & 0xC0) == 0x80) {
+//                         result += static_cast<char>(p[0]);
+//                         result += static_cast<char>(p[1]);
+//                         result += static_cast<char>(p[2]);
+//                         p += 3;
+//                     } else {
+//                         p++;
+//                     }
+//                 } else {
+//                     p++; // 유효하지 않은 바이트는 건너뛰기
+//                 }
+//             }
+//             return result;
+//         };
+
+//         for (const auto& e : buffer) {
+//             std::string container_name;
+//             for (const auto& container : ContainerManager::containers) {
+//                 if (container.cgroup_id == e.cgroup_id) {
+//                     container_name = container.name;
+//                     break;
+//                 }
+//             }
+
+//             stream.write_values(
+//                 sanitizeString(e.syscall),
+//                 container_name,
+//                 e.pid,
+//                 e.ppid,
+//                 e.tid,
+//                 e.uid,
+//                 e.gid,
+//                 sanitizeString(e.comm),
+//                 sanitizeString(e.argv[0]),
+//                 sanitizeString(e.argv[1]),
+//                 sanitizeString(e.argv[2]),
+//                 sanitizeString(e.argv[3]),
+//                 sanitizeString(e.argv[4]),
+//                 sanitizeString(e.argv[5])
+//             );
+//         }
+//         stream.complete();
+//         txn.commit();
+//     }
+//     catch (const pqxx::sql_error &e) {
+//         std::cerr << "SQL error: " << e.what() << "\n";
+//         std::cerr << "Query was: " << e.query() << "\n";
+//     }
+//     catch (const std::exception &e) {
+//         std::cerr << "Exception in insertEventsToDB: " << e.what() << "\n";
+//     }
+// }

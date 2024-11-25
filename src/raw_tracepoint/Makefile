@@ -28,12 +28,12 @@ CXXFLAGS := $(CFLAGS) -std=c++20 -pthread
 CXXFLAGS += -I/usr/include/yaml-cpp
 CXXFLAGS += -I../include/reflect-cpp/include
 CXXFLAGS += -I../include/reflect-cpp/include/rfl/thirdparty
-# CXXFLAGS += $(shell pkg-config --cflags libpqxx)
+CXXFLAGS += $(shell pkg-config --cflags libpqxx)
 
 ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS)
 
 # 다음 줄 추가_추후 삭제
-LIBS := -lyaml-cpp -lelf -lz -lcurl -ljson-c -lpthread -lrdkafka++ -lrdkafka -lpq # pthread 라이브러리 추가
+LIBS := -lyaml-cpp -lelf -lz -lcurl -ljson-c -lpthread $(shell pkg-config --cflags libpqxx) -lpqxx -lpq # pthread 라이브러리 추가
 
 APPS = raw_tracepoint
 
@@ -114,7 +114,7 @@ $(OUTPUT)/%.o: %.cpp $(wildcard %.h) | $(OUTPUT)  # C++ 파일 컴파일 규칙 
 	$(Q)$(CXX) $(CXXFLAGS) $(INCLUDES) -c $(filter %.cpp,$^) -o $@
 
 # Build application binary
-$(APPS): %: $(OUTPUT)/%.o $(LIBBPF_OBJ) $(OUTPUT)/container_info.o $(OUTPUT)/EventLogger.o $(OUTPUT)/getEnv.o $(OUTPUT)/ThreadPool.o | $(OUTPUT)  # container_info.o 추가
+$(APPS): %: $(OUTPUT)/%.o $(LIBBPF_OBJ) $(OUTPUT)/container_info.o $(OUTPUT)/EventLogger.o $(OUTPUT)/getEnv.o | $(OUTPUT)  # container_info.o 추가
 	$(call msg,BINARY,$@)
 	$(Q)$(CXX) $(CXXFLAGS) $^ $(ALL_LDFLAGS) $(LIBS) -o $@
 # delete failed targets

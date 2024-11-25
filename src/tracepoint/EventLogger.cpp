@@ -1,6 +1,4 @@
 #include "EventLogger.h"
-
-// JSON 직렬화를 위해 nlohmann/json 라이브러리 사용 (필요 시 설치)
 #include <nlohmann/json.hpp>
 
 // 편의상 네임스페이스 사용
@@ -21,7 +19,8 @@ EventLogger::EventLogger(size_t bufferSize, const std::string& brokers, const st
       topic_str_(topic),
       topic_(nullptr),
       conf_(RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL)),
-      tconf_(RdKafka::Conf::create(RdKafka::Conf::CONF_TOPIC))
+      tconf_(RdKafka::Conf::create(RdKafka::Conf::CONF_TOPIC)),
+      stop_(false)
 {
     // 버퍼 예약
     buffer1_.reserve(bufferSize_);
@@ -29,10 +28,7 @@ EventLogger::EventLogger(size_t bufferSize, const std::string& brokers, const st
     buffer3_.reserve(bufferSize_);
     buffer4_.reserve(bufferSize_);
 
-    // 초기 버퍼 활성화 시간 설정
-    current_buffer_time_ = std::chrono::steady_clock::now();
-
-    // Kafka 브로커 설정
+    // Kafka 설정
     std::string errstr;
     if (conf_->set("bootstrap.servers", brokers, errstr) != RdKafka::Conf::CONF_OK) {
         std::cerr << "Kafka 설정 오류: " << errstr << std::endl;
@@ -40,12 +36,12 @@ EventLogger::EventLogger(size_t bufferSize, const std::string& brokers, const st
     }
 
     // 배치 및 압축 처리 설정
-    if (conf_->set("queue.buffering.max.messages", "500000", errstr) != RdKafka::Conf::CONF_OK) { // 500,000개
+    if (conf_->set("queue.buffering.max.messages", "1000000", errstr) != RdKafka::Conf::CONF_OK) { // 1,000,000개
         std::cerr << "Kafka 설정 오류 (queue.buffering.max.messages): " << errstr << std::endl;
         throw std::runtime_error("Kafka 설정 실패");
     }
 
-    if (conf_->set("queue.buffering.max.kbytes", "1048576", errstr) != RdKafka::Conf::CONF_OK) { // 1GB
+    if (conf_->set("queue.buffering.max.kbytes", "2097152", errstr) != RdKafka::Conf::CONF_OK) { // 2GB
         std::cerr << "Kafka 설정 오류 (queue.buffering.max.kbytes): " << errstr << std::endl;
         throw std::runtime_error("Kafka 설정 실패");
     }
@@ -55,29 +51,39 @@ EventLogger::EventLogger(size_t bufferSize, const std::string& brokers, const st
         throw std::runtime_error("Kafka 설정 실패");
     }
 
-    if (conf_->set("batch.size", "16384", errstr) != RdKafka::Conf::CONF_OK) { // 16KB
+    if (conf_->set("batch.size", "327680", errstr) != RdKafka::Conf::CONF_OK) { // 320KB
         std::cerr << "Kafka 설정 오류 (batch.size): " << errstr << std::endl;
         throw std::runtime_error("Kafka 설정 실패");
     }
 
-    if (conf_->set("linger.ms", "3000", errstr) != RdKafka::Conf::CONF_OK) { // 3초
+    if (conf_->set("linger.ms", "500", errstr) != RdKafka::Conf::CONF_OK) { // 0.5초
         std::cerr << "Kafka 설정 오류 (linger.ms): " << errstr << std::endl;
         throw std::runtime_error("Kafka 설정 실패");
     }
 
-    // if (conf_->set("enable.idempotence", "true", errstr) != RdKafka::Conf::CONF_OK) {
-    //     std::cerr << "Kafka 설정 오류: " << errstr << std::endl;
-    //     throw std::runtime_error("Kafka 설정 실패");
-    // }
+    if (conf_->set("acks", "1", errstr) != RdKafka::Conf::CONF_OK) { // 리더에게만 확인 받음
+        std::cerr << "Kafka 설정 오류 (acks): " << errstr << std::endl;
+        throw std::runtime_error("Kafka 설정 실패");
+    }
 
-    // 프로듀서 객체 생성
+    if (conf_->set("retries", "3", errstr) != RdKafka::Conf::CONF_OK) { // 재시도 횟수
+        std::cerr << "Kafka 설정 오류 (retries): " << errstr << std::endl;
+        throw std::runtime_error("Kafka 설정 실패");
+    }
+
+    if (conf_->set("retry.backoff.ms", "100", errstr) != RdKafka::Conf::CONF_OK) { // 재시도 간격
+        std::cerr << "Kafka 설정 오류 (retry.backoff.ms): " << errstr << std::endl;
+        throw std::runtime_error("Kafka 설정 실패");
+    }
+
+    // 프로듀서 생성
     producer_ = RdKafka::Producer::create(conf_, errstr);
     if (!producer_) {
         std::cerr << "Kafka 프로듀서 생성 실패: " << errstr << std::endl;
         throw std::runtime_error("Kafka 프로듀서 생성 실패");
     }
 
-    // 토픽 객체 생성
+    // 토픽 설정
     topic_ = RdKafka::Topic::create(producer_, topic_str_, tconf_, errstr);
     if (!topic_) {
         std::cerr << "Kafka 토픽 생성 실패: " << errstr << std::endl;
@@ -86,6 +92,12 @@ EventLogger::EventLogger(size_t bufferSize, const std::string& brokers, const st
 
     delete conf_;
     delete tconf_;
+
+    // 쓰레드풀 초기화 (CPU 코어 수 기준)
+    size_t numThreads = std::thread::hardware_concurrency();
+    for (size_t i = 0; i < numThreads; ++i) {
+        threadPool_.emplace_back(&EventLogger::threadPoolWorker, this);
+    }
 
     // 플러시 쓰레드 시작
     flushThread_ = std::thread(&EventLogger::flushThreadFunc, this);
@@ -101,16 +113,26 @@ EventLogger::~EventLogger() {
         flushThread_.join();
     }
 
+    // 쓰레드풀 종료
+    {
+        std::unique_lock<std::mutex> lock(threadPoolMutex_);
+        stop_ = true;
+        threadPoolCV_.notify_all();
+    }
+
+    for (auto& thread : threadPool_) {
+        if (thread.joinable()) {
+            thread.join();
+        }
+    }
+
     // 모든 버퍼 플러시
     std::lock_guard<std::mutex> lock(mtx_);
-
-    // 현재 버퍼가 비어있지 않다면 플러시 버퍼 대기열에 추가
     if (!currentBuffer_->empty()) {
         flushBuffers_.push_back(currentBuffer_);
     }
 
-    // 모든 플러시 버퍼 플러시
-    while(!flushBuffers_.empty()) {
+    while (!flushBuffers_.empty()) {
         std::vector<db_event_t>* bufferToFlush = flushBuffers_.front();
         flushBuffers_.pop_front();
         sendEventsToKafka(*bufferToFlush);
@@ -134,10 +156,9 @@ void EventLogger::addEvent(const db_event_t& e) {
     currentBuffer_->push_back(e);
 
     if (currentBuffer_->size() >= bufferSize_) {
-        // 현재 버퍼를 플러시 버퍼 대기열에 추가
         flushBuffers_.push_back(currentBuffer_);
 
-        // 다음 사용 가능한 버퍼를 찾음
+        // 다음 사용 가능한 버퍼 선택
         if (&buffer1_ != currentBuffer_ && buffer1_.size() < bufferSize_) {
             currentBuffer_ = &buffer1_;
         }
@@ -153,6 +174,7 @@ void EventLogger::addEvent(const db_event_t& e) {
         else {
             // 모든 버퍼가 꽉 찼다면, 대기
             cv_.wait(lock, [this]() { return !flushBuffers_.empty(); });
+
             // 재시도
             if (&buffer1_ != currentBuffer_ && buffer1_.size() < bufferSize_) {
                 currentBuffer_ = &buffer1_;
@@ -176,49 +198,97 @@ void EventLogger::addEvent(const db_event_t& e) {
         // 플러시 플래그 설정
         isFlushing_.store(true);
         cv_.notify_one();
-
-        // current_buffer_time_ 업데이트
-        current_buffer_time_ = std::chrono::steady_clock::now();
     }
+}
+
+// 플러시 쓰레드 함수
+void EventLogger::flushThreadFunc() {
+    while (!shutdown_.load()) {
+        std::unique_lock<std::mutex> lock(mtx_);
+        cv_.wait_for(lock, this->FLUSH_TIMEOUT, [this]() { return isFlushing_.load() || shutdown_.load(); });
+
+        if (isFlushing_.load() && !flushBuffers_.empty()) {
+            std::vector<db_event_t>* bufferToFlush = flushBuffers_.front();
+            flushBuffers_.pop_front();
+            isFlushing_.store(false);
+            lock.unlock();
+
+            // Kafka 전송
+            sendEventsToKafka(*bufferToFlush);
+
+            // 버퍼 초기화
+            bufferToFlush->clear();
+
+            // 조건 변수 알림
+            cv_.notify_all();
+        }
+    }
+}
+
+// 쓰레드풀 워커 함수
+void EventLogger::threadPoolWorker() {
+    while (true) {
+        std::function<void()> task;
+        {
+            std::unique_lock<std::mutex> lock(threadPoolMutex_);
+            threadPoolCV_.wait(lock, [this]() { return stop_ || !tasks_.empty(); });
+
+            if (stop_ && tasks_.empty()) {
+                return;
+            }
+
+            task = std::move(tasks_.front());
+            tasks_.pop();
+        }
+        task();
+    }
+}
+
+// 작업 큐에 작업 추가
+void EventLogger::enqueueTask(std::function<void()> task) {
+    {
+        std::unique_lock<std::mutex> lock(threadPoolMutex_);
+        tasks_.emplace(task);
+    }
+    threadPoolCV_.notify_one();
 }
 
 // Kafka에 이벤트 비동기 전송 (배치 처리)
 void EventLogger::sendEventsToKafka(const std::vector<db_event_t>& events) {
     if (events.empty()) return;
 
-    // 비동기 작업 시작
-    std::async(std::launch::async, [this, events]() {
+    enqueueTask([this, events]() {
         auto start = std::chrono::steady_clock::now();
         size_t messageCount = 0;
 
-        // 비동기 전송을 위한 배치 설정
-        const size_t max_batch_size = 20 * 1024 * 1024; // 10MB
+        // 배치 설정
+        const size_t max_batch_size = 20 * 1024 * 1024; // 20MB
         std::vector<std::string> batch;
         size_t current_batch_size = 0;
 
-        for (const auto& event : events) {
-            // db_event_t를 JSON으로 직렬화
+        for (const auto& event_item : events) {
+            // JSON 직렬화
             json j;
-            j["timestamp"] = std::chrono::duration_cast<std::chrono::microseconds>(event.timestamp.time_since_epoch()).count();
-            j["container_name"] = event.container_name;
-            j["syscall"] = event.syscall;
-            j["is_enter"] = event.is_enter;
-            j["pid_namespace"] = event.pid_namespace;
-            j["mnt_namespace"] = event.mnt_namespace;
-            j["ppid"] = event.ppid;
-            j["pid"] = event.pid;
-            j["tid"] = event.tid;
-            j["uid"] = event.uid;
-            j["gid"] = event.gid;
-            j["ret"] = event.ret;
-            j["comm"] = event.comm;
-            j["arg0"] = event.arg0;
-            j["arg1"] = event.arg1;
-            j["arg2"] = event.arg2;
-            j["arg3"] = event.arg3;
-            j["arg4"] = event.arg4;
-            j["arg5"] = event.arg5;
-            j["additional_info"] = event.additional_info;
+            j["timestamp"] = std::chrono::duration_cast<std::chrono::microseconds>(event_item.timestamp.time_since_epoch()).count();
+            j["container_name"] = event_item.container_name;
+            j["syscall"] = event_item.syscall;
+            j["is_enter"] = event_item.is_enter;
+            j["pid_namespace"] = event_item.pid_namespace;
+            j["mnt_namespace"] = event_item.mnt_namespace;
+            j["ppid"] = event_item.ppid;
+            j["pid"] = event_item.pid;
+            j["tid"] = event_item.tid;
+            j["uid"] = event_item.uid;
+            j["gid"] = event_item.gid;
+            j["ret"] = event_item.ret;
+            j["comm"] = event_item.comm;
+            j["arg0"] = event_item.arg0;
+            j["arg1"] = event_item.arg1;
+            j["arg2"] = event_item.arg2;
+            j["arg3"] = event_item.arg3;
+            j["arg4"] = event_item.arg4;
+            j["arg5"] = event_item.arg5;
+            j["additional_info"] = event_item.additional_info;
             j["data_type"] = "db_event"; // DB 소비자를 위한 데이터 타입 명시
 
             std::string message = j.dump();
@@ -227,71 +297,17 @@ void EventLogger::sendEventsToKafka(const std::vector<db_event_t>& events) {
 
             // 배치 크기 초과 시 전송
             if (current_batch_size >= max_batch_size) {
-                // 배치를 비동기로 전송
-                std::vector<std::string> sending_batch = std::move(batch);
-                std::async(std::launch::async, [this, sending_batch]() {
-                    for (const auto& msg : sending_batch) {
-                        RdKafka::ErrorCode resp = producer_->produce(
-                            topic_, 
-                            RdKafka::Topic::PARTITION_UA, 
-                            RdKafka::Producer::RK_MSG_COPY, 
-                            const_cast<char*>(msg.c_str()), 
-                            msg.size(),
-                            nullptr, // 키 없음
-                            nullptr  // 사용자 데이터 없음
-                        );
-
-                        if (resp != RdKafka::ERR_NO_ERROR) {
-                            std::cerr << "Failed to produce to Kafka: " << RdKafka::err2str(resp) << std::endl;
-                        } else {
-                            // 성공적으로 전송된 메시지 수 증가
-                        }
-
-                        // 프로듀서의 큐를 처리
-                        producer_->poll(0);
-                    }
-
-                    // 모든 메시지가 전송되었는지 확인
-                    producer_->flush(10000); // 최대 10초 동안 대기
-                });
-
-                // 새로운 배치 시작
+                sendBatchToKafka(batch);
+                messageCount += batch.size();
                 batch.clear();
                 current_batch_size = 0;
-                messageCount += sending_batch.size();
             }
         }
 
         // 남은 메시지 전송
         if (!batch.empty()) {
-            std::vector<std::string> sending_batch = std::move(batch);
-            std::async(std::launch::async, [this, sending_batch]() {
-                for (const auto& msg : sending_batch) {
-                    RdKafka::ErrorCode resp = producer_->produce(
-                        topic_, 
-                        RdKafka::Topic::PARTITION_UA, 
-                        RdKafka::Producer::RK_MSG_COPY, 
-                        const_cast<char*>(msg.c_str()), 
-                        msg.size(),
-                        nullptr, // 키 없음
-                        nullptr  // 사용자 데이터 없음
-                    );
-
-                    if (resp != RdKafka::ERR_NO_ERROR) {
-                        std::cerr << "Failed to produce to Kafka: " << RdKafka::err2str(resp) << std::endl;
-                    } else {
-                        // 성공적으로 전송된 메시지 수 증가
-                    }
-
-                    // 프로듀서의 큐를 처리
-                    producer_->poll(0);
-                }
-
-                // 모든 메시지가 전송되었는지 확인
-                producer_->flush(10000); // 최대 10초 동안 대기
-            });
-
-            messageCount += sending_batch.size();
+            sendBatchToKafka(batch);
+            messageCount += batch.size();
         }
 
         auto end = std::chrono::steady_clock::now();
@@ -301,71 +317,27 @@ void EventLogger::sendEventsToKafka(const std::vector<db_event_t>& events) {
     });
 }
 
-// 플러시 쓰레드 함수
-void EventLogger::flushThreadFunc() {
-    try {
-        while (!shutdown_.load()) {
-            std::unique_lock<std::mutex> lock(mtx_);
+// Kafka에 배치 전송
+void EventLogger::sendBatchToKafka(const std::vector<std::string>& batch) {
+    for (const auto& msg : batch) {
+        RdKafka::ErrorCode resp = producer_->produce(
+            topic_, 
+            RdKafka::Topic::PARTITION_UA, 
+            RdKafka::Producer::RK_MSG_COPY, 
+            const_cast<char*>(msg.c_str()), 
+            msg.size(),
+            nullptr, // 키 없음
+            nullptr  // 사용자 데이터 없음
+        );
 
-            // 대기 시간 1초로 설정하여 주기적으로 타임아웃을 체크
-            if (cv_.wait_for(lock, std::chrono::seconds(1), [this]() { return !flushBuffers_.empty() || shutdown_.load(); })) {
-                // 신호가 들어오거나 shutdown이 설정된 경우
-                if (shutdown_.load() && flushBuffers_.empty()) {
-                    break;
-                }
-
-                while (!flushBuffers_.empty()) {
-                    // 플러시할 버퍼를 가져옴
-                    std::vector<db_event_t>* bufferToFlush = flushBuffers_.front();
-                    flushBuffers_.pop_front();
-
-                    // 비동기 전송
-                    sendEventsToKafka(*bufferToFlush);
-
-                    // 버퍼 클리어
-                    bufferToFlush->clear();
-                }
-            }
-
-            // 타임아웃 체크: 10초 이상 지난 currentBuffer_이 있는지 확인
-            auto now = std::chrono::steady_clock::now();
-
-            if (std::chrono::duration_cast<std::chrono::seconds>(now - current_buffer_time_) >= FLUSH_TIMEOUT && !currentBuffer_->empty()) {
-                // currentBuffer_를 플러시 버퍼 대기열에 추가
-                flushBuffers_.push_back(currentBuffer_);
-                isFlushing_.store(true);
-                cv_.notify_one();
-
-                // 플러시 로그
-                std::cerr << "Timeout reached for currentBuffer_. Flushing buffer." << std::endl;
-
-                // 다음 사용 가능한 버퍼를 찾음
-                if (&buffer1_ != currentBuffer_ && buffer1_.size() < bufferSize_) {
-                    currentBuffer_ = &buffer1_;
-                }
-                else if (&buffer2_ != currentBuffer_ && buffer2_.size() < bufferSize_) {
-                    currentBuffer_ = &buffer2_;
-                }
-                else if (&buffer3_ != currentBuffer_ && buffer3_.size() < bufferSize_) {
-                    currentBuffer_ = &buffer3_;
-                }
-                else if (&buffer4_ != currentBuffer_ && buffer4_.size() < bufferSize_) {
-                    currentBuffer_ = &buffer4_;
-                }
-                else {
-                    // 모든 버퍼가 꽉 찼다면, 현재 버퍼를 플러시 대기열에 추가할 수 없음
-                    std::cerr << "Error: All buffers are full. Dropping buffer due to timeout." << std::endl;
-                }
-
-                // current_buffer_time_ 업데이트
-                current_buffer_time_ = std::chrono::steady_clock::now();
-            }
+        if (resp != RdKafka::ERR_NO_ERROR) {
+            std::cerr << "Failed to produce to Kafka: " << RdKafka::err2str(resp) << std::endl;
         }
+
+        // 비동기 처리를 위해 poll을 주기적으로 호출
+        producer_->poll(0);
     }
-    catch (const std::exception& ex) {
-        std::cerr << "Exception in flushThreadFunc: " << ex.what() << "\n";
-    }
-    catch (...) {
-        std::cerr << "Unknown exception in flushThreadFunc\n";
-    }
+
+    // 모든 메시지가 전송되었는지 확인
+    producer_->flush(10000); // 최대 10초 동안 대기
 }
