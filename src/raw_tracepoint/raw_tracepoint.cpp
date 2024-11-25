@@ -225,16 +225,13 @@ int main(int argc, char **argv)
         env::getEnv();
         
         // 연결 문자열 구성
-        std::string dbConnectionStr = "dbname=" + env::dbname +
-                                      " user=" + env::user +
-                                      " password=" + env::password +
-                                      " hostaddr=" + env::host +
-                                      " port=" + env::port;
+        std::string brokers = "113.198.229.153:3001,113.198.229.153:3002,113.198.229.153:3003";
+        std::string topic = "raw_tracepoint";
 
         // EventLogger 객체 생성
         const size_t BUFFER_SIZE = 100000;
-        const std::string LOG_FILE_PATH = env::log_file_path;
-        eventLogger = new EventLogger(BUFFER_SIZE, LOG_FILE_PATH, dbConnectionStr);
+        // const std::string LOG_FILE_PATH = env::log_file_path;
+        eventLogger = new EventLogger(BUFFER_SIZE, brokers, topic);
 
         // BPF 애플리케이션 로드 및 검증
         skel = raw_tracepoint_bpf__open_and_load();

@@ -1,6 +1,8 @@
 #ifndef EVENTLOGGER_H
 #define EVENTLOGGER_H
 
+#pragma once
+
 #include <vector>
 #include <mutex>
 #include <thread>
@@ -8,27 +10,26 @@
 #include <string>
 #include <condition_variable>
 #include <deque>
-#include <zlib.h>
 #include <sys/sysinfo.h>
 #include <ctime>
-#include <pqxx/pqxx>
-#include <syscall.h>
 #include <chrono>
 #include <iostream>
 #include <iomanip>
 #include <exception>
 #include <cstring>
 #include <sstream>
-#include <zlib.h>
 #include <string_view> 
+#include <future>
 
 #include "event.h"
-#include "container_info.h"
+
+// librdkafka 헤더 추가
+#include <librdkafka/rdkafkacpp.h>
 
 class EventLogger {
 public:
-    // 생성자: 버퍼 크기 설정 및 로그 파일 경로 설정
-    EventLogger(size_t bufferSize, const std::string& logFilePath, const std::string& dbConnStr);
+    // 생성자: 버퍼 크기 설정 및 Kafka 초기화
+    EventLogger(size_t bufferSize, const std::string& brokers, const std::string& topic);
     
     // 소멸자: 모든 쓰레드 종료 및 리소스 정리
     ~EventLogger();
@@ -37,23 +38,13 @@ public:
     void addEvent(const event& e);
     
 private:
-    // 로그를 파일에 기록하는 함수
+    // 로그를 Kafka에 기록하는 함수
     void flushThreadFunc();
-    void flushToFile(const std::vector<event>& buffer);
-
-    std::string getCurrentLogPath() const;
-    void checkAndRotateLogFile();
-    std::string logFileBasePath_;
-    std::string currentDate_;
     
-    // 데이터베이스에 이벤트 삽입
-    //void insertEventsToDB(const std::vector<event>& buffer);
-
-    static time_t get_boot_time();
-    std::string format_timestamp(uint64_t timestamp_ns) const;
+    // Kafka에 이벤트 전송
+    void sendEventsToKafka(const std::vector<event>& buffer);
 
     size_t bufferSize_;
-    std::string logFilePath_;
     
     // 4개의 버퍼
     std::vector<event> buffer1_;
@@ -81,13 +72,16 @@ private:
     // 쓰레드 종료를 위한 플래그
     std::atomic<bool> shutdown_;
     
-    // zlib 압축 스트림
-    gzFile gzFile_; // 압축된 파일 스트림 추가
-
-    // 데이터베이스 연결 객체
-    // pqxx::connection dbConnection_;
+    // Kafka 프로듀서 관련
+    RdKafka::Producer* producer_;
+    std::string topic_str_;
+    RdKafka::Topic* topic_;
     
-    time_t boot_time_;
+    // Kafka 설정
+    RdKafka::Conf* conf_;
+    RdKafka::Conf* tconf_;
 };
+
+// extern EventLogger* eventLogger;
 
 #endif // EVENTLOGGER_H
