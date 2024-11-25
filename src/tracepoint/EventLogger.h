@@ -19,6 +19,7 @@
 #include <cstring>
 #include <sstream>
 #include <string_view> 
+#include <future>
 
 #include "struct.h"
 #include "user_struct.h"

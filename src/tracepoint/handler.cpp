@@ -3445,7 +3445,15 @@ void init_event_handlers(void) {
     event_handler[__NR_tgkill].exit = handle_exit_tgkill;
 }
 
+// debug
+long long count = 0;
+
 int handle_event(void *ctx, void *data, size_t data_sz) {
+
+    count++;
+    if (count % 100000 == 0) {
+        printf("[+]Event count: %lld\n", count);
+    }
     const struct event_t *e = (struct event_t *)data;
 
     db_event_t base_event = get_str(&e->task, boot_time);
