@@ -85,8 +85,8 @@ map<string, __u32> tracepoints_map = {
     {"__NR_dup2", __NR_dup2},
     {"__NR_dup3", __NR_dup3},
     {"__NR_flock", __NR_flock},
-    {"__NR_name_to_handle_at",  __NR_name_to_handle_at},
-    {"__NR_open_by_handle_at", __NR_open_by_handle_at},
+    // {"__NR_name_to_handle_at",  __NR_name_to_handle_at},
+    // {"__NR_open_by_handle_at", __NR_open_by_handle_at},
     {"__NR_memfd_create", __NR_memfd_create},
     {"__NR_mknod", __NR_mknod},
     {"__NR_mknodat", __NR_mknodat},
@@ -181,8 +181,8 @@ map<string, __u32> tracepoints_map = {
     {"__NR_mlockall", __NR_mlockall},
     {"__NR_munlock", __NR_munlock},
     {"__NR_munlockall", __NR_munlockall},
-    {"__NR_mincore", __NR_mincore},
-    {"__NR_membarrier", __NR_membarrier},
+    // {"__NR_mincore", __NR_mincore},
+    // {"__NR_membarrier", __NR_membarrier},
     {"__NR_capget", __NR_capget},
     {"__NR_arch_prctl", __NR_arch_prctl}
 };
