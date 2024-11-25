@@ -103,15 +103,10 @@ void init_syscall_map(struct raw_tracepoint_bpf *skel)
         { __NR_shmdt, "shmdt" },
         
         // 시그널 처리
-        { __NR_signal, "signal" },
-        { __NR_sigaction, "sigaction" },
-        { __NR_sigprocmask, "sigprocmask" },
-        { __NR_sigreturn, "sigreturn" },
         { __NR_rt_sigaction, "rt_sigaction" },
         { __NR_rt_sigprocmask, "rt_sigprocmask" },
         { __NR_rt_sigreturn, "rt_sigreturn" },
         { __NR_pause, "pause" },
-        { __NR_sigsuspend, "sigsuspend" },
         
         // 시스템 정보
         { __NR_uname, "uname" },
@@ -271,7 +266,6 @@ void init_syscall_map(struct raw_tracepoint_bpf *skel)
         { __NR_copy_file_range, "copy_file_range" },
 
         // 네트워크 관련
-        { __NR_socket_accept4, "socket_accept4" },
         { __NR_recvmmsg, "recvmmsg" },
         { __NR_sendmmsg, "sendmmsg" },
         { __NR_setsockopt, "setsockopt" },
@@ -302,9 +296,7 @@ void init_syscall_map(struct raw_tracepoint_bpf *skel)
 
         // 시스템 제어 관련
         { __NR_reboot, "reboot" },
-        { __NR_sysctl, "sysctl" },
         { __NR_adjtimex, "adjtimex" },
-        { __NR_ntp_adjtime, "ntp_adjtime" },
         { __NR_swapon, "swapon" },
         { __NR_swapoff, "swapoff" },
 
@@ -345,7 +337,120 @@ void init_syscall_map(struct raw_tracepoint_bpf *skel)
         { __NR_seccomp, "seccomp" },
         { __NR_getrandom, "getrandom" },
         { __NR_membarrier, "membarrier" },
-        { __NR_rseq, "rseq" }
+        { __NR_rseq, "rseq" },
+
+        // 타이머/타임아웃 관련 추가
+        { __NR_timer_getoverrun, "timer_getoverrun" },
+        { __NR_timerfd_create, "timerfd_create" },
+        { __NR_timerfd_gettime, "timerfd_gettime" },
+        { __NR_timerfd_settime, "timerfd_settime" },
+        { __NR_clock_adjtime, "clock_adjtime" },
+        { __NR_nanosleep, "nanosleep" },
+
+        // 이벤트/폴링 관련 추가 
+        { __NR_eventfd, "eventfd" },
+        { __NR_eventfd2, "eventfd2" },
+        { __NR_poll, "poll" },
+        { __NR_ppoll, "ppoll" },
+        { __NR_select, "select" },
+        { __NR_pselect6, "pselect6" },
+
+        // 프로세스/스레드 권한 관련 추가
+        { __NR_setfsgid, "setfsgid" },
+        { __NR_setfsuid, "setfsuid" },
+        { __NR_setgroups, "setgroups" },
+        { __NR_setsid, "setsid" },
+        { __NR_setpgid, "setpgid" },
+        { __NR_getpgid, "getpgid" },
+        { __NR_getsid, "getsid" },
+        { __NR_getpriority, "getpriority" },
+        { __NR_setpriority, "setpriority" },
+
+        // I/O 관련 추가
+        { __NR_io_cancel, "io_cancel" },
+        { __NR_io_destroy, "io_destroy" },
+        { __NR_io_getevents, "io_getevents" },
+        { __NR_io_setup, "io_setup" },
+        { __NR_io_submit, "io_submit" },
+        { __NR_ioprio_get, "ioprio_get" },
+        { __NR_ioprio_set, "ioprio_set" },
+
+        // 메모리 관련 추가
+        { __NR_mbind, "mbind" },
+        { __NR_migrate_pages, "migrate_pages" },
+        { __NR_move_pages, "move_pages" },
+        { __NR_remap_file_pages, "remap_file_pages" },
+
+        // 파일시스템 확장 기능 추가
+        { __NR_fallocate, "fallocate" },
+        { __NR_fsconfig, "fsconfig" },
+        { __NR_fsmount, "fsmount" },
+        { __NR_fsopen, "fsopen" },
+        { __NR_fspick, "fspick" },
+        { __NR_mount_setattr, "mount_setattr" },
+        { __NR_move_mount, "move_mount" },
+        { __NR_open_tree, "open_tree" },
+
+        // 소켓/네트워크 추가
+        { __NR_accept4, "accept4" },
+        { __NR_socketpair, "socketpair" },
+        { __NR_sendfile, "sendfile" },
+        { __NR_sendmmsg, "sendmmsg" },
+        { __NR_recvmmsg, "recvmmsg" },
+
+        // 시그널 처리 추가
+        { __NR_sigaltstack, "sigaltstack" },
+        { __NR_signalfd, "signalfd" },
+        { __NR_signalfd4, "signalfd4" },
+        { __NR_rt_sigqueueinfo, "rt_sigqueueinfo" },
+        { __NR_rt_tgsigqueueinfo, "rt_tgsigqueueinfo" },
+        { __NR_rt_sigpending, "rt_sigpending" },
+        { __NR_rt_sigsuspend, "rt_sigsuspend" },
+
+        // ���로세스 통신 추가
+        { __NR_process_madvise, "process_madvise" },
+        { __NR_process_vm_readv, "process_vm_readv" },
+        { __NR_process_vm_writev, "process_vm_writev" },
+
+        // 시스템 정보/관리 추가
+        { __NR_uname, "uname" },
+        { __NR_sysinfo, "sysinfo" },
+        { __NR_syslog, "syslog" },
+        { __NR_reboot, "reboot" },
+        { __NR_kexec_load, "kexec_load" },
+        { __NR_kexec_file_load, "kexec_file_load" },
+
+        // 보안 관련 추가
+        { __NR_landlock_create_ruleset, "landlock_create_ruleset" },
+        { __NR_landlock_add_rule, "landlock_add_rule" },
+        { __NR_landlock_restrict_self, "landlock_restrict_self" },
+        { __NR_seccomp, "seccomp" },
+        { __NR_bpf, "bpf" },
+
+        // 성능 모니터링 추가
+        { __NR_perf_event_open, "perf_event_open" },
+        { __NR_getcpu, "getcpu" },
+
+        // 네임스페이스 관련 추가
+        { __NR_setns, "setns" },
+        { __NR_unshare, "unshare" },
+        { __NR_pivot_root, "pivot_root" },
+
+        // 리소스 제한 관련 추가
+        { __NR_prlimit64, "prlimit64" },
+        { __NR_quotactl, "quotactl" },
+        { __NR_quotactl_fd, "quotactl_fd" },
+
+        // 기타 시스템콜 추가
+        { __NR_statx, "statx" },
+        { __NR_membarrier, "membarrier" },
+        { __NR_rseq, "rseq" },
+        { __NR_clone3, "clone3" },
+        { __NR_close_range, "close_range" },
+        { __NR_openat2, "openat2" },
+        { __NR_pidfd_open, "pidfd_open" },
+        { __NR_pidfd_getfd, "pidfd_getfd" },
+        { __NR_pidfd_send_signal, "pidfd_send_signal" }
     };
 
     for (size_t i = 0; i < sizeof(syscall_list) / sizeof(syscall_list[0]); i++) {
