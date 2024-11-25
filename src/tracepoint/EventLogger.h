@@ -66,6 +66,3 @@ private:
 extern EventLogger* eventLogger;
 
 #endif // EVENTLOGGER_H
-
-
-
