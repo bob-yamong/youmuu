@@ -23,7 +23,8 @@
 
 class EventLogger {
 public:
-    EventLogger(size_t bufferSize, const std::string& brokers, const std::string& topic);
+    // 생성자: bufferCount는 가변적인 버퍼 수
+    EventLogger(size_t bufferCount, const std::string& brokers, const std::string& topic);
     ~EventLogger();
     void addEvent(const db_event_t& e);
 
@@ -36,11 +37,9 @@ private:
     void threadPoolWorker();
     void enqueueTask(std::function<void()> task);
 
-    size_t bufferSize_;
-    std::vector<db_event_t> buffer1_;
-    std::vector<db_event_t> buffer2_;
-    std::vector<db_event_t> buffer3_;
-    std::vector<db_event_t> buffer4_;
+    // 버퍼 관련
+    const size_t bufferSize_ = 100000; // 버퍼 크기 고정
+    std::vector<std::vector<db_event_t>> buffers_; // 가변적인 버퍼 목록
     std::vector<db_event_t>* currentBuffer_;
     std::deque<std::vector<db_event_t>*> flushBuffers_;
     std::mutex mtx_;

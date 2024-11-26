@@ -1,17 +1,13 @@
-#include "EventLogger.h"
+#include "EventLogger.h" 
 #include <nlohmann/json.hpp>
 
 // 편의상 네임스페이스 사용
 using json = nlohmann::json;
 
 // 생성자
-EventLogger::EventLogger(size_t bufferSize, const std::string& brokers, const std::string& topic)
-    : bufferSize_(bufferSize),
-      buffer1_(),
-      buffer2_(),
-      buffer3_(),
-      buffer4_(),
-      currentBuffer_(&buffer1_),
+EventLogger::EventLogger(size_t bufferCount, const std::string& brokers, const std::string& topic)
+    : buffers_(),
+      currentBuffer_(nullptr),
       flushBuffers_(),
       isFlushing_(false),
       shutdown_(false),
@@ -22,13 +18,19 @@ EventLogger::EventLogger(size_t bufferSize, const std::string& brokers, const st
       tconf_(RdKafka::Conf::create(RdKafka::Conf::CONF_TOPIC)),
       stop_(false)
 {
-    // 버퍼 예약
-    buffer1_.reserve(bufferSize_);
-    buffer2_.reserve(bufferSize_);
-    buffer3_.reserve(bufferSize_);
-    buffer4_.reserve(bufferSize_);
+    // 버퍼 생성 및 예약
+    if (bufferCount == 0) {
+        throw std::invalid_argument("bufferCount must be greater than 0");
+    }
 
-    // 초기 버퍼 활성화 시간 설정
+    buffers_.reserve(bufferCount);
+    for (size_t i = 0; i < bufferCount; ++i) {
+        buffers_.emplace_back();
+        buffers_.back().reserve(bufferSize_);
+    }
+
+    // 현재 사용 중인 버퍼 설정
+    currentBuffer_ = &buffers_[0];
     current_buffer_time_ = std::chrono::steady_clock::now();
 
     // Kafka 설정
@@ -98,6 +100,7 @@ EventLogger::EventLogger(size_t bufferSize, const std::string& brokers, const st
 
     // 쓰레드풀 초기화 (CPU 코어 수 기준)
     size_t numThreads = std::thread::hardware_concurrency();
+    if (numThreads == 0) numThreads = 4; // 기본값 설정
     for (size_t i = 0; i < numThreads; ++i) {
         threadPool_.emplace_back(&EventLogger::threadPoolWorker, this);
     }
@@ -130,9 +133,13 @@ EventLogger::~EventLogger() {
     }
 
     // 모든 버퍼 플러시
-    std::lock_guard<std::mutex> lock(mtx_);
-    if (!currentBuffer_->empty()) {
-        flushBuffers_.push_back(currentBuffer_);
+    {
+        std::lock_guard<std::mutex> lock(mtx_);
+        for (auto& buffer : buffers_) {
+            if (!buffer.empty()) {
+                flushBuffers_.push_back(&buffer);
+            }
+        }
     }
 
     while (!flushBuffers_.empty()) {
@@ -162,36 +169,28 @@ void EventLogger::addEvent(const db_event_t& e) {
         // 현재 버퍼를 플러시 버퍼 대기열에 추가
         flushBuffers_.push_back(currentBuffer_);
 
-        // 다음 사용 가능한 버퍼를 찾음
-        if (&buffer1_ != currentBuffer_ && buffer1_.size() < bufferSize_) {
-            currentBuffer_ = &buffer1_;
+        // 다음 사용 가능한 버퍼을 찾음
+        bool found = false;
+        for (auto& buffer : buffers_) {
+            if (&buffer != currentBuffer_ && buffer.size() < bufferSize_) {
+                currentBuffer_ = &buffer;
+                found = true;
+                break;
+            }
         }
-        else if (&buffer2_ != currentBuffer_ && buffer2_.size() < bufferSize_) {
-            currentBuffer_ = &buffer2_;
-        }
-        else if (&buffer3_ != currentBuffer_ && buffer3_.size() < bufferSize_) {
-            currentBuffer_ = &buffer3_;
-        }
-        else if (&buffer4_ != currentBuffer_ && buffer4_.size() < bufferSize_) {
-            currentBuffer_ = &buffer4_;
-        }
-        else {
+
+        if (!found) {
             // 모든 버퍼가 꽉 찼다면, 대기
             cv_.wait(lock, [this]() { return !flushBuffers_.empty(); });
             // 재시도
-            if (&buffer1_ != currentBuffer_ && buffer1_.size() < bufferSize_) {
-                currentBuffer_ = &buffer1_;
+            for (auto& buffer : buffers_) {
+                if (&buffer != currentBuffer_ && buffer.size() < bufferSize_) {
+                    currentBuffer_ = &buffer;
+                    found = true;
+                    break;
+                }
             }
-            else if (&buffer2_ != currentBuffer_ && buffer2_.size() < bufferSize_) {
-                currentBuffer_ = &buffer2_;
-            }
-            else if (&buffer3_ != currentBuffer_ && buffer3_.size() < bufferSize_) {
-                currentBuffer_ = &buffer3_;
-            }
-            else if (&buffer4_ != currentBuffer_ && buffer4_.size() < bufferSize_) {
-                currentBuffer_ = &buffer4_;
-            }
-            else {
+            if (!found) {
                 // 여전히 모든 버퍼가 꽉 찬 경우, 에러 메시지 출력
                 std::cerr << "Error: All buffers are full. Dropping event." << std::endl;
                 return;
@@ -251,7 +250,7 @@ void EventLogger::flushThreadFunc()
                 }
             }
 
-            // 타임아웃 체크: 10초 이상 지난 currentBuffer_이 있는지 확인
+            // 타임아웃 체크: 5초 이상 지난 currentBuffer_이 있는지 확인
             auto now = std::chrono::steady_clock::now();
 
             if (std::chrono::duration_cast<std::chrono::seconds>(now - current_buffer_time_) >= FLUSH_TIMEOUT && !currentBuffer_->empty()) {
@@ -263,20 +262,17 @@ void EventLogger::flushThreadFunc()
                 // 플러시 로그
                 std::cerr << "Timeout reached for currentBuffer_. Flushing buffer." << std::endl;
 
-                // 다음 사용 가능한 버퍼를 찾음
-                if (&buffer1_ != currentBuffer_ && buffer1_.size() < bufferSize_) {
-                    currentBuffer_ = &buffer1_;
+                // 다음 사용 가능한 버퍼을 찾음
+                bool found = false;
+                for (auto& buffer : buffers_) {
+                    if (&buffer != currentBuffer_ && buffer.size() < bufferSize_) {
+                        currentBuffer_ = &buffer;
+                        found = true;
+                        break;
+                    }
                 }
-                else if (&buffer2_ != currentBuffer_ && buffer2_.size() < bufferSize_) {
-                    currentBuffer_ = &buffer2_;
-                }
-                else if (&buffer3_ != currentBuffer_ && buffer3_.size() < bufferSize_) {
-                    currentBuffer_ = &buffer3_;
-                }
-                else if (&buffer4_ != currentBuffer_ && buffer4_.size() < bufferSize_) {
-                    currentBuffer_ = &buffer4_;
-                }
-                else {
+
+                if (!found) {
                     // 모든 버퍼가 꽉 찼다면, 현재 버퍼를 플러시 대기열에 추가할 수 없음
                     std::cerr << "Error: All buffers are full. Dropping buffer due to timeout." << std::endl;
                 }
@@ -326,16 +322,19 @@ void EventLogger::enqueueTask(std::function<void()> task) {
 void EventLogger::sendEventsToKafka(const std::vector<db_event_t>& events) {
     if (events.empty()) return;
 
-    enqueueTask([this, events]() {
+    // 복사본을 캡처하여 람다에서 안전하게 사용
+    std::vector<db_event_t> eventsCopy = events;
+
+    enqueueTask([this, eventsCopy]() {
         auto start = std::chrono::steady_clock::now();
         size_t messageCount = 0;
 
         // 배치 설정
-        const size_t max_batch_size = 10 * 1024 * 1024; // 10MB
+        const size_t max_batch_size = 20 * 1024 * 1024; // 20MB
         std::vector<std::string> batch;
         size_t current_batch_size = 0;
 
-        for (const auto& event_item : events) {
+        for (const auto& event_item : eventsCopy) {
             // JSON 직렬화
             json j;
             j["timestamp"] = std::chrono::duration_cast<std::chrono::microseconds>(event_item.timestamp.time_since_epoch()).count();
