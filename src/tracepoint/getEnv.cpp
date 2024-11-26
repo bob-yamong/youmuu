@@ -2,6 +2,8 @@
 
 std::string env::cgroup_path;
 std::string env::proc_path;
+std::string env::kafka_brokers;
+std::string env::kafka_topic;
 int env::update_interval;
 
 // static 멤버 함수 구현
@@ -61,7 +63,11 @@ void env::getEnv() {
         std::string temp_cgroup = get_env_var("CGROUP_SYSTEM_SLICE_PATH", "/sys/fs/cgroup/system.slice/");
         std::string temp_proc = get_env_var("PROC_PATH", "/proc");
         std::string temp_update_interval = get_env_var("UPDATE_INTERVAL", "60");
+        std::string temp_kafka_brokers = get_env_var("KAFKA_BROKERS", "");
+        std::string temp_kafka_topic = get_env_var("KAFKA_TOPIC", "");
 
+        kafka_brokers = temp_kafka_brokers;
+        kafka_topic = temp_kafka_topic;
         cgroup_path = temp_cgroup;
         proc_path = temp_proc;
         update_interval = std::stoi(temp_update_interval);

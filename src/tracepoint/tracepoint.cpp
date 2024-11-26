@@ -258,11 +258,11 @@ int main(int argc, char **argv) {
     int err;
     
     env::getEnv();
-    std::string brokers = "113.198.229.153:3001,113.198.229.153:3002,113.198.229.153:3003";
-    std::string topic = "tracepoint";
+    // std::string brokers = "113.198.229.153:3001,113.198.229.153:3002,113.198.229.153:3003";
+    // std::string topic = "tracepoint";
     // EventLogger 객체 생성
     const size_t BUFFER_SIZE = 100000;
-    eventLogger = new EventLogger(BUFFER_SIZE, brokers, topic);
+    eventLogger = new EventLogger(BUFFER_SIZE, env::kafka_brokers, env::kafka_topic);
 
     // Syslog 초기화
     openlog("tracepoint", LOG_PID | LOG_CONS, LOG_USER);
