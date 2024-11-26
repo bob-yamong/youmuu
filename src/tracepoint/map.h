@@ -6,15 +6,15 @@
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 10240);
-    __type(key, __u32);   // event_id
-    __type(value, __u32); // mode
-} event_mode_map SEC(".maps");
+    __type(key, __u32);           // container index (pid_namespace)
+    __type(value, __s32[120]);    // syscall IDs array
+} syscall_array SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 10240);
     __type(key, struct event_key);
-    __type(value, __u32);   // action
+    __type(value, __u8);
 } event_policy_map SEC(".maps");
 
 struct {

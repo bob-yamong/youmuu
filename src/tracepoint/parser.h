@@ -181,6 +181,7 @@ map<string, __u32> tracepoints_map = {
     {"__NR_mlockall", __NR_mlockall},
     {"__NR_munlock", __NR_munlock},
     {"__NR_munlockall", __NR_munlockall},
+    {"__NR_mincore", __NR_mincore},
     {"__NR_membarrier", __NR_membarrier},
     {"__NR_capget", __NR_capget},
     {"__NR_arch_prctl", __NR_arch_prctl}
@@ -205,7 +206,12 @@ vector<int> string_to_syscalls(vector<string> str_tracepoints){
     vector<int> tracepoints;
 
     for (const auto& str_tracepoint : str_tracepoints) {
-        tracepoints.push_back(tracepoints_map[str_tracepoint]);
+        auto it = tracepoints_map.find(str_tracepoint);
+        if (it == tracepoints_map.end()) {
+            tracepoints.push_back(-1);
+        } else {
+            tracepoints.push_back(it->second);
+        }
     }
 
     return tracepoints;
