@@ -5,6 +5,7 @@ std::string env::proc_path;
 std::string env::kafka_brokers;
 std::string env::kafka_topic;
 int env::update_interval;
+int env::buffer_cnt;
 
 // static 멤버 함수 구현
 std::string env::get_env_var(const std::string& var_name, const std::string& default_value) {
@@ -13,7 +14,14 @@ std::string env::get_env_var(const std::string& var_name, const std::string& def
         // 환경변수 값 가져오기 없으면 null return
         const char* val = std::getenv(var_name.c_str());
         // null이면 default_value return 
-        std::string result = val ? std::string(val) : default_value;
+        if (!val) {
+            if (var_name == "KAFKA_BROKERS" || var_name == "KAFKA_TOPIC") {
+                std::cerr << "Critical error: Environment variable " << var_name << " is not set." << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            return default_value;
+        }
+        std::string result = std::string(val);
         std::cout << "Value for " << var_name << ": " << result << std::endl;
         return result;
     } catch (const std::exception& e) {
@@ -65,12 +73,14 @@ void env::getEnv() {
         std::string temp_update_interval = get_env_var("UPDATE_INTERVAL", "60");
         std::string temp_kafka_brokers = get_env_var("KAFKA_BROKERS", "");
         std::string temp_kafka_topic = get_env_var("KAFKA_TOPIC", "");
+        std::string temp_buffer_cnt = get_env_var("BUFFER_CNT", "4");
 
         kafka_brokers = temp_kafka_brokers;
         kafka_topic = temp_kafka_topic;
         cgroup_path = temp_cgroup;
         proc_path = temp_proc;
         update_interval = std::stoi(temp_update_interval);
+        buffer_cnt = std::stoi(temp_buffer_cnt);
 
     } catch (const std::exception& e) {
         std::cerr << "Critical error in getEnv: " << e.what() << std::endl;
