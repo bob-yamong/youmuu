@@ -100,9 +100,9 @@ void EventLogger::addEvent(const event& e)
             currentBuffer_ = &buffer4_;
         }
         else {
-            // 모든 버퍼가 꽉 찼다면, ��기
+            // 모든 버퍼가 꽉 찼다면, 대기
             cv_.wait(lock, [this]() { return !flushBuffers_.empty(); });
-            // 재���도
+            // 재시도
             if (&buffer1_ != currentBuffer_ && buffer1_.size() < bufferSize_) {
                 currentBuffer_ = &buffer1_;
             }

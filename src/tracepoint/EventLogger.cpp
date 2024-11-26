@@ -28,6 +28,9 @@ EventLogger::EventLogger(size_t bufferSize, const std::string& brokers, const st
     buffer3_.reserve(bufferSize_);
     buffer4_.reserve(bufferSize_);
 
+    // 초기 버퍼 활성화 시간 설정
+    current_buffer_time_ = std::chrono::steady_clock::now();
+
     // Kafka 설정
     std::string errstr;
     if (conf_->set("bootstrap.servers", brokers, errstr) != RdKafka::Conf::CONF_OK) {
@@ -156,9 +159,10 @@ void EventLogger::addEvent(const db_event_t& e) {
     currentBuffer_->push_back(e);
 
     if (currentBuffer_->size() >= bufferSize_) {
+        // 현재 버퍼를 플러시 버퍼 대기열에 추가
         flushBuffers_.push_back(currentBuffer_);
 
-        // 다음 사용 가능한 버퍼 선택
+        // 다음 사용 가능한 버퍼를 찾음
         if (&buffer1_ != currentBuffer_ && buffer1_.size() < bufferSize_) {
             currentBuffer_ = &buffer1_;
         }
@@ -174,7 +178,6 @@ void EventLogger::addEvent(const db_event_t& e) {
         else {
             // 모든 버퍼가 꽉 찼다면, 대기
             cv_.wait(lock, [this]() { return !flushBuffers_.empty(); });
-
             // 재시도
             if (&buffer1_ != currentBuffer_ && buffer1_.size() < bufferSize_) {
                 currentBuffer_ = &buffer1_;
@@ -198,30 +201,96 @@ void EventLogger::addEvent(const db_event_t& e) {
         // 플러시 플래그 설정
         isFlushing_.store(true);
         cv_.notify_one();
+
+        // current_buffer_time_ 업데이트
+        current_buffer_time_ = std::chrono::steady_clock::now();
     }
 }
 
-// 플러시 쓰레드 함수
-void EventLogger::flushThreadFunc() {
-    while (!shutdown_.load()) {
-        std::unique_lock<std::mutex> lock(mtx_);
-        cv_.wait_for(lock, this->FLUSH_TIMEOUT, [this]() { return isFlushing_.load() || shutdown_.load(); });
+void EventLogger::flushThreadFunc()
+{
+    try {
+        while (!shutdown_.load()) {
 
-        if (isFlushing_.load() && !flushBuffers_.empty()) {
-            std::vector<db_event_t>* bufferToFlush = flushBuffers_.front();
-            flushBuffers_.pop_front();
-            isFlushing_.store(false);
-            lock.unlock();
+            std::unique_lock<std::mutex> lock(mtx_);
 
-            // Kafka 전송
-            sendEventsToKafka(*bufferToFlush);
+            // 대기 시간 1초로 설정하여 주기적으로 타임아웃을 체크
+            if (cv_.wait_for(lock, std::chrono::seconds(1), [this]() { return !flushBuffers_.empty() || shutdown_.load(); })) {
+                // 신호가 들어오거나 shutdown이 설정된 경우
+                if (shutdown_.load() && flushBuffers_.empty()) {
+                    break;
+                }
 
-            // 버퍼 초기화
-            bufferToFlush->clear();
+                while (!flushBuffers_.empty()) {
+                    // 플러시할 버퍼를 가져옴
+                    std::vector<db_event_t>* bufferToFlush = flushBuffers_.front();
+                    flushBuffers_.pop_front();
 
-            // 조건 변수 알림
-            cv_.notify_all();
+                    // 플러시 플래그 해제 (대기열이 비었을 때)
+                    if(flushBuffers_.empty()) {
+                        isFlushing_.store(false);
+                    }
+
+                    // 잠금 해제
+                    lock.unlock();
+
+                    // 로그 플러시 시작 로그
+                    std::cerr << "Flushing buffer..." << std::endl;
+
+                    // 카프카 전송 
+                    sendEventsToKafka(*bufferToFlush);
+
+                    // 버퍼 클리어
+                    bufferToFlush->clear();
+
+                    // 로그 플러시 완료 로그
+                    std::cerr << "Buffer flushed." << std::endl;
+
+                    // 잠금 재획득
+                    lock.lock();
+                }
+            }
+
+            // 타임아웃 체크: 10초 이상 지난 currentBuffer_이 있는지 확인
+            auto now = std::chrono::steady_clock::now();
+
+            if (std::chrono::duration_cast<std::chrono::seconds>(now - current_buffer_time_) >= FLUSH_TIMEOUT && !currentBuffer_->empty()) {
+                // currentBuffer_를 플러시 대기열에 추가
+                flushBuffers_.push_back(currentBuffer_);
+                isFlushing_.store(true);
+                cv_.notify_one();
+
+                // 플러시 로그
+                std::cerr << "Timeout reached for currentBuffer_. Flushing buffer." << std::endl;
+
+                // 다음 사용 가능한 버퍼를 찾음
+                if (&buffer1_ != currentBuffer_ && buffer1_.size() < bufferSize_) {
+                    currentBuffer_ = &buffer1_;
+                }
+                else if (&buffer2_ != currentBuffer_ && buffer2_.size() < bufferSize_) {
+                    currentBuffer_ = &buffer2_;
+                }
+                else if (&buffer3_ != currentBuffer_ && buffer3_.size() < bufferSize_) {
+                    currentBuffer_ = &buffer3_;
+                }
+                else if (&buffer4_ != currentBuffer_ && buffer4_.size() < bufferSize_) {
+                    currentBuffer_ = &buffer4_;
+                }
+                else {
+                    // 모든 버퍼가 꽉 찼다면, 현재 버퍼를 플러시 대기열에 추가할 수 없음
+                    std::cerr << "Error: All buffers are full. Dropping buffer due to timeout." << std::endl;
+                }
+
+                // current_buffer_time_ 업데이트
+                current_buffer_time_ = std::chrono::steady_clock::now();
+            }
         }
+    }
+    catch (const std::exception& ex) {
+        std::cerr << "Exception in flushThreadFunc: " << ex.what() << "\n";
+    }
+    catch (...) {
+        std::cerr << "Unknown exception in flushThreadFunc\n";
     }
 }
 

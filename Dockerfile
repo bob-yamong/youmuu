@@ -23,6 +23,7 @@ RUN apt-get update && apt-get install -y \
     wget \
     pkg-config \
     nlohmann-json3-dev \
+    librdkafka-dev \
     && rm -rf /var/lib/apt/lists/*
 
 

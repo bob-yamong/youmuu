@@ -14,7 +14,10 @@
 #include <functional>
 #include <future>
 #include <iostream>
+#include <ctime>
+#include <chrono>
 #include <nlohmann/json.hpp>
+#include <exception>
 #include <librdkafka/rdkafkacpp.h>
 #include "user_struct.h"
 
@@ -46,6 +49,12 @@ private:
     std::thread flushThread_;
     std::atomic<bool> shutdown_;
 
+    // 버퍼의 마지막 활성화 시간
+    std::chrono::steady_clock::time_point current_buffer_time_;
+
+    // 플러시 타임아웃 설정 (5초)
+    const std::chrono::seconds FLUSH_TIMEOUT = std::chrono::seconds(5);
+
     // Kafka 관련
     RdKafka::Producer* producer_;
     std::string topic_str_;
@@ -59,9 +68,6 @@ private:
     std::condition_variable threadPoolCV_;
     std::queue<std::function<void()>> tasks_;
     bool stop_;
-
-    // 플러시 타임아웃 설정 (10초)
-    const std::chrono::seconds FLUSH_TIMEOUT = std::chrono::seconds(10);
 };
 extern EventLogger* eventLogger;
 
