@@ -3449,10 +3449,12 @@ void init_event_handlers(void) {
 long long count = 0;
 
 int handle_event(void *ctx, void *data, size_t data_sz) {
-
+    static auto start_time = std::chrono::steady_clock::now(); // 시작 시간 저장
     count++;
     if (count % 100000 == 0) {
-        printf("[+]Event count: %lld\n", count);
+        std::chrono::duration<double> elapsed_seconds = current_time - start_time;
+        double events_per_second = count / elapsed_seconds.count();
+        printf("[+]Event count: %lld, Events per second: %.2f\n", count, events_per_second);
     }
     const struct event_t *e = (struct event_t *)data;
 
