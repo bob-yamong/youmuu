@@ -262,7 +262,7 @@ void EventLogger::flushThreadFunc()
                     lock.unlock();
 
                     // 로그 플러시 시작 로그
-                    // std::cerr << "Flushing buffer..." << std::endl;
+                    std::cerr << "Flushing buffer..." << std::endl;
 
                     // 카프카 전송 
                     sendEventsToKafka(std::move(*bufferToFlush));
@@ -278,7 +278,7 @@ void EventLogger::flushThreadFunc()
                     cv_.notify_all(); // 대기 중인 쓰레드에게 알림
 
                     // 로그 플러시 완료 로그
-                    // std::cerr << "Buffer flushed." << std::endl;
+                    std::cerr << "Buffer flushed." << std::endl;
 
                     // 잠금 재획득
                     lock.lock();
