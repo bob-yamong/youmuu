@@ -57,12 +57,15 @@ int BPF_PROG(bprm_check_security, struct linux_binprm *bprm)
     // Allow if policy is wrong or blacklist-based (deny list)
     else ret = 0;
 
-    if ((flags & POLICY_PROC_EXEC)||(flags & POLICY_FILE_EXEC)) ret -= 1;
-    
-    e->retval = ret;
-    if (flags & POLICY_AUDIT) bpf_ringbuf_submit(e, 0);
-    else goto clear;
-    
+    if ((flags & POLICY_PROC_EXEC)||(flags & POLICY_FILE_EXEC)){
+        e->retval = (flags & POLICY_AUDIT) ? 0 : -1;
+        ret = (flags & POLICY_AUDIT) ? 0 : ret;
+        bpf_ringbuf_submit(e, 0);
+        return ret;
+    } else {
+        goto clear;
+    }
+
     return ret;
 
 clear:
@@ -110,9 +113,10 @@ int BPF_PROG(task_fix_setuid, struct cred *new, const struct cred *old,
     };
     
     if ((eperm & POLICY_PROC_SETUID) && (new_uid == 0)) {
-        e->retval = -1;
+        e->retval = (eperm & POLICY_AUDIT) ? 0 : -1;
+        int retval = e->retval;
         bpf_ringbuf_submit(e, 0);
-        return -1;
+        return retval;
     }
 
     bpf_ringbuf_discard(e, 0);
@@ -157,7 +161,7 @@ int BPF_PROG(file_open, struct file *file)
     //if (!flags) goto clear;
     //맵에 해당 경로에 대한 정책이 없으면 플래그가 반환이 안됨, 하지만 이걸 화이트리스트로 하려고하면 플래그가 반환이 안되면 차단을 해야됨.
     //결국 flag는 해당 경로에 대한 체킹포인트가 되는거임. => 화이트 리스트가 반영되는 순간 결국 모든 경로에 대한 후킹 체크는 들어가야함
-
+    int check = 0;
     ret = 0;
     // __u8 mode = flags & POLICY_ALLOW;
     // if (mode) e->retval = -1;
@@ -168,15 +172,22 @@ int BPF_PROG(file_open, struct file *file)
     //e => 블랙리스트
     if ((flags & POLICY_FILE_READ) && ((file->f_flags & O_WRONLY) == 0))  {
         //bpf_printk("block read at %s %d \n", e->data.path, flags);
-        ret -= 1;
+        e->retval = (flags & POLICY_AUDIT) ? 0 : -1;
+        ret = (flags & POLICY_AUDIT) ? 0 : -1;
+        check = 1;
     }
     if ((!flags) && (file->f_flags & (O_WRONLY | O_RDWR))) {
-        bpf_printk("block write at %s %d \n", e->data.path, flags);
-        ret -= 1;
+        // bpf_printk("block write at %s %d \n", e->data.path, flags);
+        e->retval = (flags & POLICY_AUDIT) ? 0 : -1;
+        ret = (flags & POLICY_AUDIT) ? 0 : -1;
+        check = 1;
     }
     else if((flags & POLICY_FILE_WRITE) && (file->f_flags & (O_WRONLY | O_RDWR))) {
-        bpf_printk("allow write at %s %d \n", e->data.path, flags);
+        // bpf_printk("allow write at %s %d \n", e->data.path, flags);
+        e->retval = (flags & POLICY_AUDIT) ? 0 : -1;
+        ret = (flags & POLICY_AUDIT) ? 0 : -1;
         ret = 0;
+        check = 1;
     }
     // if ((flags & POLICY_FILE_WRITE) && (file->f_flags & (O_WRONLY | O_RDWR))) {
     //     //bpf_printk("block write at %s %d \n", e->data.path, flags);
@@ -184,62 +195,25 @@ int BPF_PROG(file_open, struct file *file)
     // }
     if ((flags & POLICY_FILE_EXEC) && (file->f_flags & FMODE_EXEC)) {
         //bpf_printk("block execute at %s %d \n", e->data.path, flags);
-        ret -= 1;
+        e->retval = (flags & POLICY_AUDIT) ? 0 : -1;
+        ret = (flags & POLICY_AUDIT) ? 0 : -1;
+        check = 1;
     }
 
     e->event_id = SECID_FILE_OPEN;
-    e->retval = ret;
-    if (flags & POLICY_AUDIT) bpf_ringbuf_submit(e, 0);
-    else goto clear;
+
+    if ( check ){
+        bpf_ringbuf_submit(e, 0);
+        return ret;
+    } else {
+        goto clear;
+    }
 
     return ret;
 
 clear:
     bpf_ringbuf_discard(e, 0);
     return ret;
-}
-
-SEC("lsm/file_permission")
-int BPF_PROG(file_permission, struct file *file, int mask)
-{
-    ////bpf_printk("lsm_hook: file: file_permission\n");
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-
-    if (!should_monitor(task, POLICY_FILE)) {
-        return 0;
-    }
-
-    event *e;
-    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }    
-    
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
-    
-    struct dentry *dentry;
-    if (bpf_probe_read_kernel(&dentry, sizeof(dentry), &file->f_path.dentry) == 0) {
-        const unsigned char *name;
-        if (bpf_probe_read_kernel(&name, sizeof(name), &dentry->d_name.name) == 0) {
-            bpf_probe_read_kernel_str(e->data.path, sizeof(e->data.path), name);
-        }
-    }
-
-
-    get_process_path(e->data.source, sizeof(e->data.source));
-    
-    e->event_id = SECID_FILE_PERMISSION;
-    e->retval = 0; 
-    
-    bpf_ringbuf_discard(e, 0);
-
-    return 0;
-
 }
 
 SEC("lsm/path_unlink")
@@ -257,7 +231,9 @@ int BPF_PROG(path_unlink, struct path *path)
     if (!e) {
         bpf_printk("Failed ringbuf_reserve");
         return 0;
-    }    
+    }
+
+    e->event_id = SECID_PATH_UNLINK;
     
     int ret = init_context(e);
     if (ret < 0) {
@@ -273,27 +249,20 @@ int BPF_PROG(path_unlink, struct path *path)
     
     //if (!flags) goto clear;
 
-    __u8 allow_mode = flags & POLICY_ALLOW;
-    ret = allow_mode ? 1:0;
+    // __u8 allow_mode = flags & POLICY_ALLOW;
+    // ret = allow_mode ? 1:0;
 
     if (flags & POLICY_FILE_DELETE) {
         //해당 경로가 선언이 되어있고, 그 플래그가 파일 생성에 대한 플래그가 있을 때
-        ret = 0;       
+        e->retval = (flags & POLICY_AUDIT) ? -1 : 0;
+        ret = (flags & POLICY_AUDIT) ? -1 : 0;
+        bpf_ringbuf_submit(e, 0);
+        return ret;
     }else{
         //경로가 선언만 되어있거나, 선언되어있지 않으면 블락
-        ret -= 1; 
+        ret = -1;
     }
   
-    
-    //bpf_printk("Operation not permitted at %s by policy \n",e->data.path);
- 
-    e->retval = ret;
-    if (flags & POLICY_AUDIT) bpf_ringbuf_submit(e, 0);
-    else goto clear;
-    
-    return ret;
-
-clear:
     bpf_ringbuf_discard(e, 0);
     return ret;
 }
@@ -316,6 +285,8 @@ int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
         return 0;
     }    
     
+    e->event_id = SECID_PATH_MKDIR;
+
     int ret = init_context(e);
 
     if (ret < 0) {
@@ -333,26 +304,23 @@ int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
     
     //if (!flags) goto clear;
 
-    __u8 allow_mode = flags & POLICY_ALLOW;
-    ret = allow_mode ? 1:0;
+    // __u8 allow_mode = flags & POLICY_ALLOW;
+    // ret = allow_mode ? 1:0;
 
 
     if (flags & POLICY_FILE_APPEND) {
         //해당 경로가 선언이 되어있고, 그 플래그가 파일 생성에 대한 플래그가 있을 때
+        e->retval = (flags & POLICY_AUDIT) ? -1 : 0;
+        ret = (flags & POLICY_AUDIT) ? -1 : 0;
+        bpf_ringbuf_submit(e, 0);
+        return ret;
         ret = 0;       
     }else{
         //경로가 선언만 되어있거나, 선언되어있지 않으면 블락
-        ret -= 1; 
+        ret = -1; 
     }
     //bpf_printk("Operation not permitted at %s by policy \n",e->data.path);
  
-    e->retval = ret;
-    if (flags & POLICY_AUDIT) bpf_ringbuf_submit(e, 0);
-    else goto clear;
-    
-    return ret;
-
-clear:
     bpf_ringbuf_discard(e, 0);
     return ret;
 }
@@ -374,7 +342,9 @@ int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
     if (!e) {
         bpf_printk("Failed ringbuf_reserve");
         return 0;
-    }       
+    }
+    e->event_id = SECID_PATH_RENAME;
+
     char path[256];
 
     int ret = init_context(e);
@@ -382,7 +352,7 @@ int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
         bpf_ringbuf_discard(e, 0);
         return 0;
     }
-
+    get_process_path(e->data.source, sizeof(e->data.source));
 
    if (bpf_d_path(old_dir, e->data.path, sizeof(e->data.path)) < 0) {   
         //bpf_printk("Failed to get file path");
@@ -393,30 +363,22 @@ int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
     
     //if (!flags) goto clear;
 
-    __u8 allow_mode = flags & POLICY_ALLOW;
-    ret = allow_mode ? 1 : 0;
+    // __u8 allow_mode = flags & POLICY_ALLOW;
+    // ret = allow_mode ? 1 : 0;
 
 
     if (flags & POLICY_FILE_RENAME) {
         //해당 경로가 선언이 되어있고, 그 플래그가 파일 생성에 대한 플래그가 있을 때
-        ret = 0;       
+        e->retval = (flags & POLICY_AUDIT) ? -1 : 0;
+        ret = (flags & POLICY_AUDIT) ? -1 : 0;
+        bpf_ringbuf_submit(e, 0);
+        return ret;
     }else{
         //경로가 선언만 되어있거나, 선언되어있지 않으면 블락
         ret -= 1; 
     }
     //bpf_printk("Operation not permitted at %s by policy \n",e->data.path);
     
-    get_process_path(e->data.source, sizeof(e->data.source));
-
-    e->event_id = SECID_PATH_RENAME;   
-    e->retval = ret;
-    
-    if (flags & POLICY_AUDIT) bpf_ringbuf_submit(e, 0);
-    else goto clear;
-    
-    return ret;
-
-clear:
     bpf_ringbuf_discard(e, 0);
     return ret;
 }
@@ -489,6 +451,11 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
     __u32 eperm = match_policy(task, POLICY_NETWORK, &net);
 
     if ((eperm & 0x0140) == (POLICY_NET_CONNECT | POLICY_NET_DST)) {
+        if ( eperm & POLICY_AUDIT ){
+            e->retval = 0;
+            bpf_ringbuf_submit(e, 0);
+            return 0;{
+        }
         e->retval = -1;   
         bpf_ringbuf_submit(e, 0);
         return -1;
@@ -541,6 +508,11 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
     __u32 eperm = match_policy(task, POLICY_NETWORK, &net);
     
     if ((eperm & 0x00C0) == (POLICY_NET_CONNECT | POLICY_NET_SRC)) {
+        if ( eperm & POLICY_AUDIT ){
+            e->retval = 0;
+            bpf_ringbuf_submit(e, 0);
+            return 0;{
+        }
         e->retval = -1;   
         bpf_ringbuf_submit(e, 0);
         return -1;
