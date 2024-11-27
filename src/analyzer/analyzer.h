@@ -4,6 +4,10 @@
 #include <fstream>
 #include <vector>
 #include <map>
+#include <sstream>
+#include <iostream>
+#include <chrono>
+#include <iomanip>
 
 using namespace std;
 
@@ -47,7 +51,7 @@ public:
     // 프로세스 별 시스템콜을 분석하여 이상행위를 탐지하는 함수
     void analyze_syscall(const SystemCall& syscall);
     // 탐지 결과를 pid, time으로 반환
-    vector<pair<pid_t, time_t>> get_detections() const;
+    vector<pair<string, string>> get_detections() const;
 
 private:
     struct ProcessMetrics {
@@ -56,10 +60,10 @@ private:
         int expand_heap_count = 0;
         int scheduler_count = 0;
         int connect_known_network_count = 0;
-        time_t window_start;
+        time_t window_start = 0;
     };
     
-    map<pid_t, ProcessMetrics> process_windows;
-    vector<pair<pid_t, time_t>> detections;
+    map<string, ProcessMetrics> process_windows;
+    vector<pair<string, string>> detections;
     const int WINDOW_SIZE = 5;
 };
