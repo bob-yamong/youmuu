@@ -69,7 +69,7 @@ EventLogger::EventLogger(size_t bufferCount, const std::string& brokers, const s
         throw std::runtime_error("Kafka 설정 실패");
     }
 
-    if (conf_->set("batch.size", "327680", errstr) != RdKafka::Conf::CONF_OK) { // 320KB
+    if (conf_->set("batch.size", "10485760", errstr) != RdKafka::Conf::CONF_OK) { // 320KB
         std::cerr << "Kafka 설정 오류 (batch.size): " << errstr << std::endl;
         throw std::runtime_error("Kafka 설정 실패");
     }
