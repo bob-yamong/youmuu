@@ -330,7 +330,7 @@ void EventLogger::sendEventsToKafka(const std::vector<db_event_t>& events) {
         size_t messageCount = 0;
 
         // 배치 설정
-        const size_t max_batch_size = 1 * 1024 * 1024; // 1MB
+        const size_t max_batch_size = 10 * 1024 * 1024; // 1MB
         std::vector<std::string> batch;
         size_t current_batch_size = 0;
 
@@ -381,7 +381,8 @@ void EventLogger::sendEventsToKafka(const std::vector<db_event_t>& events) {
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
-        std::cout << "Sent " << messageCount << " messages to Kafka in " << duration << " ms." << std::endl;
+        // std::cout << "Sent " << messageCount << " messages to Kafka in " << duration << " ms." << std::endl;
+        std::cout << "Events per second: " << (double)messageCount / duration << std::endl;
     });
 }
 
