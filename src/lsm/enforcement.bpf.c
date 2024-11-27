@@ -15,6 +15,8 @@
 
 char LICENSE[] SEC("license") = "GPL";
 
+//POLICY_AUDIT 은 lsm_hook에서 정의한 시스템콜에대해서 기존 return을 유지한 채 alert를 보내기 위한 flag 
+
 /********************************
  *           PROCESS            *
  ********************************/
@@ -150,66 +152,44 @@ int BPF_PROG(file_open, struct file *file)
     }
 
     if (bpf_d_path(&file->f_path, e->data.path, sizeof(e->data.path)) < 0) {
-        //bpf_printk("Failed to get file path");
+        //bpf_printk("Failed to get file path"); => 만약 경로 복사 실패 시 에러핸들링 필요
     }
 
     get_process_path(e->data.source, sizeof(e->data.source));
 
     __u32 flags = match_policy(task, POLICY_FILE, e->data.path);
 
-    //bpf_printk("file_open at %s flag is %u and file_flags is %u \n", e->data.path, flags, file->f_flags);
-    //if (!flags) goto clear;
-    //맵에 해당 경로에 대한 정책이 없으면 플래그가 반환이 안됨, 하지만 이걸 화이트리스트로 하려고하면 플래그가 반환이 안되면 차단을 해야됨.
-    //결국 flag는 해당 경로에 대한 체킹포인트가 되는거임. => 화이트 리스트가 반영되는 순간 결국 모든 경로에 대한 후킹 체크는 들어가야함
-    int check = 0;
+    bool is_check = false;
     ret = 0;
-    // __u8 mode = flags & POLICY_ALLOW;
-    // if (mode) e->retval = -1;
-
+   
     //(파일을 생성하면 파일을 생성하는 경로가 아닌 생성되는 파일의 경로이므로 /test에 대해서 파일 작업을 막으려면 /test/filename을 막아야함)
     //r => 블랙리스트
     //w => 화이트리스트, 근데 해당 경로만 허락이 되는게 아닌 recursive하게 선언하면 결국 이것도 마찬가지로 다 됨
     //e => 블랙리스트
-    if ((flags & POLICY_FILE_READ) && ((file->f_flags & O_WRONLY) == 0))  {
-        //bpf_printk("block read at %s %d \n", e->data.path, flags);
-        e->retval = (flags & POLICY_AUDIT) ? 0 : -1;
-        ret = (flags & POLICY_AUDIT) ? 0 : -1;
-        check = 1;
+    if ((file->f_flags & (O_WRONLY | O_RDWR))) {
+        ret = e->retval = -1; //파일 쓰기는 화이트 리스트 
+        if(flags & POLICY_FILE_WRITE){
+            ret = e->retval = (flags & POLICY_AUDIT) ? -1 : 0;  //AUDIT 플래그가 있으면 허용하지 않고 기존 정책대로 차단
+            is_check = true;  
+        }
     }
-    if ((!flags) && (file->f_flags & (O_WRONLY | O_RDWR))) {
-        // bpf_printk("block write at %s %d \n", e->data.path, flags);
-        e->retval = (flags & POLICY_AUDIT) ? 0 : -1;
-        ret = (flags & POLICY_AUDIT) ? 0 : -1;
-        check = 1;
+    else if ((flags & POLICY_FILE_READ) && ((file->f_flags & O_WRONLY) == 0))  {
+        ret = e->retval = (flags & POLICY_AUDIT) ? 0 : -1; //AUDIT 플래그가 있으면 차단하지 않고 기존 정책대로 허용
+        is_check = true;
     }
-    else if((flags & POLICY_FILE_WRITE) && (file->f_flags & (O_WRONLY | O_RDWR))) {
-        // bpf_printk("allow write at %s %d \n", e->data.path, flags);
-        e->retval = (flags & POLICY_AUDIT) ? 0 : -1;
-        ret = (flags & POLICY_AUDIT) ? 0 : -1;
-        ret = 0;
-        check = 1;
-    }
-    // if ((flags & POLICY_FILE_WRITE) && (file->f_flags & (O_WRONLY | O_RDWR))) {
-    //     //bpf_printk("block write at %s %d \n", e->data.path, flags);
-    //     ret -= 1;
-    // }
-    if ((flags & POLICY_FILE_EXEC) && (file->f_flags & FMODE_EXEC)) {
-        //bpf_printk("block execute at %s %d \n", e->data.path, flags);
-        e->retval = (flags & POLICY_AUDIT) ? 0 : -1;
-        ret = (flags & POLICY_AUDIT) ? 0 : -1;
-        check = 1;
+    else if ((flags & POLICY_FILE_EXEC) && (file->f_flags & FMODE_EXEC)) {
+        ret = e->retval = (flags & POLICY_AUDIT) ? 0 : -1; //AUDIT 플래그가 있으면 차단하지 않고 기존 정책대로 허용
+        is_check = true;
     }
 
     e->event_id = SECID_FILE_OPEN;
 
-    if ( check ){
+    if ( is_check ){
         bpf_ringbuf_submit(e, 0);
         return ret;
     } else {
         goto clear;
     }
-
-    return ret;
 
 clear:
     bpf_ringbuf_discard(e, 0);
