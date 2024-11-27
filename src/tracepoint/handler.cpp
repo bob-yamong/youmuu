@@ -614,49 +614,49 @@ static int handle_exit_openat2(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_enter_name_to_handle_at(const struct event_t *e, const db_event_t& base_event) {
-    db_event_t event = base_event;
+// static int handle_enter_name_to_handle_at(const struct event_t *e, const db_event_t& base_event) {
+//     db_event_t event = base_event;
 
-    event.arg0 = std::to_string(e->arg_s32[0]); // dirfd
-    event.arg5 = std::to_string(e->arg_s32[1]); // flags
-    if (e->is_valid) {
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
-        event.arg2 = std::to_string(e->arg_u32[0]); // hadle_bytes
-        event.arg3 = std::to_string(e->arg_s32[3]); // handle_type
-        event.arg4 = std::to_string(e->arg_s32[2]); // mount_id
-    }
-    add_event(event);
-    return 0;
-}
+//     event.arg0 = std::to_string(e->arg_s32[0]); // dirfd
+//     event.arg5 = std::to_string(e->arg_s32[1]); // flags
+//     if (e->is_valid) {
+//         event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+//         event.arg2 = std::to_string(e->arg_u32[0]); // hadle_bytes
+//         event.arg3 = std::to_string(e->arg_s32[3]); // handle_type
+//         event.arg4 = std::to_string(e->arg_s32[2]); // mount_id
+//     }
+//     add_event(event);
+//     return 0;
+// }
 
-static int handle_exit_name_to_handle_at(const struct event_t *e, const db_event_t& base_event) {
-    db_event_t event = base_event;
+// static int handle_exit_name_to_handle_at(const struct event_t *e, const db_event_t& base_event) {
+//     db_event_t event = base_event;
 
-    event.ret = e->ret;
-    add_event(event);
-    return 0;
-}
+//     event.ret = e->ret;
+//     add_event(event);
+//     return 0;
+// }
 
-static int handle_enter_open_by_handle_at(const struct event_t *e, const db_event_t& base_event) {
-    db_event_t event = base_event;
+// static int handle_enter_open_by_handle_at(const struct event_t *e, const db_event_t& base_event) {
+//     db_event_t event = base_event;
 
-    event.arg0 = std::to_string(e->arg_s32[0]); // mount_fd
-    event.arg3 = std::to_string(e->arg_s32[1]); // flags
-    if (e->is_valid) {
-        event.arg1 = std::to_string(e->arg_u32[0]); // handle_bytes
-        event.arg2 = std::to_string(e->arg_s32[2]); // handle_type
-    }
-    add_event(event);
-    return 0;
-}
+//     event.arg0 = std::to_string(e->arg_s32[0]); // mount_fd
+//     event.arg3 = std::to_string(e->arg_s32[1]); // flags
+//     if (e->is_valid) {
+//         event.arg1 = std::to_string(e->arg_u32[0]); // handle_bytes
+//         event.arg2 = std::to_string(e->arg_s32[2]); // handle_type
+//     }
+//     add_event(event);
+//     return 0;
+// }
 
-static int handle_exit_open_by_handle_at(const struct event_t *e, const db_event_t& base_event) {
-    db_event_t event = base_event;
+// static int handle_exit_open_by_handle_at(const struct event_t *e, const db_event_t& base_event) {
+//     db_event_t event = base_event;
 
-    event.ret = e->ret;
-    add_event(event);
-    return 0;
-}
+//     event.ret = e->ret;
+//     add_event(event);
+//     return 0;
+// }
 
 static int handle_enter_memfd_create(const struct event_t *e, const db_event_t& base_event) {
     db_event_t event = base_event;
@@ -2970,40 +2970,40 @@ static int handle_exit_munlockall(const struct event_t *e, const db_event_t& bas
     return 0;
 }
 
-static int handle_enter_mincore(const struct event_t *e, const db_event_t& base_event) {
-    db_event_t event = base_event;
+// static int handle_enter_mincore(const struct event_t *e, const db_event_t& base_event) {
+//     db_event_t event = base_event;
 
-    event.arg0 = std::to_string(e->arg_u64[0]); // addr
-    event.arg1 = std::to_string(e->arg_u64[1]); // len
-    add_event(event);
-    return 0;
-}
+//     event.arg0 = std::to_string(e->arg_u64[0]); // addr
+//     event.arg1 = std::to_string(e->arg_u64[1]); // len
+//     add_event(event);
+//     return 0;
+// }
 
-static int handle_exit_mincore(const struct event_t *e, const db_event_t& base_event) {
-    db_event_t event = base_event;
+// static int handle_exit_mincore(const struct event_t *e, const db_event_t& base_event) {
+//     db_event_t event = base_event;
 
-    event.ret = e->ret;
-    add_event(event);
-    return 0;
-}
+//     event.ret = e->ret;
+//     add_event(event);
+//     return 0;
+// }
 
-static int handle_enter_membarrier(const struct event_t *e, const db_event_t& base_event) {
-    db_event_t event = base_event;
+// static int handle_enter_membarrier(const struct event_t *e, const db_event_t& base_event) {
+//     db_event_t event = base_event;
 
-    event.arg0 = std::to_string(e->arg_s32[0]); // cmd
-    event.arg1 = std::to_string(e->arg_u32[0]); // flags
-    event.arg2 = std::to_string(e->arg_s32[1]); // cpu_id
-    add_event(event);
-    return 0;
-}
+//     event.arg0 = std::to_string(e->arg_s32[0]); // cmd
+//     event.arg1 = std::to_string(e->arg_u32[0]); // flags
+//     event.arg2 = std::to_string(e->arg_s32[1]); // cpu_id
+//     add_event(event);
+//     return 0;
+// }
 
-static int handle_exit_membarrier(const struct event_t *e, const db_event_t& base_event) {
-    db_event_t event = base_event;
+// static int handle_exit_membarrier(const struct event_t *e, const db_event_t& base_event) {
+//     db_event_t event = base_event;
 
-    event.ret = e->ret;
-    add_event(event);
-    return 0;
-}
+//     event.ret = e->ret;
+//     add_event(event);
+//     return 0;
+// }
 
 static int handle_enter_capget(const struct event_t *e, const db_event_t& base_event) {
     db_event_t event = base_event;
@@ -3112,6 +3112,71 @@ static int handle_exit_tgkill(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
+static int handle_enter_brk(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u64[0]); // addr
+    add_event(event);
+    return 0;
+}
+
+static int handle_exit_brk(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    add_event(event);
+    return 0;
+}
+
+static int handle_enter_sched_setscheduler(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u32[0]); // pid
+    event.arg1 = std::to_string(e->arg_s32[0]); // policy
+    add_event(event);
+    return 0;
+}
+
+static int handle_exit_sched_setscheduler(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    add_event(event);
+    return 0;
+}
+
+static int handle_enter_sched_setaffinity(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_u32[0]); // pid
+    event.arg1 = std::to_string(e->arg_u64[0]); // cpusetsize
+    add_event(event);
+    return 0;
+}
+
+static int handle_exit_sched_setaffinity(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    add_event(event);
+    return 0;
+}
+
+static int handle_enter_sysinfo(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    add_event(event);
+    return 0;
+}
+
+static int handle_exit_sysinfo(const struct event_t *e, const db_event_t& base_event) {
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    add_event(event);
+    return 0;
+}
+
 static struct socket_handlers event_handler[MAX_EVENT_ID] = {0};
 
 void init_event_handlers(void) {
@@ -3167,10 +3232,10 @@ void init_event_handlers(void) {
     event_handler[__NR_openat].exit = handle_exit_openat;
     event_handler[__NR_openat2].enter = handle_enter_openat2;
     event_handler[__NR_openat2].exit = handle_exit_openat2;
-    event_handler[__NR_name_to_handle_at].enter = handle_enter_name_to_handle_at;
-    event_handler[__NR_name_to_handle_at].exit = handle_exit_name_to_handle_at;
-    event_handler[__NR_open_by_handle_at].enter = handle_enter_open_by_handle_at;
-    event_handler[__NR_open_by_handle_at].exit = handle_exit_open_by_handle_at;
+    // event_handler[__NR_name_to_handle_at].enter = handle_enter_name_to_handle_at;
+    // event_handler[__NR_name_to_handle_at].exit = handle_exit_name_to_handle_at;
+    // event_handler[__NR_open_by_handle_at].enter = handle_enter_open_by_handle_at;
+    // event_handler[__NR_open_by_handle_at].exit = handle_exit_open_by_handle_at;
     event_handler[__NR_memfd_create].enter = handle_enter_memfd_create;
     event_handler[__NR_memfd_create].exit = handle_exit_memfd_create;
     event_handler[__NR_mknod].enter = handle_enter_mknod;
@@ -3427,10 +3492,10 @@ void init_event_handlers(void) {
     event_handler[__NR_mlockall].exit = handle_exit_mlockall;
     event_handler[__NR_munlockall].enter = handle_enter_munlockall;
     event_handler[__NR_munlockall].exit = handle_exit_munlockall;
-    event_handler[__NR_mincore].enter = handle_enter_mincore;
-    event_handler[__NR_mincore].exit = handle_exit_mincore;
-    event_handler[__NR_membarrier].enter = handle_enter_membarrier;
-    event_handler[__NR_membarrier].exit = handle_exit_membarrier;
+    // event_handler[__NR_mincore].enter = handle_enter_mincore;
+    // event_handler[__NR_mincore].exit = handle_exit_mincore;
+    // event_handler[__NR_membarrier].enter = handle_enter_membarrier;
+    // event_handler[__NR_membarrier].exit = handle_exit_membarrier;
     event_handler[__NR_capget].enter = handle_enter_capget;
     event_handler[__NR_capget].exit = handle_exit_capget;
     event_handler[__NR_prctl].enter = handle_enter_prctl;
@@ -3443,6 +3508,14 @@ void init_event_handlers(void) {
     event_handler[__NR_tkill].exit = handle_exit_tkill;
     event_handler[__NR_tgkill].enter = handle_enter_tgkill;
     event_handler[__NR_tgkill].exit = handle_exit_tgkill;
+    event_handler[__NR_brk].enter = handle_enter_brk;
+    event_handler[__NR_brk].exit = handle_exit_brk;
+    event_handler[__NR_sched_setscheduler].enter = handle_enter_sched_setscheduler;
+    event_handler[__NR_sched_setscheduler].exit = handle_exit_sched_setscheduler;
+    event_handler[__NR_sched_setaffinity].enter = handle_enter_sched_setaffinity;
+    event_handler[__NR_sched_setaffinity].exit = handle_exit_sched_setaffinity;
+    event_handler[__NR_sysinfo].enter = handle_enter_sysinfo;
+    event_handler[__NR_sysinfo].exit = handle_exit_sysinfo;
 }
 
 int handle_event(void *ctx, void *data, size_t data_sz) {
