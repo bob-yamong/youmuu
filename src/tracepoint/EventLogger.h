@@ -70,5 +70,6 @@ private:
     static constexpr size_t bufferSize_ = 1000; // 예시 버퍼 크기
     static constexpr std::chrono::seconds FLUSH_TIMEOUT = std::chrono::seconds(5);
 };
+extern EventLogger* eventLogger;
 
 #endif // EVENTLOGGER_H
