@@ -428,7 +428,7 @@ void EventLogger::sendEventsToKafka(std::vector<db_event_t>&& events) {
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
         // std::cout << "Sent " << messageCount << " messages to Kafka in " << duration << " ms." << std::endl;
-        // std::cout << "Events per second: " << (double)messageCount / duration << std::endl;
+        std::cout << "Events per second: " << (double)messageCount / duration << std::endl;
     });
 }
 
