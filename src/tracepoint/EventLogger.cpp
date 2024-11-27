@@ -385,7 +385,7 @@ void EventLogger::sendEventsToKafka(std::vector<db_event_t>&& events) {
             json j;
             j["timestamp"] = std::chrono::duration_cast<std::chrono::microseconds>(event_item.timestamp.time_since_epoch()).count();
             j["container_name"] = sanitizeString(event_item.container_name);
-            j["syscall"] = sanitizeString(event_item.syscall);
+            j["syscall"] = event_item.syscall;
             j["is_enter"] = event_item.is_enter;
             j["pid_namespace"] = event_item.pid_namespace;
             j["mnt_namespace"] = event_item.mnt_namespace;
