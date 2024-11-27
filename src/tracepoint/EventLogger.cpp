@@ -370,11 +370,22 @@ void EventLogger::sendEventsToKafka(std::vector<db_event_t>&& events) {
         size_t current_batch_size = 0;
 
         for (const auto& event_item : events) {
+            // 출력 불가능한 문자를 '.'으로 치환하는 함수
+            auto sanitizeString = [](const std::string& input) -> std::string {
+                std::string output = input;
+                for (char& c : output) {
+                    if (!isprint(static_cast<unsigned char>(c))) {
+                        c = '.';
+                    }
+                }
+                return output;
+            };
+
             // JSON 직렬화
             json j;
             j["timestamp"] = std::chrono::duration_cast<std::chrono::microseconds>(event_item.timestamp.time_since_epoch()).count();
-            j["container_name"] = event_item.container_name;
-            j["syscall"] = event_item.syscall;
+            j["container_name"] = sanitizeString(event_item.container_name);
+            j["syscall"] = sanitizeString(event_item.syscall);
             j["is_enter"] = event_item.is_enter;
             j["pid_namespace"] = event_item.pid_namespace;
             j["mnt_namespace"] = event_item.mnt_namespace;
@@ -384,15 +395,15 @@ void EventLogger::sendEventsToKafka(std::vector<db_event_t>&& events) {
             j["uid"] = event_item.uid;
             j["gid"] = event_item.gid;
             j["ret"] = event_item.ret;
-            j["comm"] = event_item.comm;
-            j["arg0"] = event_item.arg0;
-            j["arg1"] = event_item.arg1;
-            j["arg2"] = event_item.arg2;
-            j["arg3"] = event_item.arg3;
-            j["arg4"] = event_item.arg4;
-            j["arg5"] = event_item.arg5;
-            j["additional_info"] = event_item.additional_info;
-            j["data_type"] = "db_event"; // DB 소비자를 위한 데이터 타입 명시
+            j["comm"] = sanitizeString(event_item.comm);
+            j["arg0"] = sanitizeString(event_item.arg0);
+            j["arg1"] = sanitizeString(event_item.arg1);
+            j["arg2"] = sanitizeString(event_item.arg2);
+            j["arg3"] = sanitizeString(event_item.arg3);
+            j["arg4"] = sanitizeString(event_item.arg4);
+            j["arg5"] = sanitizeString(event_item.arg5);
+            j["additional_info"] = sanitizeString(event_item.additional_info);
+            j["data_type"] = "db_event";
 
             std::string message = j.dump();
             batch.emplace_back(std::move(message));
