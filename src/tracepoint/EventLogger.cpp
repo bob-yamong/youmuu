@@ -330,7 +330,7 @@ void EventLogger::sendEventsToKafka(const std::vector<db_event_t>& events) {
         size_t messageCount = 0;
 
         // 배치 설정
-        const size_t max_batch_size = 20 * 1024 * 1024; // 20MB
+        const size_t max_batch_size = 5 * 1024 * 1024; // 5MB
         std::vector<std::string> batch;
         size_t current_batch_size = 0;
 
