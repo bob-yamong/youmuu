@@ -8,13 +8,9 @@ using json = nlohmann::json;
 EventLogger::EventLogger(size_t bufferCount, const std::string& brokers, const std::string& topic)
     : currentBuffer_(nullptr),
       isFlushing_(false),
+      stop_(false),
       shutdown_(false),
-      producer_(nullptr),
-      topic_str_(topic),
-      topic_(nullptr),
-      conf_(RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL)),
-      tconf_(RdKafka::Conf::create(RdKafka::Conf::CONF_TOPIC)),
-      stop_(false)
+      topic_str_(topic)
 {
     // 버퍼 생성 및 예약
     if (bufferCount == 0) {
@@ -94,22 +90,31 @@ EventLogger::EventLogger(size_t bufferCount, const std::string& brokers, const s
         throw std::runtime_error("Kafka 설정 실패");
     }
 
+    // conf_, tconf_ 초기화
+    conf_.reset(RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL));
+    tconf_.reset(RdKafka::Conf::create(RdKafka::Conf::CONF_TOPIC));
+
     // 프로듀서 생성
-    producer_ = RdKafka::Producer::create(conf_, errstr);
-    if (!producer_) {
+    RdKafka::Producer* producer = nullptr;
+    producer = RdKafka::Producer::create(conf_.get(), errstr);
+    if (!producer) {
         std::cerr << "Kafka 프로듀서 생성 실패: " << errstr << std::endl;
         throw std::runtime_error("Kafka 프로듀서 생성 실패");
     }
+    producer_.reset(producer);
 
     // 토픽 설정
-    topic_ = RdKafka::Topic::create(producer_, topic_str_, tconf_, errstr);
-    if (!topic_) {
+    RdKafka::Topic* topic_ptr = nullptr;
+    topic_ptr = RdKafka::Topic::create(producer_.get(), topic_str_, tconf_.get(), errstr);
+    if (!topic_ptr) {
         std::cerr << "Kafka 토픽 생성 실패: " << errstr << std::endl;
         throw std::runtime_error("Kafka 토픽 생성 실패");
     }
+    topic_.reset(topic_ptr);
 
-    delete conf_;
-    delete tconf_;
+    // conf_, tconf_는 이제 unique_ptr이 관리하므로 수동 삭제 불필요
+    // delete conf_;
+    // delete tconf_;
 
     // 쓰레드풀 초기화 (CPU 코어 수 기준)
     size_t numThreads = std::thread::hardware_concurrency();
@@ -184,24 +189,10 @@ EventLogger::~EventLogger() {
         } catch (const std::exception& e) {
             std::cerr << "Error flushing producer: " << e.what() << std::endl;
         }
-        delete producer_;
-        producer_ = nullptr;
     }
 
-    if (topic_) {
-        delete topic_;
-        topic_ = nullptr;
-    }
-
-    // conf_, tconf_ 정리 추가
-    if (conf_) {
-        delete conf_;
-        conf_ = nullptr;
-    }
-    if (tconf_) {
-        delete tconf_;
-        tconf_ = nullptr; 
-    }
+    // unique_ptr이 자동으로 리소스를 해제하므로 수동 delete 제거
+    // topic_, conf_, tconf_는 자동으로 정리됨
 }
 
 
@@ -445,7 +436,7 @@ void EventLogger::sendBatchToKafka(const std::vector<std::string>& batch) {
     try {
         for (const auto& msg : batch) {
             RdKafka::ErrorCode resp = producer_->produce(
-                topic_,
+                topic_.get(),
                 RdKafka::Topic::PARTITION_UA,
                 RdKafka::Producer::RK_MSG_COPY,
                 const_cast<char*>(msg.data()),
@@ -456,13 +447,12 @@ void EventLogger::sendBatchToKafka(const std::vector<std::string>& batch) {
 
             if (resp != RdKafka::ERR_NO_ERROR) {
                 std::cerr << "Failed to produce to Kafka: " << RdKafka::err2str(resp) << std::endl;
-                // 에러 카운터 증가나 재시도 로직 추가 필요
             }
         }
 
         producer_->poll(0);
-    } catch (const RdKafka::Exception& e) {
-        std::cerr << "Kafka error: " << e.str() << std::endl;
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Kafka error: " << e.what() << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "Error in sendBatchToKafka: " << e.what() << std::endl;
     }

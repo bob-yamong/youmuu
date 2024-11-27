@@ -27,6 +27,7 @@ public:
     ~EventLogger();
 
     void addEvent(const db_event_t& e);
+    void shutdown();
 
 private:
     // 버퍼 관리
