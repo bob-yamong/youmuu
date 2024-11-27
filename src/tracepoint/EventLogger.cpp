@@ -278,7 +278,7 @@ void EventLogger::flushThreadFunc()
                     cv_.notify_all(); // 대기 중인 쓰레드에게 알림
 
                     // 로그 플러시 완료 로그
-                    std::cerr << "Buffer flushed." << std::endl;
+                    // std::cerr << "Buffer flushed." << std::endl;
 
                     // 잠금 재획득
                     lock.lock();
@@ -417,7 +417,7 @@ void EventLogger::sendEventsToKafka(std::vector<db_event_t>&& events) {
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
         // std::cout << "Sent " << messageCount << " messages to Kafka in " << duration << " ms." << std::endl;
-        std::cout << "Events per second: " << (double)messageCount / duration << std::endl;
+        // std::cout << "Events per second: " << (double)messageCount / duration << std::endl;
     });
 }
 
