@@ -14,8 +14,8 @@ EventLogger::EventLogger(size_t bufferCount, const std::string& brokers, const s
       producer_(nullptr),
       topic_str_(topic),
       topic_(nullptr),
-      conf_(RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL)),
-      tconf_(RdKafka::Conf::create(RdKafka::Conf::CONF_TOPIC)),
+      std::unique_ptr<RdKafka::Conf> conf_(RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL));
+        std::unique_ptr<RdKafka::Conf> tconf_(RdKafka::Conf::create(RdKafka::Conf::CONF_TOPIC));
       stop_(false)
 {
     // 버퍼 생성 및 예약
@@ -107,6 +107,8 @@ EventLogger::EventLogger(size_t bufferCount, const std::string& brokers, const s
 
     // 플러시 쓰레드 시작
     flushThread_ = std::thread(&EventLogger::flushThreadFunc, this);
+
+    initJsonTemplate();
 }
 
 // 소멸자
@@ -322,53 +324,32 @@ void EventLogger::enqueueTask(std::function<void()> task) {
 void EventLogger::sendEventsToKafka(const std::vector<db_event_t>& events) {
     if (events.empty()) return;
 
-    // 복사본을 캡처하여 람다에서 안전하게 사용
     std::vector<db_event_t> eventsCopy = events;
-
+    
     enqueueTask([this, eventsCopy]() {
         auto start = std::chrono::steady_clock::now();
         size_t messageCount = 0;
-
+        
         // 배치 설정
         const size_t max_batch_size = 1 * 1024 * 1024; // 1MB
         std::vector<std::string> batch;
         size_t current_batch_size = 0;
 
         for (const auto& event_item : eventsCopy) {
-            // JSON 직렬화
-            json j;
-            j["timestamp"] = std::chrono::duration_cast<std::chrono::microseconds>(event_item.timestamp.time_since_epoch()).count();
-            j["container_name"] = event_item.container_name;
-            j["syscall"] = event_item.syscall;
-            j["is_enter"] = event_item.is_enter;
-            j["pid_namespace"] = event_item.pid_namespace;
-            j["mnt_namespace"] = event_item.mnt_namespace;
-            j["ppid"] = event_item.ppid;
-            j["pid"] = event_item.pid;
-            j["tid"] = event_item.tid;
-            j["uid"] = event_item.uid;
-            j["gid"] = event_item.gid;
-            j["ret"] = event_item.ret;
-            j["comm"] = event_item.comm;
-            j["arg0"] = event_item.arg0;
-            j["arg1"] = event_item.arg1;
-            j["arg2"] = event_item.arg2;
-            j["arg3"] = event_item.arg3;
-            j["arg4"] = event_item.arg4;
-            j["arg5"] = event_item.arg5;
-            j["additional_info"] = event_item.additional_info;
-            j["data_type"] = "db_event"; // DB 소비자를 위한 데이터 타입 명시
+            std::string message = serializeEvent(event_item);
+            
+            // 메시지가 비어있지 않은 경우에만 처리
+            if (!message.empty()) {
+                batch.push_back(message);
+                current_batch_size += message.size();
 
-            std::string message = j.dump();
-            batch.push_back(message);
-            current_batch_size += message.size();
-
-            // 배치 크기 초과 시 전송
-            if (current_batch_size >= max_batch_size) {
-                sendBatchToKafka(batch);
-                messageCount += batch.size();
-                batch.clear();
-                current_batch_size = 0;
+                // 배치 크기 초과 시 전송
+                if (current_batch_size >= max_batch_size) {
+                    sendBatchToKafka(batch);
+                    messageCount += batch.size();
+                    batch.clear();
+                    current_batch_size = 0;
+                }
             }
         }
 
@@ -387,25 +368,106 @@ void EventLogger::sendEventsToKafka(const std::vector<db_event_t>& events) {
 
 // Kafka에 배치 전송
 void EventLogger::sendBatchToKafka(const std::vector<std::string>& batch) {
-    for (const auto& msg : batch) {
-        RdKafka::ErrorCode resp = producer_->produce(
-            topic_, 
-            RdKafka::Topic::PARTITION_UA, 
-            RdKafka::Producer::RK_MSG_COPY, 
-            const_cast<char*>(msg.c_str()), 
-            msg.size(),
-            nullptr, // 키 없음
-            nullptr  // 사용자 데이터 없음
-        );
-
-        if (resp != RdKafka::ERR_NO_ERROR) {
-            std::cerr << "Failed to produce to Kafka: " << RdKafka::err2str(resp) << std::endl;
+    const int POLL_INTERVAL = 100;  // 100개 메시지마다 poll
+    for (size_t i = 0; i < batch.size(); ++i) {
+        // ... produce 로직 ...
+        if (i % POLL_INTERVAL == 0) {
+            producer_->poll(0);
         }
-
-        // 비동기 처리를 위해 poll을 주기적으로 호출
-        producer_->poll(0);
     }
+    producer_->poll(0);  // 마지막 poll
+}
 
-    // 모든 메시지가 전송되었는지 확인
-    producer_->flush(10000); // 최대 10초 동안 대기
+// 문자열 필터링을 위한 유틸리티 함수
+std::string EventLogger::sanitizeString(const std::string& input) {
+    std::string output;
+    output.reserve(input.size());
+    
+    for (unsigned char c : input) {
+        // 출력 가능한 ASCII 문자만 허용 (32-126 범위)
+        // 또는 UTF-8 멀티바이트 문자의 시작 부분
+        if ((c >= 32 && c <= 126) || (c >= 192 && c <= 247)) {
+            output += c;
+        } else {
+            output += '.'; // 잘못된 문자는 점으로 대체
+        }
+    }
+    return output;
+}
+
+// JSON 템플릿 초기화 함수
+void EventLogger::initJsonTemplate() {
+    json_template_ = {
+        {"timestamp", 0},
+        {"container_name", ""},
+        {"syscall", ""},
+        {"is_enter", false},
+        {"pid_namespace", 0},
+        {"mnt_namespace", 0},
+        {"ppid", 0},
+        {"pid", 0},
+        {"tid", 0},
+        {"uid", 0},
+        {"gid", 0},
+        {"ret", 0},
+        {"comm", ""},
+        {"arg0", 0},
+        {"arg1", 0},
+        {"arg2", 0},
+        {"arg3", 0},
+        {"arg4", 0},
+        {"arg5", 0},
+        {"additional_info", ""},
+        {"data_type", "db_event"}
+    };
+}
+
+// 개선된 이벤트 직렬화 함수
+std::string EventLogger::serializeEvent(const db_event_t& event_item) {
+    try {
+        nlohmann::json j = json_template_; // 템플릿 복사
+
+        // 타임스탬프 설정
+        j["timestamp"] = std::chrono::duration_cast<std::chrono::microseconds>(
+            event_item.timestamp.time_since_epoch()).count();
+
+        // 문자열 필드들은 sanitize 처리
+        j["container_name"] = sanitizeString(event_item.container_name);
+        j["syscall"] = sanitizeString(event_item.syscall);
+        j["comm"] = sanitizeString(event_item.comm);
+        j["additional_info"] = sanitizeString(event_item.additional_info);
+
+        // 숫자 필드들은 직접 할당
+        j["is_enter"] = event_item.is_enter;
+        j["pid_namespace"] = event_item.pid_namespace;
+        j["mnt_namespace"] = event_item.mnt_namespace;
+        j["ppid"] = event_item.ppid;
+        j["pid"] = event_item.pid;
+        j["tid"] = event_item.tid;
+        j["uid"] = event_item.uid;
+        j["gid"] = event_item.gid;
+        j["ret"] = event_item.ret;
+        
+        // 인자값들 설정
+        j["arg0"] = event_item.arg0;
+        j["arg1"] = event_item.arg1;
+        j["arg2"] = event_item.arg2;
+        j["arg3"] = event_item.arg3;
+        j["arg4"] = event_item.arg4;
+        j["arg5"] = event_item.arg5;
+
+        return j.dump();
+    } catch (const std::exception& e) {
+        std::cerr << "JSON serialization error: " << e.what() << std::endl;
+        
+        // 에러 발생 시 최소한의 정보만 담은 JSON 반환
+        nlohmann::json error_json = {
+            {"error", "Serialization failed"},
+            {"timestamp", std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count()},
+            {"pid", event_item.pid},
+            {"syscall", sanitizeString(event_item.syscall)}
+        };
+        return error_json.dump();
+    }
 }
