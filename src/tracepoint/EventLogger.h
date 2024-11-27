@@ -50,11 +50,11 @@ private:
     bool stop_;
 
     // Kafka
-    RdKafka::Producer* producer_;
-    RdKafka::Topic* topic_;
+    std::unique_ptr<RdKafka::Producer> producer_;
+    std::unique_ptr<RdKafka::Topic> topic_;
     std::string topic_str_;
-    RdKafka::Conf* conf_;
-    RdKafka::Conf* tconf_;
+    std::unique_ptr<RdKafka::Conf> conf_;
+    std::unique_ptr<RdKafka::Conf> tconf_;
 
     // 쓰레드풀 작업 큐
     std::queue<std::function<void()>> tasks_;
