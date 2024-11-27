@@ -262,7 +262,7 @@ void EventLogger::flushThreadFunc()
                     lock.unlock();
 
                     // 로그 플러시 시작 로그
-                    std::cerr << "Flushing buffer..." << std::endl;
+                    // std::cerr << "Flushing buffer..." << std::endl;
 
                     // 카프카 전송 
                     sendEventsToKafka(std::move(*bufferToFlush));
@@ -417,7 +417,7 @@ void EventLogger::sendEventsToKafka(std::vector<db_event_t>&& events) {
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
         // std::cout << "Sent " << messageCount << " messages to Kafka in " << duration << " ms." << std::endl;
-        std::cout << "Events per second: " << (double)messageCount / duration << std::endl;
+        // std::cout << "Events per second: " << (double)messageCount / duration << std::endl;
     });
 }
 
