@@ -130,12 +130,15 @@ EventLogger::EventLogger(size_t bufferCount, const std::string& brokers, const s
     }
     topic_.reset(topic_ptr);
 
+    std::cout << "debug EVENTLOGGER 16" << std::endl;
     // 쓰레드풀 초기화
     initThreadPool();
 
-    std::cout << "debug EVENTLOGGER 16" << std::endl;
+    std::cout << "debug EVENTLOGGER 17" << std::endl;
     // 플러시 쓰레드 시작
     flushThread_ = std::thread(&EventLogger::flushThreadFunc, this);
+
+    std::cout << "debug EVENTLOGGER 18" << std::endl;
 }
 
 // 소멸자
