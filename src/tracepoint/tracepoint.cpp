@@ -258,6 +258,7 @@ int main(int argc, char **argv) {
     int err;
     
     env::getEnv();
+    cout << "debug 1" << endl;
     // EventLogger 객체 생성
     eventLogger = new EventLogger(env::buffer_cnt, env::kafka_brokers, env::kafka_topic);
     // eventLogger = std::make_unique<EventLogger>(env::buffer_cnt, env::kafka_brokers, env::kafka_topic);
@@ -267,12 +268,14 @@ int main(int argc, char **argv) {
     }
     // Syslog 초기화
     openlog("tracepoint", LOG_PID | LOG_CONS, LOG_USER);
+    cout << "debug 2" << endl;
 
     boot_time = get_boot_time();
     if (boot_time == -1) {
         fprintf(stderr, "Failed to get boot time\n");
         goto cleanup;
     }
+    cout << "debug 3" << endl;
 
     init_event_handlers();
     skel = tracepoint_bpf__open();
@@ -280,25 +283,28 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Failed to open and load BPF skeleton\n");
         goto cleanup;
     }
-
+    cout << "debug 4" << endl;
+    
     err = tracepoint_bpf__load(skel);
     if (err) {
         fprintf(stderr, "Failed to load and verify BPF skeleton\n");
         goto cleanup;
     }
-
+    cout << "debug 5" << endl;
+    
     err = tracepoint_bpf__attach(skel);
     if (err) {
         fprintf(stderr, "Failed to attach BPF skeleton\n");
         goto cleanup;
     }
-
+    cout << "debug 6" << endl;
     rb = ring_buffer__new(bpf_map__fd(skel->maps.rb), handle_event, NULL, NULL);
     if (!rb) {
-        err = -1;
+        err = -1;   
         fprintf(stderr, "Failed to create ring buffer\n");
         goto cleanup;
     }
+    cout << "debug 7" << endl;
 
     printf("Successfully started!\n");
 
@@ -317,7 +323,7 @@ int main(int argc, char **argv) {
             sleep(10);
         }
     }
-
+    cout << "debug 8" << endl;
     while (running) {
         err = ring_buffer__poll(rb, 100);
         if (err == -EINTR) {
