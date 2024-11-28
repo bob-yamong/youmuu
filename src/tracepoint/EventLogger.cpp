@@ -6,11 +6,11 @@ using json = nlohmann::json;
 
 // 생성자
 EventLogger::EventLogger(size_t bufferCount, const std::string& brokers, const std::string& topic)
-    : currentBuffer_(nullptr),
-      isFlushing_(false),
-      stop_(false),
-      shutdown_(false),
-      topic_str_(topic)
+    : shutdown_(false)
+    , stop_(false)
+    , isFlushing_(false)
+    , currentBuffer_(nullptr)
+    , topic_str_(topic)
 {
     // 버퍼 생성 및 예약
     if (bufferCount == 0) {
@@ -42,6 +42,11 @@ EventLogger::EventLogger(size_t bufferCount, const std::string& brokers, const s
             throw std::runtime_error("No available buffers at initialization");
         }
     }
+
+    // conf_, tconf_ 초기화
+    conf_.reset(RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL));
+    tconf_.reset(RdKafka::Conf::create(RdKafka::Conf::CONF_TOPIC));
+
     // Kafka 설정
     std::string errstr;
     if (conf_->set("bootstrap.servers", brokers, errstr) != RdKafka::Conf::CONF_OK) {
@@ -90,38 +95,29 @@ EventLogger::EventLogger(size_t bufferCount, const std::string& brokers, const s
         throw std::runtime_error("Kafka 설정 실패");
     }
 
-    // conf_, tconf_ 초기화
-    conf_.reset(RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL));
-    tconf_.reset(RdKafka::Conf::create(RdKafka::Conf::CONF_TOPIC));
-
     // 프로듀서 생성
     RdKafka::Producer* producer = nullptr;
     producer = RdKafka::Producer::create(conf_.get(), errstr);
-    if (!producer) {
-        std::cerr << "Kafka 프로듀서 생성 실패: " << errstr << std::endl;
-        throw std::runtime_error("Kafka 프로듀서 생성 실패");
+    while (!producer) {
+        std::cerr << "Kafka 프로듀서 생성 실패(재시도 중...): " << errstr << std::endl;
+        // throw std::runtime_error("Kafka 프로듀서 생성 실패, 재시도 중...");
+        producer_.reset(producer);
+        producer = RdKafka::Producer::create(conf_.get(), errstr);
     }
-    producer_.reset(producer);
 
     // 토픽 설정
     RdKafka::Topic* topic_ptr = nullptr;
     topic_ptr = RdKafka::Topic::create(producer_.get(), topic_str_, tconf_.get(), errstr);
-    if (!topic_ptr) {
-        std::cerr << "Kafka 토픽 생성 실패: " << errstr << std::endl;
-        throw std::runtime_error("Kafka 토픽 생성 실패");
+    while (!topic_ptr) {
+        std::cerr << "Kafka 토픽 생성 실패(재시도 중...): " << errstr << std::endl;
+        // throw std::runtime_error("Kafka 토픽 생성 실패, 재시도 중...");
+        topic_.reset(topic_ptr);
+        topic_ptr = RdKafka::Topic::create(producer_.get(), topic_str_, tconf_.get(), errstr);
     }
     topic_.reset(topic_ptr);
 
-    // conf_, tconf_는 이제 unique_ptr이 관리하므로 수동 삭제 불필요
-    // delete conf_;
-    // delete tconf_;
-
-    // 쓰레드풀 초기화 (CPU 코어 수 기준)
-    size_t numThreads = std::thread::hardware_concurrency();
-    if (numThreads == 0) numThreads = 4; // 기본값 설정
-    for (size_t i = 0; i < numThreads; ++i) {
-        threadPool_.emplace_back(&EventLogger::threadPoolWorker, this);
-    }
+    // 쓰레드풀 초기화
+    initThreadPool();
 
     // 플러시 쓰레드 시작
     flushThread_ = std::thread(&EventLogger::flushThreadFunc, this);
@@ -317,31 +313,46 @@ void EventLogger::flushThreadFunc()
 
 
 // 쓰레드풀 워커 함수
-void EventLogger::threadPoolWorker() {
-    while (true) {
+void EventLogger::threadPoolWorker(size_t queueIndex) {
+    auto& myQueue = threadQueues_[queueIndex];
+    
+    while (!stop_) {
         std::function<void()> task;
         {
-            std::unique_lock<std::mutex> lock(threadPoolMutex_);
-            threadPoolCV_.wait(lock, [this]() { return stop_ || !tasks_.empty(); });
-
-            if (stop_ && tasks_.empty()) {
+            std::unique_lock<std::mutex> lock(myQueue->mutex);
+            myQueue->cv.wait(lock, [&] {
+                return stop_ || !myQueue->tasks.empty();
+            });
+            
+            if (stop_ && myQueue->tasks.empty()) {
                 return;
             }
-
-            task = std::move(tasks_.front());
-            tasks_.pop();
+            
+            if (!myQueue->tasks.empty()) {
+                task = std::move(myQueue->tasks.front());
+                myQueue->tasks.pop();
+            }
         }
-        task();
+        
+        if (task) {
+            task();
+        }
     }
 }
 
-// 작업 큐에 작업 추가
+// 작업 추가 함수
 void EventLogger::enqueueTask(std::function<void()> task) {
+    if (stop_) return;
+
+    // 라운드 로빈 방식으로 큐 선택
+    size_t index = (nextQueueIndex_++) % threadQueues_.size();
+    auto& queue = threadQueues_[index];
+    
     {
-        std::unique_lock<std::mutex> lock(threadPoolMutex_);
-        tasks_.emplace(task);
+        std::lock_guard<std::mutex> lock(queue->mutex);
+        queue->tasks.push(std::move(task));
     }
-    threadPoolCV_.notify_one();
+    queue->cv.notify_one();
 }
 
 // Kafka에 이벤트 비동기 전송 (배치 처리)
@@ -459,16 +470,34 @@ void EventLogger::sendBatchToKafka(const std::vector<std::string>& batch) {
 }
 
 void EventLogger::shutdown() {
-    // 안전한 종료를 위한 메서드 추가
-    shutdown_.store(true);
+    stop_ = true;
     
-    // 현재 버퍼 플러시
-    if (currentBuffer_ && !currentBuffer_->empty()) {
-        std::lock_guard<std::mutex> flushLock(flushBuffersMutex_);
-        flushBuffers_.push_back(currentBuffer_);
-        currentBuffer_ = nullptr;
+    // 모든 쓰레드의 조건변수 깨우기
+    for (auto& queue : threadQueues_) {
+        queue->cv.notify_one();
     }
     
-    cv_.notify_all();
-    threadPoolCV_.notify_all();
+    // 모든 쓰레드 종료 대기
+    for (auto& thread : threadPool_) {
+        if (thread.joinable()) {
+            thread.join();
+        }
+    }
+}
+
+// 쓰레드풀 초기화 함수 정의 추가
+void EventLogger::initThreadPool() {
+    size_t numThreads = std::thread::hardware_concurrency();
+    if (numThreads == 0) numThreads = 4;  // 기본값 설정
+    if (numThreads > 8) numThreads = 8;   // 최대 8개로 제한
+
+    // 각 쓰레드별 큐 생성
+    for (size_t i = 0; i < numThreads; ++i) {
+        threadQueues_.push_back(std::make_unique<ThreadPoolQueue>());
+    }
+
+    // 쓰레드 생성
+    for (size_t i = 0; i < numThreads; ++i) {
+        threadPool_.emplace_back(&EventLogger::threadPoolWorker, this, i);
+    }
 }
