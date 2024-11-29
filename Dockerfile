@@ -23,6 +23,7 @@ RUN apt-get update && apt-get install -y \
     wget \
     pkg-config \
     nlohmann-json3-dev \
+    librdkafka-dev \
     && rm -rf /var/lib/apt/lists/*
 
 
@@ -43,7 +44,6 @@ RUN wget https://github.com/jtv/libpqxx/archive/refs/tags/7.5.1.tar.gz -O libpqx
 # RUN git clone https://github.com/libbpf/libbpf.git /ebpf/libbpf
 # RUN git clone https://github.com/bob-yamong/youmuu/tree/main/vmlinux
 # COPY ebpf/vmlinux /ebpf/vmlinux
-
 
 # 애플리케이션 파일 복사
 # COPY youmuu/ /ebpf/

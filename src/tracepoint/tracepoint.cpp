@@ -258,18 +258,13 @@ int main(int argc, char **argv) {
     int err;
     
     env::getEnv();
-        
-    // 연결 문자열 구성
-    std::string dbConnectionStr = "dbname=" + env::dbname +
-                                    " user=" + env::user +
-                                    " password=" + env::password +
-                                    " hostaddr=" + env::host +
-                                    " port=" + env::port;
-
     // EventLogger 객체 생성
-    const size_t BUFFER_SIZE = 100000;
-    eventLogger = new EventLogger(BUFFER_SIZE, dbConnectionStr);
-
+    eventLogger = new EventLogger(env::buffer_cnt, env::kafka_brokers, env::kafka_topic);
+    // eventLogger = std::make_unique<EventLogger>(env::buffer_cnt, env::kafka_brokers, env::kafka_topic);
+    if (!eventLogger) {
+        std::cerr << "Failed to create EventLogger" << std::endl;
+        goto cleanup;
+    }
     // Syslog 초기화
     openlog("tracepoint", LOG_PID | LOG_CONS, LOG_USER);
 
@@ -285,22 +280,21 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Failed to open and load BPF skeleton\n");
         goto cleanup;
     }
-
+    
     err = tracepoint_bpf__load(skel);
     if (err) {
         fprintf(stderr, "Failed to load and verify BPF skeleton\n");
         goto cleanup;
     }
-
+    
     err = tracepoint_bpf__attach(skel);
     if (err) {
         fprintf(stderr, "Failed to attach BPF skeleton\n");
         goto cleanup;
     }
-
     rb = ring_buffer__new(bpf_map__fd(skel->maps.rb), handle_event, NULL, NULL);
     if (!rb) {
-        err = -1;
+        err = -1;   
         fprintf(stderr, "Failed to create ring buffer\n");
         goto cleanup;
     }
@@ -322,7 +316,6 @@ int main(int argc, char **argv) {
             sleep(10);
         }
     }
-
     while (running) {
         err = ring_buffer__poll(rb, 100);
         if (err == -EINTR) {
