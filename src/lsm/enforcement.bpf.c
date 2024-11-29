@@ -129,6 +129,10 @@ int BPF_PROG(task_fix_setuid, struct cred *new, const struct cred *old,
  *         FILE SYSTEM          *
  ********************************/
 SEC("lsm/file_open")
+    //(파일을 생성하면 파일을 생성하는 경로가 아닌 생성되는 파일의 경로이므로 /test에 대해서 파일 작업을 막으려면 /test/filename을 막아야함)
+    //r => 블랙리스트
+    //w => 화이트리스트, 근데 해당 경로만 허락이 되는게 아닌 recursive하게 선언하면 결국 이것도 마찬가지로 다 됨
+    //e => 블랙리스트
 int BPF_PROG(file_open, struct file *file)
 {   
 
@@ -162,10 +166,7 @@ int BPF_PROG(file_open, struct file *file)
     bool is_check = false;
     ret = 0;
    
-    //(파일을 생성하면 파일을 생성하는 경로가 아닌 생성되는 파일의 경로이므로 /test에 대해서 파일 작업을 막으려면 /test/filename을 막아야함)
-    //r => 블랙리스트
-    //w => 화이트리스트, 근데 해당 경로만 허락이 되는게 아닌 recursive하게 선언하면 결국 이것도 마찬가지로 다 됨
-    //e => 블랙리스트
+  
     if ((file->f_flags & (O_WRONLY | O_RDWR))) {
         ret = e->retval = -1; //파일 쓰기는 화이트 리스트 
         if(flags & POLICY_FILE_WRITE){
