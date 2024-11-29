@@ -528,7 +528,8 @@ void EventLogger::shutdown() {
 
 // 쓰레드풀 초기화 함수 정의 추가
 void EventLogger::initThreadPool() {
-    size_t numThreads = std::thread::hardware_concurrency();
+    // size_t numThreads = std::thread::hardware_concurrency();
+    size_t numThreads = 1;
     if (numThreads == 0) numThreads = 1;  // 기본값 설정
     if (numThreads > 4) numThreads = 4;   // 최대 4개로 제한
 
