@@ -116,7 +116,7 @@ $(OUTPUT)/%.o: %.cpp $(wildcard %.h) | $(OUTPUT)
 # Build application binary
 $(APPS): %: $(OBJS) $(LIBBPF_OBJ) | $(OUTPUT)
 	$(call msg,BINARY,$@)
-	$(Q)$(CXX) $(CXXFLAGS) $^ $(ALL_LDFLAGS) -lelf -lz -lyaml-cpp -lrdkafka++ -lrdkafka -lpq -lpthread -o $@
+	$(Q)$(CXX) $(CXXFLAGS) $^ $(ALL_LDFLAGS) -lelf -lz -lyaml-cpp -lrdkafka++ -lrdkafka -lpthread -o $@
 
 # delete failed targets
 .DELETE_ON_ERROR:

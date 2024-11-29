@@ -30,7 +30,7 @@ CXXFLAGS += -I../include/reflect-cpp/include/rfl/thirdparty
 
 ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS)
 
-LIBS := -lelf -lz -lcurl -ljson-c -lpqxx -lpq -lrdkafka++ -lrdkafka
+LIBS := -lelf -lz -lcurl -ljson-c -lrdkafka++ -lrdkafka
 
 APPS = enforcement
 
