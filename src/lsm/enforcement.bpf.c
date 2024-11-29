@@ -287,7 +287,6 @@ SEC("lsm/path_rename")
 //이름 변경은 화이트 리스트
 int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
              const struct path *new_dir, struct dentry *new_dentry) {
-    //인자 잘못 선언되어있던 것 수정, 차후 파일 전체 로직 통합 및 수정 필요
 
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();  
 
@@ -317,27 +316,14 @@ int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
     }
     __u32 flags = match_policy(task, POLICY_FILE, e->data.path);
 
-    //bpf_printk("lsm_hook: fs: path_rename at %s\n", e->data.path);
-    
-    //if (!flags) goto clear;
-
-    // __u8 allow_mode = flags & POLICY_ALLOW;
-    // ret = allow_mode ? 1 : 0;
-
-
     if (flags & POLICY_FILE_RENAME) {
-        //해당 경로가 선언이 되어있고, 그 플래그가 파일 생성에 대한 플래그가 있을 때
-        e->retval = (flags & POLICY_AUDIT) ? -1 : 0;
-        ret = (flags & POLICY_AUDIT) ? -1 : 0;
+        ret = e->retval = (flags & POLICY_AUDIT) ? -1 : 0;
         bpf_ringbuf_submit(e, 0);
-        return ret;
     }else{
-        //경로가 선언만 되어있거나, 선언되어있지 않으면 블락
         ret -= 1; 
+        bpf_ringbuf_discard(e, 0);
     }
-    //bpf_printk("Operation not permitted at %s by policy \n",e->data.path);
     
-    bpf_ringbuf_discard(e, 0);
     return ret;
 }
 
