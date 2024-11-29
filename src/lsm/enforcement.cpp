@@ -59,7 +59,7 @@ void init_kafka() {
 
     // 환경변수에서 Kafka 브로커 주소와 토픽 이름 가져오기
     kafka_brokers = env::kafka_brokers;
-    kafka_topic = env::kafka_topic;
+    kafka_topic = env::kafka_topic_lsm;
 
     if (kafka_brokers.empty() || kafka_topic.empty()) {
         fprintf(stderr, "Kafka configuration is missing: brokers='%s', topic='%s'\n",

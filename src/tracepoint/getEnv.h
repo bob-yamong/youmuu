@@ -17,7 +17,7 @@ public:
     static std::string cgroup_path;
     static std::string proc_path;
     static std::string kafka_brokers;
-    static std::string kafka_topic;
+    static std::string kafka_topic_tp;
     static int buffer_cnt;
     static int update_interval;
 

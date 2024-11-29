@@ -3,7 +3,7 @@
 std::string env::cgroup_path;
 std::string env::proc_path;
 std::string env::kafka_brokers;
-std::string env::kafka_topic;
+std::string env::kafka_topic_tp;
 int env::update_interval;
 int env::buffer_cnt;
 
@@ -72,11 +72,11 @@ void env::getEnv() {
         std::string temp_proc = get_env_var("PROC_PATH", "/proc");
         std::string temp_update_interval = get_env_var("UPDATE_INTERVAL", "60");
         std::string temp_kafka_brokers = get_env_var("KAFKA_BROKERS", "");
-        std::string temp_kafka_topic = get_env_var("KAFKA_TOPIC", "");
+        std::string temp_kafka_topic_tp = get_env_var("KAFKA_TOPIC_TRACEPOINT", "");
         std::string temp_buffer_cnt = get_env_var("BUFFER_CNT", "4");
 
         kafka_brokers = temp_kafka_brokers;
-        kafka_topic = temp_kafka_topic;
+        kafka_topic_tp = temp_kafka_topic_tp;
         cgroup_path = temp_cgroup;
         proc_path = temp_proc;
         update_interval = std::stoi(temp_update_interval);

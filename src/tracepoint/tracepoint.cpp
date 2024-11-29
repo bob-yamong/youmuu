@@ -259,7 +259,7 @@ int main(int argc, char **argv) {
     
     env::getEnv();
     // EventLogger 객체 생성
-    eventLogger = new EventLogger(env::buffer_cnt, env::kafka_brokers, env::kafka_topic);
+    eventLogger = new EventLogger(env::buffer_cnt, env::kafka_brokers, env::kafka_topic_tp);
     // eventLogger = std::make_unique<EventLogger>(env::buffer_cnt, env::kafka_brokers, env::kafka_topic);
     if (!eventLogger) {
         std::cerr << "Failed to create EventLogger" << std::endl;

@@ -4,7 +4,7 @@
 std::string env::cgroup_path;
 std::string env::proc_path;
 std::string env::kafka_brokers;
-std::string env::kafka_topic;
+std::string env::kafka_topic_lsm;
 int env::update_interval;
 
 // static 멤버 함수 구현
@@ -55,5 +55,5 @@ void env::getEnv() {
     proc_path = get_env_var("PROC_PATH");
     update_interval = std::stoi(get_env_var("UPDATE_INTERVAL"));
     kafka_brokers = resolveHostname(get_env_var("KAFKA_BROKERS"));
-    kafka_topic = get_env_var("KAFKA_TOPIC");
+    kafka_topic_lsm = get_env_var("KAFKA_TOPIC_LSM");
 }
