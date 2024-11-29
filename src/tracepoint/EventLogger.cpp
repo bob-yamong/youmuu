@@ -110,23 +110,48 @@ EventLogger::EventLogger(size_t bufferCount, const std::string& brokers, const s
     std::cout << "debug EVENTLOGGER 14" << std::endl;
     // 프로듀서 생성
     RdKafka::Producer* producer = nullptr;
-    producer = RdKafka::Producer::create(conf_.get(), errstr);
-    while (!producer) {
-        std::cerr << "Kafka 프로듀서 생성 실패(재시도 중...): " << errstr << std::endl;
-        // throw std::runtime_error("Kafka 프로듀서 생성 실패, 재시도 중...");
-        producer_.reset(producer);
-        producer = RdKafka::Producer::create(conf_.get(), errstr);
+    {
+        int retry_count = 0;
+        const int max_retries = 5; // 최대 재시도 횟수
+
+        while (!producer && retry_count < max_retries) {
+            producer = RdKafka::Producer::create(conf_.get(), errstr);
+            if (!producer) {
+                std::cerr << "Kafka 프로듀서 생성 실패(재시도 중...): " << errstr << std::endl;
+                ++retry_count;
+                std::this_thread::sleep_for(std::chrono::seconds(1)); // 1초 대기 후 재시도
+            }
+        }
+
+        if (!producer) {
+            throw std::runtime_error("Kafka 프로듀서 생성 실패: 최대 재시도 횟수 초과");
+        }
     }
+    producer_.reset(producer);
 
     std::cout << "debug EVENTLOGGER 15" << std::endl;
     // 토픽 설정
     RdKafka::Topic* topic_ptr = nullptr;
-    topic_ptr = RdKafka::Topic::create(producer_.get(), topic_str_, tconf_.get(), errstr);
-    while (!topic_ptr) {
-        std::cerr << "Kafka 토픽 생성 실패(재시도 중...): " << errstr << std::endl;
-        // throw std::runtime_error("Kafka 토픽 생성 실패, 재시도 중...");
-        topic_.reset(topic_ptr);
-        topic_ptr = RdKafka::Topic::create(producer_.get(), topic_str_, tconf_.get(), errstr);
+    std::cout << "debug EVENTLOGGER 15.1" << std::endl;
+
+    {
+        int retry_count = 0;
+        const int max_retries = 5; // 최대 재시도 횟수
+        std::cout << "debug EVENTLOGGER 15.2" << std::endl;
+
+        while (!topic_ptr && retry_count < max_retries) {
+            topic_ptr = RdKafka::Topic::create(producer_.get(), topic_str_, tconf_.get(), errstr);
+            if (!topic_ptr) {
+                std::cerr << "Kafka 토픽 생성 실패(재시도 중...): " << errstr << std::endl;
+                ++retry_count;
+                std::this_thread::sleep_for(std::chrono::seconds(1)); // 1초 대기 후 재시도
+            }
+        }
+
+        std::cout << "debug EVENTLOGGER 15.3" << std::endl;
+        if (!topic_ptr) {
+            throw std::runtime_error("Kafka 토픽 생성 실패: 최대 재시도 횟수 초과");
+        }
     }
     topic_.reset(topic_ptr);
 
@@ -212,24 +237,43 @@ EventLogger::~EventLogger() {
 
 // 로그 이벤트 추가
 void EventLogger::addEvent(const db_event_t& e) {
-    try {
-        std::unique_lock<std::mutex> lock(mtx_);
-        if (!currentBuffer_) {
+    std::unique_lock<std::mutex> lock(mtx_);
+    if (!currentBuffer_) {
+        // 사용 가능한 버퍼가 있는지 확인
+        {
             std::lock_guard<std::mutex> availLock(availableBuffersMutex_);
             if (availableBuffers_.empty()) {
-                // 타임아웃 추가
-                if (!cv_.wait_for(lock, std::chrono::seconds(5), [this]() { 
-                    return !availableBuffers_.empty() || shutdown_.load(); 
-                })) {
-                    std::cerr << "Timeout waiting for available buffer" << std::endl;
-                    return;
-                }
+                // 모든 버퍼가 사용 중이므로 대기
+                cv_.wait(lock, [this]() { return !availableBuffers_.empty() || shutdown_.load(); });
                 if (shutdown_.load()) return;
             }
-            // ... 나머지 코드
+
+            if (!availableBuffers_.empty()) {
+                currentBuffer_ = availableBuffers_.front();
+                availableBuffers_.pop_front();
+                current_buffer_time_ = std::chrono::steady_clock::now();
+            } else {
+                std::cerr << "Error: All buffers are full. Dropping event." << std::endl;
+                return;
+            }
         }
-    } catch (const std::exception& e) {
-        std::cerr << "Error in addEvent: " << e.what() << std::endl;
+    }
+
+    currentBuffer_->push_back(e);
+
+    if (bufferSize_ > 0 && currentBuffer_->size() >= bufferSize_) {
+        // 현재 버퍼를 플러시 버퍼 대기열에 추가
+        {
+            std::lock_guard<std::mutex> flushLock(flushBuffersMutex_);
+            flushBuffers_.push_back(currentBuffer_);
+            isFlushing_.store(true);
+        }
+        cv_.notify_one();
+
+        // 현재 버퍼를 null로 설정하여 다음 이벤트에서 새로운 버퍼를 할당받도록 함
+        currentBuffer_ = nullptr;
+    } else if (bufferSize_ == 0) {
+        std::cerr << "Error: bufferSize_ is set to 0. Cannot process events." << std::endl;
     }
 }
 
