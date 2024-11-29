@@ -197,7 +197,7 @@ clear:
 }
 
 SEC("lsm/path_unlink")
-//삭제는 블랙리스트
+//삭제는 화이트리스트
 int BPF_PROG(path_unlink, struct path *path)
 {
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
@@ -227,23 +227,14 @@ int BPF_PROG(path_unlink, struct path *path)
 
     __u32 flags = match_policy(task, POLICY_FILE, e->data.path);
     
-    //if (!flags) goto clear;
-
-    // __u8 allow_mode = flags & POLICY_ALLOW;
-    // ret = allow_mode ? 1:0;
-
+ 
     if (flags & POLICY_FILE_DELETE) {
-        //해당 경로가 선언이 되어있고, 그 플래그가 파일 생성에 대한 플래그가 있을 때
-        e->retval = (flags & POLICY_AUDIT) ? -1 : 0;
-        ret = (flags & POLICY_AUDIT) ? -1 : 0;
+        ret = e->retval = (flags & POLICY_AUDIT) ? -1 : 0; //AUDIT 플래그가 있으면 허용하지 않고 기존 정책대로 차단
         bpf_ringbuf_submit(e, 0);
-        return ret;
     }else{
-        //경로가 선언만 되어있거나, 선언되어있지 않으면 블락
-        ret = -1;
-    }
-  
-    bpf_ringbuf_discard(e, 0);
+        ret = -1; //차단이 기본값(화이트리스트)
+        bpf_ringbuf_discard(e, 0);
+    }  
     return ret;
 }
 
