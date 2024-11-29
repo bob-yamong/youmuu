@@ -27,11 +27,10 @@ CXXFLAGS := $(CFLAGS) -std=c++20 -Wno-write-strings
 CXXFLAGS += -I/usr/include/yaml-cpp
 CXXFLAGS += -I../include/reflect-cpp/include
 CXXFLAGS += -I../include/reflect-cpp/include/rfl/thirdparty
-CXXFLAGS += $(shell pkg-config --cflags libpqxx)
 
 ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS)
 
-LIBS := -lelf -lz -lcurl -ljson-c $(shell pkg-config --cflags libpqxx) -lpqxx -lpq
+LIBS := -lelf -lz -lcurl -ljson-c -lpqxx -lpq -lrdkafka++ -lrdkafka
 
 APPS = enforcement
 

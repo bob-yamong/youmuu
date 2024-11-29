@@ -13,13 +13,10 @@
 
 class env {
 public:
-    static std::string host;
-    static std::string dbname;
-    static std::string user;
-    static std::string password;
-    static std::string port;
     static std::string cgroup_path;
     static std::string proc_path;
+    static std::string kafka_brokers;
+    static std::string kafka_topic;
     static int update_interval;
 
     // static 함수로 변경

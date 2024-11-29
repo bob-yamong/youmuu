@@ -23,7 +23,8 @@
 #include <syslog.h>
 #include <utility>
 #include <sys/sysinfo.h>
- 
+#include <librdkafka/rdkafka.h>
+
 #include "enforcement.skel.h"
 #include "policy_map_structs.h"
 #include "parser.h"
@@ -37,8 +38,14 @@
 #define MAX_OUTPUT_LEN 256
 
 static volatile bool exiting = false;
-std::unique_ptr<pqxx::connection> conn;
+
 using json = nlohmann::json;
+
+// Kafka 관련 설정
+static rd_kafka_t *rk;               // Kafka 프로듀서 핸들
+static rd_kafka_conf_t *conf;        // Kafka 설정
+static std::string kafka_brokers;    // Kafka 브로커 주소
+static std::string kafka_topic;      // Kafka 토픽 이름
 
 void clear_bpf_map(int map_fd);
 
@@ -47,10 +54,66 @@ bool file_exists(const char *path) {
     return stat(path, &buffer) == 0;
 }
 
+// Kafka 초기화 함수
+void init_kafka() {
+    char errstr[512];
+
+    // 환경변수에서 Kafka 브로커 주소와 토픽 이름 가져오기
+    kafka_brokers = env::kafka_brokers;
+    kafka_topic = env::kafka_topic;
+
+    if (kafka_brokers.empty() || kafka_topic.empty()) {
+        fprintf(stderr, "Kafka configuration is missing: brokers='%s', topic='%s'\n",
+                kafka_brokers.c_str(), kafka_topic.c_str());
+        exit(1);
+    }
+
+    // Kafka 설정 생성
+    conf = rd_kafka_conf_new();
+    if (!conf) {
+        fprintf(stderr, "Failed to create Kafka config\n");
+        exit(1);
+    }
+
+    // Kafka 프로듀서 생성
+    rk = rd_kafka_new(RD_KAFKA_PRODUCER, conf, errstr, sizeof(errstr));
+    if (!rk) {
+        fprintf(stderr, "Failed to create Kafka producer: %s\n", errstr);
+        exit(1);
+    }
+
+    // 브로커 추가
+    if (rd_kafka_brokers_add(rk, kafka_brokers.c_str()) == 0) {
+        fprintf(stderr, "Failed to add brokers: %s\n", kafka_brokers.c_str());
+        rd_kafka_destroy(rk);
+        exit(1);
+    }
+}
+
+// Kafka 메시지를 전송하는 함수
+int send_to_kafka(const char *topic, const char *message) {
+    rd_kafka_resp_err_t err;
+
+    // 메시지 전송
+    err = rd_kafka_producev(
+        rk,
+        RD_KAFKA_V_TOPIC(topic),
+        RD_KAFKA_V_VALUE((void*)message, strlen(message)),  // Explicit cast to void*
+        RD_KAFKA_V_END);
+
+    if (err) {
+        fprintf(stderr, "Failed to send message to Kafka: %s\n",
+                rd_kafka_err2str(err));
+        return -1;
+    }
+
+    // 메시지 버퍼 비우기
+    rd_kafka_poll(rk, 0);
+    return 0;
+}
+
+// print_event 함수 수정
 static int print_event(void *ctx, void *data, size_t data_sz) {
-    const int MAX_RETRIES = 2;  // 최초 시도 + 1회 재시도
-    const int RETRY_DELAY_MS = 100;  // 재시도 전 100ms 대기
-    
     event *e = (event *)data;
     char timestamp[32];
     struct sysinfo si;
@@ -68,7 +131,7 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
     std::stringstream event_data;
     event_data << "{\"timestamp\":\"" << timestamp << "." << (e->ts % 1000000000) << "\","
                << "\"container_id\":{\"pid_ns\":" << e->pid_id << ",\"mnt_ns\":" << e->mnt_id << "},"
-               << "\"process\":{\"host_ppid\":" << e->host_ppid << ",\"host_pid\":" << e->host_pid 
+               << "\"process\":{\"host_ppid\":" << e->host_ppid << ",\"host_pid\":" << e->host_pid
                << ",\"ppid\":" << e->ppid << ",\"pid\":" << e->pid << ",\"uid\":" << e->uid << "},"
                << "\"cgroup_id\":" << e->cgroup_id << ","
                << "\"event_id\":" << e->event_id << ","
@@ -76,32 +139,14 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
                << "\"command\":\"" << e->comm << "\","
                << "\"data\":{\"path\":\"" << e->data.path << "\",\"source\":\"" << e->data.source << "\"}}";
 
-    for (int retry = 0; retry < MAX_RETRIES; retry++) {
-        try {
-            pqxx::work txn(*conn);
-            std::string escaped_json = txn.quote(event_data.str());
-            std::string query = "SELECT * FROM pgmq.send('lsm', " + escaped_json + ");";
-            
-            txn.exec(query);
-            txn.commit();
-
-            printf("Event successfully sent to queue\n");
-            return 0;  // 성공시 즉시 반환
-
-        } catch (const std::exception &e) {
-            fprintf(stderr, "Attempt %d failed to send event to queue: %s\n", 
-                    retry + 1, e.what());
-            
-            if (retry < MAX_RETRIES - 1) {
-                // 마지막 시도가 아닌 경우에만 대기
-                std::this_thread::sleep_for(std::chrono::milliseconds(RETRY_DELAY_MS));
-            }
-        }
+    // Kafka로 메시지 전송
+    if (send_to_kafka(kafka_topic.c_str(), event_data.str().c_str()) == 0) {
+        printf("Event successfully sent to Kafka\n");
+        return 0;
     }
 
-    // 모든 재시도 실패 후
-    fprintf(stderr, "Dropping event after %d failed attempts\n", MAX_RETRIES);
-    return 0;  // 프로그램은 계속 실행
+    fprintf(stderr, "Failed to send event to Kafka\n");
+    return -1;
 }
 
 void handle_signal(int sig) {
@@ -672,18 +717,8 @@ int main(int argc, char **argv) {
 
     env::getEnv();
 
-    std::cout << "DB Info: " << env::dbname << ", " << env::user << ", " 
-          << env::password << ", " << env::host << ", " << env::port << std::endl;
-
-
-    conn = std::make_unique<pqxx::connection>(
-    "dbname=" + env::dbname + 
-    " user=" + env::user + 
-    " password=" + env::password + 
-    " host=" + env::host + 
-    " port=" + env::port
-    );
-
+    // Kafka 초기화
+    init_kafka();
 
     /* Set up libbpf errors and debug info callback */
     // libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
