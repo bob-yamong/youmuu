@@ -16,13 +16,11 @@ EventLogger::EventLogger(size_t bufferCount, const std::string& brokers, const s
     if (bufferCount == 0) {
         throw std::invalid_argument("bufferCount must be greater than 0");
     }
-    std::cout << "debug EVENTLOGGER 1" << std::endl;
     buffers_.reserve(bufferCount);
     for (size_t i = 0; i < bufferCount; ++i) {
         buffers_.emplace_back();
         buffers_.back().reserve(bufferSize_);
     }
-    std::cout << "debug EVENTLOGGER 2" << std::endl;
 
     // availableBuffers_에 모든 버퍼를 추가
     {
@@ -32,7 +30,6 @@ EventLogger::EventLogger(size_t bufferCount, const std::string& brokers, const s
         }
     }
 
-    std::cout << "debug EVENTLOGGER 3" << std::endl;
     // 현재 사용 중인 버퍼 설정
     {
         std::lock_guard<std::mutex> lock(availableBuffersMutex_);
@@ -45,12 +42,10 @@ EventLogger::EventLogger(size_t bufferCount, const std::string& brokers, const s
         }
     }
 
-    std::cout << "debug EVENTLOGGER 4" << std::endl;
     // conf_, tconf_ 초기화
     conf_.reset(RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL));
     tconf_.reset(RdKafka::Conf::create(RdKafka::Conf::CONF_TOPIC));
 
-    std::cout << "debug EVENTLOGGER 5" << std::endl;
     // Kafka 설정
     std::string errstr;
     if (conf_->set("bootstrap.servers", brokers, errstr) != RdKafka::Conf::CONF_OK) {
@@ -58,56 +53,47 @@ EventLogger::EventLogger(size_t bufferCount, const std::string& brokers, const s
         throw std::runtime_error("Kafka 설정 실패");
     }
 
-    std::cout << "debug EVENTLOGGER 6" << std::endl;
     // 배치 및 압축 처리 설정
     if (conf_->set("queue.buffering.max.messages", "1000000", errstr) != RdKafka::Conf::CONF_OK) { // 1,000,000개
         std::cerr << "Kafka 설정 오류 (queue.buffering.max.messages): " << errstr << std::endl;
         throw std::runtime_error("Kafka 설정 실패");
     }
 
-    std::cout << "debug EVENTLOGGER 7" << std::endl;
     if (conf_->set("queue.buffering.max.kbytes", "2097152", errstr) != RdKafka::Conf::CONF_OK) { // 2GB
         std::cerr << "Kafka 설정 오류 (queue.buffering.max.kbytes): " << errstr << std::endl;
         throw std::runtime_error("Kafka 설정 실패");
     }
 
-    std::cout << "debug EVENTLOGGER 8" << std::endl;
     if (conf_->set("compression.type", "gzip", errstr) != RdKafka::Conf::CONF_OK) { // gzip 압축 사용
         std::cerr << "Kafka 설정 오류 (compression.type): " << errstr << std::endl;
         throw std::runtime_error("Kafka 설정 실패");
     }
 
-    std::cout << "debug EVENTLOGGER 9" << std::endl;
     if (conf_->set("batch.size", "10485760", errstr) != RdKafka::Conf::CONF_OK) { // 320KB
         std::cerr << "Kafka 설정 오류 (batch.size): " << errstr << std::endl;
         throw std::runtime_error("Kafka 설정 실패");
     }
 
-    std::cout << "debug EVENTLOGGER 10" << std::endl;
     if (conf_->set("linger.ms", "500", errstr) != RdKafka::Conf::CONF_OK) { // 0.5초
         std::cerr << "Kafka 설정 오류 (linger.ms): " << errstr << std::endl;
         throw std::runtime_error("Kafka 설정 실패");
     }
 
-    std::cout << "debug EVENTLOGGER 11" << std::endl;
     if (conf_->set("acks", "1", errstr) != RdKafka::Conf::CONF_OK) { // 리더에게만 확인 받음
         std::cerr << "Kafka 설정 오류 (acks): " << errstr << std::endl;
         throw std::runtime_error("Kafka 설정 실패");
     }
 
-    std::cout << "debug EVENTLOGGER 12" << std::endl;
     if (conf_->set("retries", "3", errstr) != RdKafka::Conf::CONF_OK) { // 재시도 횟수
         std::cerr << "Kafka 설정 오류 (retries): " << errstr << std::endl;
         throw std::runtime_error("Kafka 설정 실패");
     }
 
-    std::cout << "debug EVENTLOGGER 13" << std::endl;
     if (conf_->set("retry.backoff.ms", "100", errstr) != RdKafka::Conf::CONF_OK) { // 재시도 간격
         std::cerr << "Kafka 설정 오류 (retry.backoff.ms): " << errstr << std::endl;
         throw std::runtime_error("Kafka 설정 실패");
     }
 
-    std::cout << "debug EVENTLOGGER 14" << std::endl;
     // 프로듀서 생성
     RdKafka::Producer* producer = nullptr;
     {
@@ -129,15 +115,12 @@ EventLogger::EventLogger(size_t bufferCount, const std::string& brokers, const s
     }
     producer_.reset(producer);
 
-    std::cout << "debug EVENTLOGGER 15" << std::endl;
     // 토픽 설정
     RdKafka::Topic* topic_ptr = nullptr;
-    std::cout << "debug EVENTLOGGER 15.1" << std::endl;
 
     {
         int retry_count = 0;
         const int max_retries = 5; // 최대 재시도 횟수
-        std::cout << "debug EVENTLOGGER 15.2" << std::endl;
 
         while (!topic_ptr && retry_count < max_retries) {
             topic_ptr = RdKafka::Topic::create(producer_.get(), topic_str_, tconf_.get(), errstr);
@@ -148,22 +131,18 @@ EventLogger::EventLogger(size_t bufferCount, const std::string& brokers, const s
             }
         }
 
-        std::cout << "debug EVENTLOGGER 15.3" << std::endl;
         if (!topic_ptr) {
             throw std::runtime_error("Kafka 토픽 생성 실패: 최대 재시도 횟수 초과");
         }
     }
     topic_.reset(topic_ptr);
 
-    std::cout << "debug EVENTLOGGER 16" << std::endl;
     // 쓰레드풀 초기화
     initThreadPool();
 
-    std::cout << "debug EVENTLOGGER 17" << std::endl;
     // 플러시 쓰레드 시작
     flushThread_ = std::thread(&EventLogger::flushThreadFunc, this);
 
-    std::cout << "debug EVENTLOGGER 18" << std::endl;
 }
 
 // 소멸자
@@ -550,8 +529,8 @@ void EventLogger::shutdown() {
 // 쓰레드풀 초기화 함수 정의 추가
 void EventLogger::initThreadPool() {
     size_t numThreads = std::thread::hardware_concurrency();
-    if (numThreads == 0) numThreads = 4;  // 기본값 설정
-    if (numThreads > 8) numThreads = 8;   // 최대 8개로 제한
+    if (numThreads == 0) numThreads = 1;  // 기본값 설정
+    if (numThreads > 4) numThreads = 4;   // 최대 4개로 제한
 
     // 각 쓰레드별 큐 생성
     for (size_t i = 0; i < numThreads; ++i) {
