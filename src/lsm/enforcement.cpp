@@ -12,7 +12,6 @@
 #include <fstream>
 #include <thread>
 #include <chrono>
-#include <pqxx/pqxx>
 #include <sstream>
 #include <cstring>
 #include <sys/stat.h> 
