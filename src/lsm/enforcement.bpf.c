@@ -269,30 +269,17 @@ int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
         //bpf_printk("Failed to get file path");
     }
 
-    //bpf_printk("lsm_hook: fs: path_mkdir at %s\n",e->data.path);
-
     __u32 flags = match_policy(task, POLICY_FILE,e->data.path);
     
-    //if (!flags) goto clear;
-
-    // __u8 allow_mode = flags & POLICY_ALLOW;
-    // ret = allow_mode ? 1:0;
-
 
     if (flags & POLICY_FILE_APPEND) {
         //해당 경로가 선언이 되어있고, 그 플래그가 파일 생성에 대한 플래그가 있을 때
-        e->retval = (flags & POLICY_AUDIT) ? -1 : 0;
-        ret = (flags & POLICY_AUDIT) ? -1 : 0;
+        ret = e->retval = (flags & POLICY_AUDIT) ? -1 : 0;
         bpf_ringbuf_submit(e, 0);
-        return ret;
-        ret = 0;       
     }else{
-        //경로가 선언만 되어있거나, 선언되어있지 않으면 블락
+        bpf_ringbuf_discard(e, 0);
         ret = -1; 
     }
-    //bpf_printk("Operation not permitted at %s by policy \n",e->data.path);
- 
-    bpf_ringbuf_discard(e, 0);
     return ret;
 }
 
