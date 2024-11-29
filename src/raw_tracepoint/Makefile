@@ -28,12 +28,11 @@ CXXFLAGS := $(CFLAGS) -std=c++20 -pthread
 CXXFLAGS += -I/usr/include/yaml-cpp
 CXXFLAGS += -I../include/reflect-cpp/include
 CXXFLAGS += -I../include/reflect-cpp/include/rfl/thirdparty
-CXXFLAGS += $(shell pkg-config --cflags libpqxx)
 
 ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS)
 
 # 다음 줄 추가_추후 삭제
-LIBS := -lyaml-cpp -lelf -lz -lcurl -ljson-c -lpthread $(shell pkg-config --cflags libpqxx) -lpqxx -lpq # pthread 라이브러리 추가
+LIBS := -lyaml-cpp -lelf -lz -lcurl -ljson-c -lpthread -lpqxx -lpq # pthread 라이브러리 추가
 
 APPS = raw_tracepoint
 

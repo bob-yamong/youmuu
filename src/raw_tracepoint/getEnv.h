@@ -13,11 +13,6 @@
 
 class env {
 public:
-    static std::string host;
-    static std::string dbname;
-    static std::string user;
-    static std::string password;
-    static std::string port;
     static std::string cgroup_path;
     static std::string proc_path;
     static std::string log_file_path;

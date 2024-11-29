@@ -11,7 +11,6 @@
 #include <zlib.h>
 #include <sys/sysinfo.h>
 #include <ctime>
-#include <pqxx/pqxx>
 #include <syscall.h>
 #include <chrono>
 #include <iostream>
@@ -28,7 +27,7 @@
 class EventLogger {
 public:
     // 생성자: 버퍼 크기 설정 및 로그 파일 경로 설정
-    EventLogger(size_t bufferSize, const std::string& logFilePath, const std::string& dbConnStr);
+    EventLogger(size_t bufferSize, const std::string& logFilePath);
     
     // 소멸자: 모든 쓰레드 종료 및 리소스 정리
     ~EventLogger();
@@ -45,9 +44,7 @@ private:
     void checkAndRotateLogFile();
     std::string logFileBasePath_;
     std::string currentDate_;
-    
-    // 데이터베이스에 이벤트 삽입
-    //void insertEventsToDB(const std::vector<event>& buffer);
+
 
     static time_t get_boot_time();
     std::string format_timestamp(uint64_t timestamp_ns) const;
@@ -84,8 +81,6 @@ private:
     // zlib 압축 스트림
     gzFile gzFile_; // 압축된 파일 스트림 추가
 
-    // 데이터베이스 연결 객체
-    // pqxx::connection dbConnection_;
     
     time_t boot_time_;
 };
