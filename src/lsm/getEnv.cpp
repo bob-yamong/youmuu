@@ -17,6 +17,11 @@ std::string env::get_env_var(const std::string& var_name) {
 }
 
 std::string env::resolveHostname(const std::string& hostname) {
+    // hostname이 숫자로 시작하는지 확인
+    if (std::isdigit(hostname[0])) {
+        return hostname;
+    }
+
     struct addrinfo hints = {}, *result;
     hints.ai_family = AF_UNSPEC;    // IPv4 또는 IPv6 허용
     hints.ai_socktype = SOCK_STREAM;
