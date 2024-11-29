@@ -13,11 +13,9 @@ RUN apt-get update && apt-get install -y \
     zlib1g-dev\
     libcurl4-openssl-dev\
     libjson-c-dev\
-    libpq-dev\
     libyaml-dev\
     libyaml-cpp-dev\
     zlib1g-dev\
-    libpq-dev\
     build-essential \
     cmake \
     wget \
@@ -25,19 +23,6 @@ RUN apt-get update && apt-get install -y \
     nlohmann-json3-dev \
     librdkafka-dev \
     && rm -rf /var/lib/apt/lists/*
-
-
-# libpqxx 7.5.1 설치
-RUN wget https://github.com/jtv/libpqxx/archive/refs/tags/7.5.1.tar.gz -O libpqxx-7.5.1.tar.gz \
-    && tar -xzf libpqxx-7.5.1.tar.gz \
-    && cd libpqxx-7.5.1 \
-    && mkdir build && cd build \
-    && cmake .. \
-    && make -j$(nproc) \
-    && make install \
-    && cd ../.. \
-    && rm -rf libpqxx-7.5.1 libpqxx-7.5.1.tar.gz \
-    && ldconfig
 
 # # make를 위한 git module 설치
 # RUN git clone https://github.com/libbpf/bpftool.git /ebpf/bpftool
