@@ -60,5 +60,5 @@ void env::getEnv() {
     proc_path = get_env_var("PROC_PATH");
     update_interval = std::stoi(get_env_var("UPDATE_INTERVAL"));
     kafka_brokers = resolveHostname(get_env_var("KAFKA_BROKERS"));
-    kafka_topic_lsm = get_env_var("KAFKA_TOPIC_LSM");;
+    kafka_topic_lsm = get_env_var("KAFKA_TOPIC_LSM");
 }
