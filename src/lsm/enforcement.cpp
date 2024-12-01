@@ -405,6 +405,7 @@ int add_policy(int map_fd) {
 
             if (get_yes_no_input("Block Read")) fp->flags |= POLICY_FILE_READ;
             if (get_yes_no_input("Block Write")) fp->flags |= POLICY_FILE_WRITE;
+            if (get_yes_no_input("Allow File Create")) fp->flags |= POLICY_FILE_CREATE;
             if (get_yes_no_input("Block Execute")) fp->flags |= POLICY_FILE_EXEC;
             if (get_yes_no_input("Block Append")) fp->flags |= POLICY_FILE_APPEND;
             if (get_yes_no_input("Block Rename")) fp->flags |= POLICY_FILE_RENAME;

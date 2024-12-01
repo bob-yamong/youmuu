@@ -15,6 +15,7 @@ enum section_nr {
     SECID_TASK_FIX_SETUID,
     SECID_FILE_PERMISSION,
     SECID_FILE_OPEN,
+    SECID_FILE_CREATE,
     SECID_PATH_UNLINK,
     SECID_PATH_MKDIR,
     SECID_PATH_RENAME,
@@ -58,9 +59,11 @@ struct policy_key {
 #define POLICY_FILE_READ    (1 << 0)   // 파일 읽기 허용
 #define POLICY_FILE_WRITE   (1 << 1)   // 파일 쓰기 허용
 #define POLICY_FILE_EXEC    (1 << 2)   // 파일 실행 허용
-#define POLICY_FILE_APPEND  (1 << 3)   // 파일 추가 허용
+#define POLICY_FILE_APPEND  (1 << 3)   // 폴더 추가 허용
 #define POLICY_FILE_RENAME  (1 << 4)   // 파일 이름 변경 허용
 #define POLICY_FILE_DELETE  (1 << 5)   // 파일 삭제 허용
+#define POLICY_FILE_CREATE  (1 << 6)   // 파일 생성 허용
+
 struct file_policy {
     char path[MAX_PATH_LENGTH];
     int uid[MAX_UID_LIST];
@@ -68,9 +71,9 @@ struct file_policy {
 };
 
 // 네트워크 관련 플래그
-#define POLICY_NET_CONNECT  (1 << 6)   // 네트워크 연결 허용
-#define POLICY_NET_SRC      (1 << 7)   // 인바운드 규칙 허용
-#define POLICY_NET_DST      (1 << 8)   // 아웃바운드 규칙 허용
+#define POLICY_NET_CONNECT  (1 << 7)   // 네트워크 연결 허용
+#define POLICY_NET_SRC      (1 << 8)   // 인바운드 규칙 허용
+#define POLICY_NET_DST      (1 << 9)   // 아웃바운드 규칙 허용
 struct network_policy {
     __be32 ip;
     __be32 subnet_mask;

@@ -328,6 +328,51 @@ int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
     return ret;
 }
 
+SEC("lsm/inode_create")
+//파일 생성은 화이트리스트
+//파일이름만을 경로로 설정하면 모두 적용이 됨 ex. test
+int BPF_PROG(inode_create, struct inode *dir, struct dentry *dentry, umode_t mode) {
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+
+    if (!should_monitor(task, POLICY_FILE)) {
+        return 0;
+    }
+
+    event *e;
+    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        bpf_printk("Failed ringbuf_reserve");
+        return 0;
+    }
+    e->event_id = SECID_FILE_CREATE;
+
+    char file_name[256] = {0};
+
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+
+    if (bpf_probe_read_kernel_str(file_name, sizeof(file_name), dentry->d_name.name) < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+
+    __u32 flags = match_policy(task, POLICY_FILE, file_name);
+
+    if (flags & POLICY_FILE_CREATE) {
+        ret = e->retval = (flags & POLICY_AUDIT) ? -1 : 0;
+        bpf_ringbuf_submit(e, 0);
+    } else {
+        ret -= 1;
+        bpf_ringbuf_discard(e, 0);
+    }
+
+    return ret;
+}
+
+
 /********************************
  *           NETWORK            *
  ********************************/
