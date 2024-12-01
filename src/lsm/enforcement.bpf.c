@@ -440,7 +440,7 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
 
     __u32 eperm = match_policy(task, POLICY_NETWORK, &net);
 
-    if ((eperm & 0x0140) == (POLICY_NET_CONNECT | POLICY_NET_DST)) {
+    if (eperm & (POLICY_NET_CONNECT | POLICY_NET_DST)) {
         if ( eperm & POLICY_AUDIT ){
             e->retval = 0;
             bpf_ringbuf_submit(e, 0);
@@ -497,7 +497,7 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
 
     __u32 eperm = match_policy(task, POLICY_NETWORK, &net);
     
-    if ((eperm & 0x00C0) == (POLICY_NET_CONNECT | POLICY_NET_SRC)) {
+    if (eperm & (POLICY_NET_CONNECT | POLICY_NET_SRC)) {
         if ( eperm & POLICY_AUDIT ) {
             e->retval = 0;
             bpf_ringbuf_submit(e, 0);
