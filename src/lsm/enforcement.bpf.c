@@ -328,6 +328,51 @@ int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
     return ret;
 }
 
+SEC("lsm/inode_create")
+//파일 이름 기반으로 차단
+//파일이름만을 경로로 설정하면 모두 적용이 됨 ex. test
+int BPF_PROG(inode_create, struct inode *dir, struct dentry *dentry, umode_t mode) {
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+
+    if (!should_monitor(task, POLICY_FILE)) {
+        return 0;
+    }
+
+    event *e;
+    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (!e) {
+        bpf_printk("Failed ringbuf_reserve");
+        return 0;
+    }
+    e->event_id = SECID_FILE_CREATE;
+
+    char file_name[256] = {0};
+
+    int ret = init_context(e);
+    if (ret < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+
+    if (bpf_probe_read_kernel_str(file_name, sizeof(file_name), dentry->d_name.name) < 0) {
+        bpf_ringbuf_discard(e, 0);
+        return 0;
+    }
+
+    __u32 flags = match_policy(task, POLICY_FILE, file_name);
+
+    if (flags & POLICY_FILE_CREATE) {
+        ret = e->retval = (flags & POLICY_AUDIT) ? 0 : -1;
+        bpf_ringbuf_submit(e, 0);
+    } else {
+        ret = 0;
+        bpf_ringbuf_discard(e, 0);
+    }
+
+    return ret;
+}
+
+
 /********************************
  *           NETWORK            *
  ********************************/
@@ -395,7 +440,7 @@ int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
 
     __u32 eperm = match_policy(task, POLICY_NETWORK, &net);
 
-    if ((eperm & 0x0140) == (POLICY_NET_CONNECT | POLICY_NET_DST)) {
+    if (eperm & (POLICY_NET_CONNECT | POLICY_NET_DST)) {
         if ( eperm & POLICY_AUDIT ){
             e->retval = 0;
             bpf_ringbuf_submit(e, 0);
@@ -452,7 +497,7 @@ int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, 
 
     __u32 eperm = match_policy(task, POLICY_NETWORK, &net);
     
-    if ((eperm & 0x00C0) == (POLICY_NET_CONNECT | POLICY_NET_SRC)) {
+    if (eperm & (POLICY_NET_CONNECT | POLICY_NET_SRC)) {
         if ( eperm & POLICY_AUDIT ) {
             e->retval = 0;
             bpf_ringbuf_submit(e, 0);
