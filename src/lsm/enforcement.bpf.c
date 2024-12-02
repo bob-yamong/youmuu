@@ -329,7 +329,7 @@ int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
 }
 
 SEC("lsm/inode_create")
-//파일 생성은 화이트리스트
+//파일 이름 기반으로 차단
 //파일이름만을 경로로 설정하면 모두 적용이 됨 ex. test
 int BPF_PROG(inode_create, struct inode *dir, struct dentry *dentry, umode_t mode) {
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
@@ -362,10 +362,10 @@ int BPF_PROG(inode_create, struct inode *dir, struct dentry *dentry, umode_t mod
     __u32 flags = match_policy(task, POLICY_FILE, file_name);
 
     if (flags & POLICY_FILE_CREATE) {
-        ret = e->retval = (flags & POLICY_AUDIT) ? -1 : 0;
+        ret = e->retval = (flags & POLICY_AUDIT) ? 0 : -1;
         bpf_ringbuf_submit(e, 0);
     } else {
-        ret -= 1;
+        ret = 0;
         bpf_ringbuf_discard(e, 0);
     }
 
