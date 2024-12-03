@@ -10,6 +10,8 @@
 #include <cstdio>
 #include <memory>
 #include <array>
+#include <vector>
+#include <sstream>
 
 class env {
 public:
@@ -24,6 +26,7 @@ public:
 
     // hostname을 IP로 변환하는 함수 추가
     static std::string resolveHostname(const std::string& hostname);
+    static std::string splitHostnamePort(const std::string& hostname);
 
 private:
     static std::string get_env_var(const std::string& var_name);

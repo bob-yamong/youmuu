@@ -95,6 +95,32 @@ static __always_inline int compare_strings(const char *a, const char *b, __u32 l
     return 1; 
 }
 
+static __always_inline int wildcard_match(const char *text, const char *pattern) {
+    const char *t = text, *p = pattern;
+    const char *star = NULL, *text_backup = NULL;
+
+    while (*t) {
+        if (*p == '*') {
+            star = p++;
+            text_backup = t;
+        } else if (*p == *t || *p == '?') {
+            p++;
+            t++;
+        } else if (star) {
+            p = star + 1;
+            t = ++text_backup;
+        } else {
+            return 0;
+        }
+    }
+
+    while (*p == '*') {
+        p++;
+    }
+
+    return *p == '\0';
+}
+
 static __always_inline int get_process_path(char *path_buf, int buf_size) {
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
     if (task) {
@@ -190,7 +216,12 @@ static __always_inline __u32 match_policy(struct task_struct *task, enum policy_
                 if (i >= value->num_file_policies)
                     break;
                 __u32 flags = value->file_policies[i].flags;  // 정책 플래그 가져오기
-                if (compare_strings(value->file_policies[i].path, path, MAX_PATH_LENGTH,flags) == 0)
+                if ( flags & POLICY_FILE_CREATE ) {
+                    if (wildcard_match(path, value->file_policies[i].path) == 1) {
+                        return flags;
+                    }
+                }
+                else if (compare_strings(value->file_policies[i].path, path, MAX_PATH_LENGTH,flags) == 0)
                     return value->file_policies[i].flags;
             }
             break;
