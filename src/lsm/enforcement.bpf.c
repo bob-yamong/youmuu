@@ -197,47 +197,47 @@ clear:
     return ret;
 }
 
-SEC("lsm/path_unlink")
-//삭제는 화이트리스트
-int BPF_PROG(path_unlink, struct path *path)
-{
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+// SEC("lsm/path_unlink")
+// //삭제는 화이트리스트
+// int BPF_PROG(path_unlink, struct path *path)
+// {
+//     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
-    if (!should_monitor(task, POLICY_FILE)) {
-        return 0;
-    }
+//     if (!should_monitor(task, POLICY_FILE)) {
+//         return 0;
+//     }
 
-    event *e;
-    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }
+//     event *e;
+//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+//     if (!e) {
+//         bpf_printk("Failed ringbuf_reserve");
+//         return 0;
+//     }
 
-    e->event_id = SECID_PATH_UNLINK;
+//     e->event_id = SECID_PATH_UNLINK;
     
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
+//     int ret = init_context(e);
+//     if (ret < 0) {
+//         bpf_ringbuf_discard(e, 0);
+//         return 0;
+//     }
 
-    if (bpf_d_path(path, e->data.path, sizeof(e->data.path)) < 0) {
-        //bpf_printk("Failed to get file path");
-    }
+//     if (bpf_d_path(path, e->data.path, sizeof(e->data.path)) < 0) {
+//         //bpf_printk("Failed to get file path");
+//     }
 
-    __u32 flags = match_policy(task, POLICY_FILE, e->data.path);
+//     __u32 flags = match_policy(task, POLICY_FILE, e->data.path);
     
  
-    if (flags & POLICY_FILE_DELETE) {
-        ret = e->retval = (flags & POLICY_AUDIT) ? -1 : 0; //AUDIT 플래그가 있으면 허용하지 않고 기존 정책대로 차단
-        bpf_ringbuf_submit(e, 0);
-    }else{
-        ret = -1; //차단이 기본값(화이트리스트)
-        bpf_ringbuf_discard(e, 0);
-    }  
-    return ret;
-}
+//     if (flags & POLICY_FILE_DELETE) {
+//         ret = e->retval = (flags & POLICY_AUDIT) ? -1 : 0; //AUDIT 플래그가 있으면 허용하지 않고 기존 정책대로 차단
+//         bpf_ringbuf_submit(e, 0);
+//     }else{
+//         ret = -1; //차단이 기본값(화이트리스트)
+//         bpf_ringbuf_discard(e, 0);
+//     }  
+//     return ret;
+// }
 
 SEC("lsm/path_mkdir")
 //폴더 생성은 화이트 리스트
