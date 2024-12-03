@@ -239,94 +239,94 @@ clear:
 //     return ret;
 // }
 
-SEC("lsm/path_mkdir")
-//폴더 생성은 화이트 리스트
-int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
-{    
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();   
+// SEC("lsm/path_mkdir")
+// //폴더 생성은 화이트 리스트
+// int BPF_PROG(path_mkdir, struct path *path, umode_t mode)
+// {    
+//     struct task_struct *task = (struct task_struct *)bpf_get_current_task();   
 
-    if (!should_monitor(task, POLICY_FILE)) {
-        return 0;
-    }
+//     if (!should_monitor(task, POLICY_FILE)) {
+//         return 0;
+//     }
 
-    event *e;
-    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+//     event *e;
+//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
 
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }    
+//     if (!e) {
+//         bpf_printk("Failed ringbuf_reserve");
+//         return 0;
+//     }    
     
-    e->event_id = SECID_PATH_MKDIR;
+//     e->event_id = SECID_PATH_MKDIR;
 
-    int ret = init_context(e);
+//     int ret = init_context(e);
 
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }  
+//     if (ret < 0) {
+//         bpf_ringbuf_discard(e, 0);
+//         return 0;
+//     }  
 
-    if (bpf_d_path(path, e->data.path, sizeof(e->data.path)) < 0) {
-        //bpf_printk("Failed to get file path");
-    }
+//     if (bpf_d_path(path, e->data.path, sizeof(e->data.path)) < 0) {
+//         //bpf_printk("Failed to get file path");
+//     }
 
-    __u32 flags = match_policy(task, POLICY_FILE,e->data.path);
+//     __u32 flags = match_policy(task, POLICY_FILE,e->data.path);
     
 
-    if (flags & POLICY_FILE_APPEND) {
-        //해당 경로가 선언이 되어있고, 그 플래그가 파일 생성에 대한 플래그가 있을 때
-        ret = e->retval = (flags & POLICY_AUDIT) ? -1 : 0;
-        bpf_ringbuf_submit(e, 0);
-    }else{
-        bpf_ringbuf_discard(e, 0);
-        ret = -1; 
-    }
-    return ret;
-}
+//     if (flags & POLICY_FILE_APPEND) {
+//         //해당 경로가 선언이 되어있고, 그 플래그가 파일 생성에 대한 플래그가 있을 때
+//         ret = e->retval = (flags & POLICY_AUDIT) ? -1 : 0;
+//         bpf_ringbuf_submit(e, 0);
+//     }else{
+//         bpf_ringbuf_discard(e, 0);
+//         ret = -1; 
+//     }
+//     return ret;
+// }
 
-SEC("lsm/path_rename")
-//이름 변경은 화이트 리스트
-int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
-             const struct path *new_dir, struct dentry *new_dentry) {
+// SEC("lsm/path_rename")
+// //이름 변경은 화이트 리스트
+// int BPF_PROG(path_rename, const struct path *old_dir, struct dentry *old_dentry,
+//              const struct path *new_dir, struct dentry *new_dentry) {
 
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();  
+//     struct task_struct *task = (struct task_struct *)bpf_get_current_task();  
 
-    if (!should_monitor(task, POLICY_FILE)) {
-        return 0;
-    }
+//     if (!should_monitor(task, POLICY_FILE)) {
+//         return 0;
+//     }
 
-    event *e;
-    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }
-    e->event_id = SECID_PATH_RENAME;
+//     event *e;
+//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+//     if (!e) {
+//         bpf_printk("Failed ringbuf_reserve");
+//         return 0;
+//     }
+//     e->event_id = SECID_PATH_RENAME;
 
-    char path[256];
+//     char path[256];
 
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
-    get_process_path(e->data.source, sizeof(e->data.source));
+//     int ret = init_context(e);
+//     if (ret < 0) {
+//         bpf_ringbuf_discard(e, 0);
+//         return 0;
+//     }
+//     get_process_path(e->data.source, sizeof(e->data.source));
 
-   if (bpf_d_path(old_dir, e->data.path, sizeof(e->data.path)) < 0) {   
-        //bpf_printk("Failed to get file path");
-    }
-    __u32 flags = match_policy(task, POLICY_FILE, e->data.path);
+//    if (bpf_d_path(old_dir, e->data.path, sizeof(e->data.path)) < 0) {   
+//         //bpf_printk("Failed to get file path");
+//     }
+//     __u32 flags = match_policy(task, POLICY_FILE, e->data.path);
 
-    if (flags & POLICY_FILE_RENAME) {
-        ret = e->retval = (flags & POLICY_AUDIT) ? -1 : 0;
-        bpf_ringbuf_submit(e, 0);
-    }else{
-        ret -= 1; 
-        bpf_ringbuf_discard(e, 0);
-    }
+//     if (flags & POLICY_FILE_RENAME) {
+//         ret = e->retval = (flags & POLICY_AUDIT) ? -1 : 0;
+//         bpf_ringbuf_submit(e, 0);
+//     }else{
+//         ret -= 1; 
+//         bpf_ringbuf_discard(e, 0);
+//     }
     
-    return ret;
-}
+//     return ret;
+// }
 
 SEC("lsm/inode_create")
 //파일 이름 기반으로 차단
@@ -376,141 +376,141 @@ int BPF_PROG(inode_create, struct inode *dir, struct dentry *dentry, umode_t mod
 /********************************
  *           NETWORK            *
  ********************************/
-SEC("lsm/socket_connect")
-int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
-	 int addrlen)
-{
+// SEC("lsm/socket_connect")
+// int BPF_PROG(socket_connect, struct socket *sock, struct sockaddr *address,
+// 	 int addrlen)
+// {
 
-	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+// 	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
-    if (!should_monitor(task, POLICY_NETWORK)) {
-        return 0;
-    }
+//     if (!should_monitor(task, POLICY_NETWORK)) {
+//         return 0;
+//     }
 
-    event *e;
-    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }    
+//     event *e;
+//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+//     if (!e) {
+//         bpf_printk("Failed ringbuf_reserve");
+//         return 0;
+//     }    
     
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
+//     int ret = init_context(e);
+//     if (ret < 0) {
+//         bpf_ringbuf_discard(e, 0);
+//         return 0;
+//     }
     
-    get_process_path(e->data.source, sizeof(e->data.source));
+//     get_process_path(e->data.source, sizeof(e->data.source));
     
-    e->event_id = SECID_SOCKET_CONNECT;
+//     e->event_id = SECID_SOCKET_CONNECT;
 
 
-    struct network_policy net = {};
-    // Handle IPv4
-    if (address->sa_family == AF_INET) {
-        struct sockaddr_in *addr_in = (struct sockaddr_in *)address;
-        net.ip = addr_in->sin_addr.s_addr;  // Extract IPv4 address (in network byte order)
-        net.port = addr_in->sin_port;        // Port is in network byte order
-        net.protocol = IPPROTO_TCP;          // Defaulting to TCP; change as necessary for your use case
-    } 
-    // Handle IPv6
-    else if (address->sa_family == AF_INET6) {
-        struct sockaddr_in6 *addr_in6 = (struct sockaddr_in6 *)address;
-        // Set IP to 0 or handle accordingly for IPv6
-        net.ip = 0;  // This could be adjusted depending on your policy handling needs
-        net.port = addr_in6->sin6_port;  // Port is in network byte order
-        net.protocol = IPPROTO_IPV6;      // Defaulting to IPv6; change as necessary for your use case
-    }
+//     struct network_policy net = {};
+//     // Handle IPv4
+//     if (address->sa_family == AF_INET) {
+//         struct sockaddr_in *addr_in = (struct sockaddr_in *)address;
+//         net.ip = addr_in->sin_addr.s_addr;  // Extract IPv4 address (in network byte order)
+//         net.port = addr_in->sin_port;        // Port is in network byte order
+//         net.protocol = IPPROTO_TCP;          // Defaulting to TCP; change as necessary for your use case
+//     } 
+//     // Handle IPv6
+//     else if (address->sa_family == AF_INET6) {
+//         struct sockaddr_in6 *addr_in6 = (struct sockaddr_in6 *)address;
+//         // Set IP to 0 or handle accordingly for IPv6
+//         net.ip = 0;  // This could be adjusted depending on your policy handling needs
+//         net.port = addr_in6->sin6_port;  // Port is in network byte order
+//         net.protocol = IPPROTO_IPV6;      // Defaulting to IPv6; change as necessary for your use case
+//     }
 
-    // Determine the protocol based on the type of socket if needed
-    switch (sock->type) {
-        case SOCK_STREAM:
-            net.protocol = IPPROTO_TCP;  // For TCP
-            break;
-        case SOCK_DGRAM:
-            net.protocol = IPPROTO_UDP;   // For UDP
-            break;
-        // Add other types as necessary, like SOCK_RAW for ICMP
-        default:
-            net.protocol = IPPROTO_IP;     // Default to IP
-            break;
-    }
+//     // Determine the protocol based on the type of socket if needed
+//     switch (sock->type) {
+//         case SOCK_STREAM:
+//             net.protocol = IPPROTO_TCP;  // For TCP
+//             break;
+//         case SOCK_DGRAM:
+//             net.protocol = IPPROTO_UDP;   // For UDP
+//             break;
+//         // Add other types as necessary, like SOCK_RAW for ICMP
+//         default:
+//             net.protocol = IPPROTO_IP;     // Default to IP
+//             break;
+//     }
 
-    net.flags = POLICY_NET_CONNECT;
+//     net.flags = POLICY_NET_CONNECT;
 
-    __u32 eperm = match_policy(task, POLICY_NETWORK, &net);
+//     __u32 eperm = match_policy(task, POLICY_NETWORK, &net);
 
-    if (eperm & (POLICY_NET_CONNECT | POLICY_NET_DST)) {
-        if ( eperm & POLICY_AUDIT ){
-            e->retval = 0;
-            bpf_ringbuf_submit(e, 0);
-            return 0;
-        }
-        e->retval = -1;   
-        bpf_ringbuf_submit(e, 0);
-        return -1;
-    }
+//     if (eperm & (POLICY_NET_CONNECT | POLICY_NET_DST)) {
+//         if ( eperm & POLICY_AUDIT ){
+//             e->retval = 0;
+//             bpf_ringbuf_submit(e, 0);
+//             return 0;
+//         }
+//         e->retval = -1;   
+//         bpf_ringbuf_submit(e, 0);
+//         return -1;
+//     }
 
-    bpf_ringbuf_discard(e, 0);
-	return 0;
-}
+//     bpf_ringbuf_discard(e, 0);
+// 	return 0;
+// }
 
-SEC("lsm/socket_recvmsg")
-int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, int flags) {
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+// SEC("lsm/socket_recvmsg")
+// int BPF_PROG(socket_recvmsg, struct socket *sock, struct msghdr *msg, int size, int flags) {
+//     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
-    if (!should_monitor(task, POLICY_NETWORK)) {
-        return 0;
-    }
+//     if (!should_monitor(task, POLICY_NETWORK)) {
+//         return 0;
+//     }
 
-    event *e;
-    e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-    if (!e) {
-        bpf_printk("Failed ringbuf_reserve");
-        return 0;
-    }    
+//     event *e;
+//     e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+//     if (!e) {
+//         bpf_printk("Failed ringbuf_reserve");
+//         return 0;
+//     }    
     
-    int ret = init_context(e);
-    if (ret < 0) {
-        bpf_ringbuf_discard(e, 0);
-        return 0;
-    }
+//     int ret = init_context(e);
+//     if (ret < 0) {
+//         bpf_ringbuf_discard(e, 0);
+//         return 0;
+//     }
     
-    get_process_path(e->data.source, sizeof(e->data.source));
+//     get_process_path(e->data.source, sizeof(e->data.source));
     
-    e->event_id = SECID_SOCKET_RECVMSG;
+//     e->event_id = SECID_SOCKET_RECVMSG;
 
-    struct network_policy net = {};
-    struct sock *sk;
+//     struct network_policy net = {};
+//     struct sock *sk;
 
-    // Get the socket from the socket structure
-    bpf_probe_read(&sk, sizeof(sk), &sock->sk);
+//     // Get the socket from the socket structure
+//     bpf_probe_read(&sk, sizeof(sk), &sock->sk);
 
-    // Assuming we are using sk_protocol for family detection
-    u16 protocol = BPF_CORE_READ(sk, sk_protocol);
+//     // Assuming we are using sk_protocol for family detection
+//     u16 protocol = BPF_CORE_READ(sk, sk_protocol);
     
-    // Get source IP and port
-    net.ip = BPF_CORE_READ(sk, __sk_common.skc_daddr);  // Source IP address
-    net.port = BPF_CORE_READ(sk, __sk_common.skc_num);       // Source port
+//     // Get source IP and port
+//     net.ip = BPF_CORE_READ(sk, __sk_common.skc_daddr);  // Source IP address
+//     net.port = BPF_CORE_READ(sk, __sk_common.skc_num);       // Source port
 
-    net.flags = POLICY_NET_CONNECT;
+//     net.flags = POLICY_NET_CONNECT;
 
-    __u32 eperm = match_policy(task, POLICY_NETWORK, &net);
+//     __u32 eperm = match_policy(task, POLICY_NETWORK, &net);
     
-    if (eperm & (POLICY_NET_CONNECT | POLICY_NET_SRC)) {
-        if ( eperm & POLICY_AUDIT ) {
-            e->retval = 0;
-            bpf_ringbuf_submit(e, 0);
-            return 0;
-        }
-        e->retval = -1;   
-        bpf_ringbuf_submit(e, 0);
-        return -1;
-    }
+//     if (eperm & (POLICY_NET_CONNECT | POLICY_NET_SRC)) {
+//         if ( eperm & POLICY_AUDIT ) {
+//             e->retval = 0;
+//             bpf_ringbuf_submit(e, 0);
+//             return 0;
+//         }
+//         e->retval = -1;   
+//         bpf_ringbuf_submit(e, 0);
+//         return -1;
+//     }
 
-    bpf_ringbuf_discard(e, 0);
-    return 0;
-}
+//     bpf_ringbuf_discard(e, 0);
+//     return 0;
+// }
 
 // SEC("lsm/capable")
 // int BPF_PROG(capable, struct task_struct *task, const struct cred *cred, int cap)
