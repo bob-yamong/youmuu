@@ -407,7 +407,7 @@ void init_syscall_map(struct raw_tracepoint_bpf *skel)
         { __NR_rt_sigpending, "rt_sigpending" },
         { __NR_rt_sigsuspend, "rt_sigsuspend" },
 
-        // ���로세스 통신 추가
+        // 프로세스 통신 추가
         { __NR_process_madvise, "process_madvise" },
         { __NR_process_vm_readv, "process_vm_readv" },
         { __NR_process_vm_writev, "process_vm_writev" },

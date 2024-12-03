@@ -27,7 +27,6 @@ CXXFLAGS := $(CFLAGS) -std=c++20
 CXXFLAGS += -I/usr/include/yaml-cpp
 CXXFLAGS += -I../include/reflect-cpp/include
 CXXFLAGS += -I../include/reflect-cpp/include/rfl/thirdparty 
-CXXFLAGS += $(shell pkg-config --cflags libpqxx)
 
 ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS)
 
@@ -117,7 +116,7 @@ $(OUTPUT)/%.o: %.cpp $(wildcard %.h) | $(OUTPUT)
 # Build application binary
 $(APPS): %: $(OBJS) $(LIBBPF_OBJ) | $(OUTPUT)
 	$(call msg,BINARY,$@)
-	$(Q)$(CXX) $(CXXFLAGS) $^ $(ALL_LDFLAGS) -lelf -lz -lyaml-cpp $(shell pkg-config --cflags libpqxx) -lpqxx -lpq -o $@
+	$(Q)$(CXX) $(CXXFLAGS) $^ $(ALL_LDFLAGS) -lelf -lz -lyaml-cpp -lrdkafka++ -lrdkafka -lpthread -o $@
 
 # delete failed targets
 .DELETE_ON_ERROR:

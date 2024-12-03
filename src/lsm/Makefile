@@ -27,11 +27,10 @@ CXXFLAGS := $(CFLAGS) -std=c++20 -Wno-write-strings
 CXXFLAGS += -I/usr/include/yaml-cpp
 CXXFLAGS += -I../include/reflect-cpp/include
 CXXFLAGS += -I../include/reflect-cpp/include/rfl/thirdparty
-CXXFLAGS += $(shell pkg-config --cflags libpqxx)
 
 ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS)
 
-LIBS := -lelf -lz -lcurl -ljson-c $(shell pkg-config --cflags libpqxx) -lpqxx -lpq
+LIBS := -lelf -lz -lcurl -ljson-c -lrdkafka++ -lrdkafka
 
 APPS = enforcement
 
@@ -113,7 +112,7 @@ $(OUTPUT)/%.o: %.cpp $(wildcard %.h) | $(OUTPUT)
 
 # Build application binary
 # Build application binary
-$(APPS): %: $(OUTPUT)/%.o $(LIBBPF_OBJ) $(OUTPUT)/getEnv.o | $(OUTPUT)
+$(APPS): %: $(OUTPUT)/%.o $(LIBBPF_OBJ) $(OUTPUT)/getEnv.o $(OUTPUT)/kafkaProducer.o | $(OUTPUT)
 	$(call msg,BINARY,$@)
 	$(Q)$(CXX) $(CXXFLAGS) $^ $(ALL_LDFLAGS) $(LIBS) -lyaml-cpp -o $@
 

@@ -12,7 +12,6 @@
 #include <fstream>
 #include <thread>
 #include <chrono>
-#include <pqxx/pqxx>
 #include <sstream>
 #include <cstring>
 #include <sys/stat.h> 
@@ -23,34 +22,31 @@
 #include <syslog.h>
 #include <utility>
 #include <sys/sysinfo.h>
- 
+#include <atomic>
+#include <memory> // shared_ptr
+
 #include "enforcement.skel.h"
 #include "policy_map_structs.h"
 #include "parser.h"
 #include "getEnv.h"
+#include "kafkaProducer.h"
 
 #define BPF_FS_PATH "/sys/fs/bpf"
 #define POLICY_FILE_PATH "/policy/policy.yaml"
-
 
 #define MAX_CMD_LEN 1024
 #define MAX_OUTPUT_LEN 256
 
 static volatile bool exiting = false;
-std::unique_ptr<pqxx::connection> conn;
+
 using json = nlohmann::json;
 
+// 함수 선언
 void clear_bpf_map(int map_fd);
+bool file_exists(const char *path); // 반드시 정의를 포함시켜야 함
 
-bool file_exists(const char *path) {
-    struct stat buffer;
-    return stat(path, &buffer) == 0;
-}
-
+// Safe print_event 함수 with context
 static int print_event(void *ctx, void *data, size_t data_sz) {
-    const int MAX_RETRIES = 2;  // 최초 시도 + 1회 재시도
-    const int RETRY_DELAY_MS = 100;  // 재시도 전 100ms 대기
-    
     event *e = (event *)data;
     char timestamp[32];
     struct sysinfo si;
@@ -63,12 +59,17 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
 
     time_t event_time = (e->ts / 1000000000) + boot_time;
     struct tm *tm_info = localtime(&event_time);
-    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
+    if (!tm_info) {
+        return -1;
+    }
+    if (strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info) == 0) {
+        return -1;
+    }
 
     std::stringstream event_data;
     event_data << "{\"timestamp\":\"" << timestamp << "." << (e->ts % 1000000000) << "\","
                << "\"container_id\":{\"pid_ns\":" << e->pid_id << ",\"mnt_ns\":" << e->mnt_id << "},"
-               << "\"process\":{\"host_ppid\":" << e->host_ppid << ",\"host_pid\":" << e->host_pid 
+               << "\"process\":{\"host_ppid\":" << e->host_ppid << ",\"host_pid\":" << e->host_pid
                << ",\"ppid\":" << e->ppid << ",\"pid\":" << e->pid << ",\"uid\":" << e->uid << "},"
                << "\"cgroup_id\":" << e->cgroup_id << ","
                << "\"event_id\":" << e->event_id << ","
@@ -76,38 +77,25 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
                << "\"command\":\"" << e->comm << "\","
                << "\"data\":{\"path\":\"" << e->data.path << "\",\"source\":\"" << e->data.source << "\"}}";
 
-    for (int retry = 0; retry < MAX_RETRIES; retry++) {
-        try {
-            pqxx::work txn(*conn);
-            std::string escaped_json = txn.quote(event_data.str());
-            std::string query = "SELECT * FROM pgmq.send('lsm', " + escaped_json + ");";
-            
-            txn.exec(query);
-            txn.commit();
-
-            printf("Event successfully sent to queue\n");
-            return 0;  // 성공시 즉시 반환
-
-        } catch (const std::exception &e) {
-            fprintf(stderr, "Attempt %d failed to send event to queue: %s\n", 
-                    retry + 1, e.what());
-            
-            if (retry < MAX_RETRIES - 1) {
-                // 마지막 시도가 아닌 경우에만 대기
-                std::this_thread::sleep_for(std::chrono::milliseconds(RETRY_DELAY_MS));
-            }
+    // 컨텍스트를 shared_ptr로 캐스팅
+    std::shared_ptr<KafkaProducer>* producer_ptr = static_cast<std::shared_ptr<KafkaProducer>*>(ctx);
+    if (producer_ptr && *producer_ptr) {
+        if ((*producer_ptr)->send(event_data.str())) {
+            printf("Success to send event to Kafka\n");
+            return 0;
         }
     }
 
-    // 모든 재시도 실패 후
-    fprintf(stderr, "Dropping event after %d failed attempts\n", MAX_RETRIES);
-    return 0;  // 프로그램은 계속 실행
+    fprintf(stderr, "Dropping event after failed attempts\n");
+    return -1;
 }
 
+// 시그널 핸들러
 void handle_signal(int sig) {
     exiting = true;
 }
 
+// libbpf 출력 함수
 static int libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list args)
 {
     return vfprintf(stderr, format, args);
@@ -149,6 +137,7 @@ std::string remove_chunked_encoding(const std::string& response) {
 
     return json_body;
 }
+
 
 int get_docker_pid(const char* container_name) {
     const char* socket_path = "/var/run/docker.sock";
@@ -211,6 +200,7 @@ int get_docker_pid(const char* container_name) {
         return 0;
     }
 }
+
 
 unsigned long get_pid_ns_id(pid_t container_pid) {
     char path[MAX_PATH_LENGTH];
@@ -283,6 +273,7 @@ unsigned long get_mnt_ns_id(pid_t container_pid) {
     return mnt_ns_id;
 }
 
+// 정책 키 생성 함수
 struct policy_key make_policy_key(pid_t pid){
     struct policy_key key;
     key.pid_ns_id = get_pid_ns_id(pid);
@@ -414,6 +405,7 @@ int add_policy(int map_fd) {
 
             if (get_yes_no_input("Block Read")) fp->flags |= POLICY_FILE_READ;
             if (get_yes_no_input("Block Write")) fp->flags |= POLICY_FILE_WRITE;
+            if (get_yes_no_input("Allow File Create")) fp->flags |= POLICY_FILE_CREATE;
             if (get_yes_no_input("Block Execute")) fp->flags |= POLICY_FILE_EXEC;
             if (get_yes_no_input("Block Append")) fp->flags |= POLICY_FILE_APPEND;
             if (get_yes_no_input("Block Rename")) fp->flags |= POLICY_FILE_RENAME;
@@ -585,22 +577,26 @@ int update_policy_with_file(int map_fd, char* abs_file_name) {
     return 0;
 }
 
+// 정책을 주기적으로 업데이트하는 스레드 함수
 void update_policy_periodically(int map_fd) {
-    while (true) {
-        // Call the update function
+    printf("정책 업데이트 스레드 시작\n");
+    while (!exiting) { // 종료 플래그 확인
         if (update_policy_with_file(map_fd, POLICY_FILE_PATH) == 0) {
             std::cout << "update_policy_with_file called successfully.\n" << std::endl;
         } else {
             std::cerr << "Failed to call update_policy_with_file." << std::endl;
         }
         
-        // Sleep for 60 seconds
-        std::this_thread::sleep_for(std::chrono::seconds(env::update_interval));
+        // env::update_interval 초 동안 대기 또는 종료 플래그 확인
+        for(int i = 0; i < env::update_interval && !exiting; ++i){
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
     }
 }
 
+// 메뉴 옵션을 위한 열거형
 enum view_mode {
-    ADD_POLICY,
+    ADD_POLICY = 1,
     UPDATE_POLICY_FILE,
     DELETE_POLICY,
     SHOW_POLICY,
@@ -627,6 +623,7 @@ void print_menu() {
     }
 }
 
+// 메뉴 선택 함수
 int get_menu(char *input) {
     if (strcmp(input, "1") == 0) {
         return ADD_POLICY;
@@ -663,29 +660,43 @@ void clear_bpf_map(int map_fd) {
     }
 }
 
+// file_exists 함수 정의 추가
+bool file_exists(const char *path) {
+    struct stat buffer;
+    return stat(path, &buffer) == 0;
+}
 
+// 메인 함수
 int main(int argc, char **argv) {
     struct enforcement_bpf *skel;
     struct ring_buffer *rb = NULL;
     int map_fd = -1;
     int status = 0;
+    std::thread policy_update_thread;  // 스레드 객체 선언
+    std::atomic<bool> policy_update_running(false); // 스레드 실행 상태 추적
 
     env::getEnv();
 
-    std::cout << "DB Info: " << env::dbname << ", " << env::user << ", " 
-          << env::password << ", " << env::host << ", " << env::port << std::endl;
+    // Kafka 설정 가져오기
+    std::string brokers = env::kafka_brokers;
+    std::string topic = env::kafka_topic_lsm;
 
+    if (brokers.empty() || topic.empty()) {
+        fprintf(stderr, "Kafka 설정이 누락되었습니다: brokers='%s', topic='%s'\n",
+                brokers.c_str(), topic.c_str());
+        exit(1);
+    }
 
-    conn = std::make_unique<pqxx::connection>(
-    "dbname=" + env::dbname + 
-    " user=" + env::user + 
-    " password=" + env::password + 
-    " host=" + env::host + 
-    " port=" + env::port
-    );
+    // KafkaProducer 객체 초기화 (shared_ptr 사용)
+    printf("KafkaProducer 객체 초기화 중...\n");
+    std::shared_ptr<KafkaProducer> producer_ptr = std::make_shared<KafkaProducer>(brokers, topic);
+    if (!producer_ptr->init()) {
+        fprintf(stderr, "KafkaProducer 초기화 실패\n");
+        exit(1);
+    }
+    printf("KafkaProducer 초기화 성공.\n");
 
-
-    /* Set up libbpf errors and debug info callback */
+      /* Set up libbpf errors and debug info callback */
     // libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
     libbpf_set_print(libbpf_print_fn);
 
@@ -741,7 +752,7 @@ int main(int argc, char **argv) {
     // }
 
     // 링 버퍼 설정
-    rb = ring_buffer__new(bpf_map__fd(skel->maps.events), print_event, NULL, NULL);
+    rb = ring_buffer__new(bpf_map__fd(skel->maps.events), print_event, &producer_ptr, NULL);
     if (!rb) {
         fprintf(stderr, "Failed Create Ring Buffer\n");
         goto cleanup;
@@ -782,12 +793,14 @@ int main(int argc, char **argv) {
             printf("Tryin to update policy with file...\n");
 
             if (file_exists(POLICY_FILE_PATH)) {
-                // Create a new thread to periodically update the policy
-                std::thread policy_update_thread(update_policy_periodically, map_fd);
-                
-                // Detach the thread so it runs independently
-                policy_update_thread.detach();
-                
+                if (!policy_update_running.load()) {
+                    policy_update_running.store(true);
+                    // 스레드 생성 및 실행
+                    policy_update_thread = std::thread([&]() {
+                        update_policy_periodically(map_fd);
+                        policy_update_running.store(false);
+                    });
+                }
                 std::cout << "Policy update thread started, updating every minute.\n" << std::endl;
                 status = SHOW_LOG;
             } else {
@@ -821,9 +834,20 @@ int main(int argc, char **argv) {
             break;
         }
     }
-
 cleanup:
-    ring_buffer__free(rb);
-    enforcement_bpf__destroy(skel);
-    return -err;
+    exiting = true;
+
+    if (policy_update_thread.joinable()) {
+        policy_update_thread.join();
+    }
+
+    if (rb) {
+        ring_buffer__free(rb);
+    }
+
+    if (skel) {
+        enforcement_bpf__destroy(skel);
+    }
+
+    return (err < 0) ? err : 0;
 }

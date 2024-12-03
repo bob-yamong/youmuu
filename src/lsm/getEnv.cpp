@@ -1,13 +1,10 @@
 #include "getEnv.h"
 
 // static 멤버 변수 정의
-std::string env::host;
-std::string env::dbname;
-std::string env::user;
-std::string env::password;
-std::string env::port;
 std::string env::cgroup_path;
 std::string env::proc_path;
+std::string env::kafka_brokers;
+std::string env::kafka_topic_lsm;
 int env::update_interval;
 
 // static 멤버 함수 구현
@@ -20,6 +17,11 @@ std::string env::get_env_var(const std::string& var_name) {
 }
 
 std::string env::resolveHostname(const std::string& hostname) {
+    // hostname이 숫자로 시작하는지 확인
+    if (std::isdigit(hostname[0])) {
+        return hostname;
+    }
+
     struct addrinfo hints = {}, *result;
     hints.ai_family = AF_UNSPEC;    // IPv4 또는 IPv6 허용
     hints.ai_socktype = SOCK_STREAM;
@@ -54,19 +56,9 @@ std::string env::resolveHostname(const std::string& hostname) {
 }
 
 void env::getEnv() {
-    std::string hostname = get_env_var("POSTGRES_HOST");
-    // hostname이 IP가 아닌 경우에만 resolve
-    if (hostname.find_first_not_of("0123456789.") != std::string::npos) {
-        host = resolveHostname(hostname);
-    } else {
-        host = hostname;
-    }
-    
-    dbname = get_env_var("POSTGRES_DB");
-    user = get_env_var("POSTGRES_USER");
-    password = get_env_var("POSTGRES_PASSWORD");
-    port = get_env_var("POSTGRES_PORT");
     cgroup_path = get_env_var("CGROUP_SYSTEM_SLICE_PATH");
     proc_path = get_env_var("PROC_PATH");
     update_interval = std::stoi(get_env_var("UPDATE_INTERVAL"));
+    kafka_brokers = resolveHostname(get_env_var("KAFKA_BROKERS"));
+    kafka_topic_lsm = get_env_var("KAFKA_TOPIC_LSM");
 }
