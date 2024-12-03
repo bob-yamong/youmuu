@@ -96,29 +96,39 @@ static __always_inline int compare_strings(const char *a, const char *b, __u32 l
 }
 
 static __always_inline int wildcard_match(const char *text, const char *pattern) {
-    const char *t = text, *p = pattern;
     const char *star = NULL, *text_backup = NULL;
 
-    while (*t) {
-        if (*p == '*') {
-            star = p++;
-            text_backup = t;
-        } else if (*p == *t || *p == '?') {
-            p++;
-            t++;
+    for (int i = 0; i < MAX_PATH_LENGTH; i++) {
+        // If we reach the end of the text
+        if (*text == '\0') {
+            // Check if remaining pattern only contains '*' 
+            while (*pattern == '*' && i < MAX_PATH_LENGTH) {
+                pattern++;
+                i++;
+            }
+            return *pattern == '\0';
+        }
+
+        if (*pattern == '*') {
+            // Record the position of '*' and the current text pointer
+            star = pattern++;
+            text_backup = text;
+        } else if (*pattern == *text || *pattern == '?') {
+            // Match current character or '?'
+            pattern++;
+            text++;
         } else if (star) {
-            p = star + 1;
-            t = ++text_backup;
+            // Backtrack to the last '*' and advance the text pointer
+            pattern = star + 1;
+            text = ++text_backup;
         } else {
+            // No match
             return 0;
         }
     }
 
-    while (*p == '*') {
-        p++;
-    }
-
-    return *p == '\0';
+    // If we exceed MAX_PATH_LENGTH
+    return 0;
 }
 
 static __always_inline int get_process_path(char *path_buf, int buf_size) {
