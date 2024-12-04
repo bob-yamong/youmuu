@@ -1,19 +1,33 @@
 #include "getEnv.h"
 
-// static 멤버 변수 정의
 std::string env::cgroup_path;
 std::string env::proc_path;
 std::string env::kafka_brokers;
-std::string env::kafka_topic_lsm;
+std::string env::kafka_topic_tp;
 int env::update_interval;
+int env::buffer_cnt;
 
 // static 멤버 함수 구현
-std::string env::get_env_var(const std::string& var_name) {
-    const char* val = std::getenv(var_name.c_str());
-    if (val == nullptr) {
-        throw std::runtime_error("환경 변수 " + var_name + "이(가) 설정되지 않았습니다.");
+std::string env::get_env_var(const std::string& var_name, const std::string& default_value) {
+    try {
+        std::cout << "Getting environment variable: " << var_name << std::endl;
+        // 환경변수 값 가져오기 없으면 null return
+        const char* val = std::getenv(var_name.c_str());
+        // null이면 default_value return 
+        if (!val) {
+            if (var_name == "KAFKA_BROKERS" || var_name == "KAFKA_TOPIC") {
+                std::cerr << "Critical error: Environment variable " << var_name << " is not set." << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            return default_value;
+        }
+        std::string result = std::string(val);
+        std::cout << "Value for " << var_name << ": " << result << std::endl;
+        return result;
+    } catch (const std::exception& e) {
+        std::cerr << "Error getting env var " << var_name << ": " << e.what() << std::endl;
+        return default_value;
     }
-    return std::string(val);
 }
 
 std::string env::resolveHostname(const std::string& hostname) {
@@ -85,9 +99,25 @@ std::string env::splitHostnamePort(const std::string& hostname) {
 }
 
 void env::getEnv() {
-    cgroup_path = get_env_var("CGROUP_SYSTEM_SLICE_PATH");
-    proc_path = get_env_var("PROC_PATH");
-    update_interval = std::stoi(get_env_var("UPDATE_INTERVAL"));
-    kafka_brokers = splitHostnamePort(get_env_var("KAFKA_BROKERS"));
-    kafka_topic_lsm = get_env_var("KAFKA_TOPIC_LSM");
+    try {
+        std::cout << "=== Starting environment initialization ===" << std::endl;
+
+        std::string temp_cgroup = get_env_var("CGROUP_SYSTEM_SLICE_PATH", "/sys/fs/cgroup/system.slice/");
+        std::string temp_proc = get_env_var("PROC_PATH", "/proc");
+        std::string temp_update_interval = get_env_var("UPDATE_INTERVAL", "60");
+        std::string temp_kafka_brokers = splitHostnamePort(get_env_var("KAFKA_BROKERS", ""));
+        std::string temp_kafka_topic_tp = get_env_var("KAFKA_TOPIC_TRACEPOINT", "");
+        std::string temp_buffer_cnt = get_env_var("BUFFER_CNT", "4");
+
+        kafka_brokers = temp_kafka_brokers;
+        kafka_topic_tp = temp_kafka_topic_tp;
+        cgroup_path = temp_cgroup;
+        proc_path = temp_proc;
+        update_interval = std::stoi(temp_update_interval);
+        buffer_cnt = std::stoi(temp_buffer_cnt);
+
+    } catch (const std::exception& e) {
+        std::cerr << "Critical error in getEnv: " << e.what() << std::endl;
+        throw;
+    }
 }

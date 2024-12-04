@@ -7,18 +7,20 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <cstdio>
-#include <memory>
-#include <array>
-#include <vector>
+#include <cstdio>   
+#include <memory>   
+#include <array>    
+#include <iostream> 
 #include <sstream>
+#include <vector>
 
 class env {
 public:
     static std::string cgroup_path;
     static std::string proc_path;
     static std::string kafka_brokers;
-    static std::string kafka_topic_lsm;
+    static std::string kafka_topic_tp;
+    static int buffer_cnt;
     static int update_interval;
 
     // static 함수로 변경
@@ -29,7 +31,7 @@ public:
     static std::string splitHostnamePort(const std::string& hostname);
 
 private:
-    static std::string get_env_var(const std::string& var_name);
+    static std::string get_env_var(const std::string& var_name , const std::string& default_value);
 };
 
-#endif // GET_ENV_H
+#endif
