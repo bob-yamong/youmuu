@@ -1,10 +1,10 @@
-// getEnv.cpp
 #include "getEnv.h"
 
 // static 멤버 변수 정의
 std::string env::cgroup_path;
 std::string env::proc_path;
-std::string env::log_file_path;
+std::string env::kafka_brokers;
+std::string env::kafka_topic_lsm;
 int env::update_interval;
 
 // static 멤버 함수 구현
@@ -50,9 +50,44 @@ std::string env::resolveHostname(const std::string& hostname) {
     throw std::runtime_error("유효한 IP 주소를 찾을 수 없습니다");
 }
 
+std::string env::splitHostnamePort(const std::string& hostname) {
+    std::vector<std::string> host_port_pairs;
+    std::stringstream ss(hostname);
+    std::string item;
+
+    // ','를 기준으로 문자열을 분리하여 벡터에 저장
+    while (std::getline(ss, item, ',')) {
+        host_port_pairs.push_back(item);
+    }
+
+    std::vector<std::string> ip_port_pairs;
+    for (const auto& host_port : host_port_pairs) {
+        std::string host = host_port.substr(0, host_port.find_last_of(":"));
+        std::string port = host_port.substr(host_port.find_last_of(":") + 1);
+        
+        // 호스트 이름이 IP가 아닌 경우에만 IP로 변환
+        if (host.find_first_not_of("0123456789.") != std::string::npos) {
+            host = resolveHostname(host);
+        }
+        ip_port_pairs.push_back(host + ":" + port);
+    }
+
+    // 벡터를 ','로 연결하여 최종 문자열 생성
+    std::string result;
+    for (size_t i = 0; i < ip_port_pairs.size(); ++i) {
+        result += ip_port_pairs[i];
+        if (i < ip_port_pairs.size() - 1) {
+            result += ",";
+        }
+    }
+
+    return result;
+}
+
 void env::getEnv() {
     cgroup_path = get_env_var("CGROUP_SYSTEM_SLICE_PATH");
     proc_path = get_env_var("PROC_PATH");
-    log_file_path = get_env_var("RAW_LOG_PATH");
     update_interval = std::stoi(get_env_var("UPDATE_INTERVAL"));
+    kafka_brokers = splitHostnamePort(get_env_var("KAFKA_BROKERS"));
+    kafka_topic_lsm = get_env_var("KAFKA_TOPIC_LSM");
 }
