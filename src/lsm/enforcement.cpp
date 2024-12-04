@@ -30,6 +30,9 @@
 #include "parser.h"
 #include "getEnv.h"
 #include "kafkaProducer.h"
+#include "container_info.h"
+
+#include "yaml_structs.h"
 
 #define BPF_FS_PATH "/sys/fs/bpf"
 #define POLICY_FILE_PATH "/policy/policy.yaml"
@@ -298,7 +301,7 @@ void print_policies(int map_fd) {
             for (__u32 i = 0; i < value.num_file_policies; i++) {
                 printf("  Path: %s\n", value.file_policies[i].path);
                 printf("  Flags: ");
-                for (const auto &flag: flags_to_string(value.file_policies[i].flags)) cout << flag << " ";
+                for (const auto &flag: flags_to_string(value.file_policies[i].flags)) std::cout << flag << " ";
                 printf("\n");
             }
 
@@ -321,7 +324,7 @@ void print_policies(int map_fd) {
 
                 printf("  IP: %s/%d, Port: %u, Protocol: %u\n", ip_str, prefix_len, ntohs(value.network_policies[i].port), value.network_policies[i].protocol);
                 printf("  Flags: ");
-                for (const auto &flag: flags_to_string(value.network_policies[i].flags)) cout << flag << " ";
+                for (const auto &flag: flags_to_string(value.network_policies[i].flags)) std::cout << flag << " ";
                 printf("\n");
             }
 
@@ -330,7 +333,7 @@ void print_policies(int map_fd) {
             for (__u32 i = 0; i < value.num_process_policies; i++) {
                 printf("  Command: %s\n", value.process_policies[i].comm);
                 printf("  Flags: ");
-                for (const auto &flag: flags_to_string(value.process_policies[i].flags)) cout << flag << " ";
+                for (const auto &flag: flags_to_string(value.process_policies[i].flags)) std::cout << flag << " ";
                 printf("\n");
             }
 
@@ -495,31 +498,45 @@ int add_policy(int map_fd) {
 int update_policy_with_file(int map_fd, char* abs_file_name) {
     const rfl::Result<YamlPolicy> result = rfl::yaml::load<YamlPolicy>(abs_file_name);
     YamlPolicy policy = result.value();
-
+    
     if (policy.containers.empty()) {
         fprintf(stderr, "No policy found in the file\n");
         return -1;
     }
 
+    ContainerManager::parsed_policy = policy;
+
     clear_bpf_map(map_fd);
 
-    for (const YamlContainerPolicy& container : policy.containers) {
+    ContainerManager::monitored_containers.clear(); // 기존 리스트 초기화
+    ContainerManager::containers.clear(); // 기존 리스트 초기화
+    for (const auto& item : policy.containers) { // YamlPolicy 구조에 따라 수정 필요
+        ContainerManager::monitored_containers.push_back(item.container_name);
+    }
+    // 모니터링할 컨테이너 PID 가져오기
+    int detected_containers = ContainerManager::getContainerPIDs();
+    if (detected_containers <= 0) {
+        std::cerr << "Can not found container for monitoring.\n";
+        return -1;
+    }
+
+
+    for (const auto &container : ContainerManager::containers) {
         struct policy_key key;
         struct policy_value value;
 
-        int container_pid = get_docker_pid(container.container_name.c_str());
-        if (container_pid==0) {
-            fprintf(stderr, "Failed to get container pid: %s\n", container.container_name.c_str());
+        if (container.pid==0) {
+            fprintf(stderr, "Failed to get container pid: %s\n", container.name.c_str());
             continue;
         }
 
-        key = make_policy_key(container_pid);
+        key = make_policy_key(container.pid);
         if (!key.pid_ns_id || !key.mnt_ns_id) {
             fprintf(stderr, "Failed to get namespace ID\n");
             continue;
         }
 
-        printf("Container %s(%u %u)-%d\n", container.container_name.c_str(), key.pid_ns_id, key.mnt_ns_id, container_pid);
+        printf("Container %s(%u %u)-%d\n", container.name.c_str(), key.pid_ns_id, key.mnt_ns_id, container.pid);
         
         //file policies
         value.num_file_policies = 0;
