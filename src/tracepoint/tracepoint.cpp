@@ -55,6 +55,21 @@ int clear_syscall_array_entry(struct bpf_map *syscall_array, __u32 pid_namespace
     return 0;
 }
 
+int clear_all_policies(struct bpf_map *syscall_array) {
+    int err = 0;
+    for (const auto& namespace_id : current_monitored_namespaces) {
+        if (clear_syscall_array_entry(syscall_array, namespace_id) != 0) {
+            err = -1;
+            fprintf(stderr, "Failed to clear policy for namespace: %u\n", namespace_id);
+        } else {
+            printf("Cleared policy for namespace: %u\n", namespace_id);
+        }
+    }
+    current_monitored_namespaces.clear();
+    pid_namespace_to_container_id.clear();
+    return err;
+}
+
 std::string remove_chunked_encoding(const std::string& response) {
     std::string json_body;
     size_t pos = 0;
@@ -193,8 +208,8 @@ int update_policy_with_file(struct bpf_map *syscall_array, char* abs_file_name) 
     YamlPolicy policy = result.value();
 
     if (policy.containers.empty()) {
-        fprintf(stderr, "No policy found in the file\n");
-        return -1;
+        fprintf(stderr, "No policy found in the file. Clearing all existing policies.\n");
+        return clear_all_policies(syscall_array);
     }
 
     // 새로운 정책에 포함된 네임스페이스들을 추적하기 위한 set
