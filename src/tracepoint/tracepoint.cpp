@@ -14,6 +14,7 @@
 #include <syslog.h>
 #include <utility>
 #include <iostream>
+#include <set>
 
 #include "getEnv.h"
 #include "tracepoint.skel.h"
@@ -29,12 +30,29 @@
 
 // 전역 EventLogger 포인터 선언
 EventLogger* eventLogger = nullptr;
+// 전역으로 모니터링하고 있는 컨테이너 네임스페이스 id 추적
+std::set<__u32> current_monitored_namespaces;
 
 static volatile bool running = true;
 using json = nlohmann::json;
 
 static void sig_handler(int sig) {
     running = false;
+}
+
+int clear_syscall_array_entry(struct bpf_map *syscall_array, __u32 pid_namespace) {
+    __s32 empty_syscalls[120];
+    for (int i = 0; i < 120; i++) {
+        empty_syscalls[i] = -1;
+    }
+    
+    int err = bpf_map__update_elem(syscall_array, &pid_namespace, sizeof(pid_namespace),
+                                  empty_syscalls, sizeof(empty_syscalls), BPF_ANY);
+    if (err) {
+        fprintf(stderr, "Failed to clear syscall array for namespace: %u\n", pid_namespace);
+        return -1;
+    }
+    return 0;
 }
 
 std::string remove_chunked_encoding(const std::string& response) {
@@ -179,6 +197,9 @@ int update_policy_with_file(struct bpf_map *syscall_array, char* abs_file_name) 
         return -1;
     }
 
+    // 새로운 정책에 포함된 네임스페이스들을 추적하기 위한 set
+    std::set<__u32> new_namespaces;
+
     // clearing monitoring data
     pid_namespace_to_container_id.clear();
 
@@ -204,6 +225,9 @@ int update_policy_with_file(struct bpf_map *syscall_array, char* abs_file_name) 
         }
         __u32 pid_namespace = get_namespace_id(container_pid);
 
+        // 새로운 네임스페이스 추가
+        new_namespaces.insert(pid_namespace);
+
         // Store the pid_namespace and container_id in the hash map
         pid_namespace_to_container_id[pid_namespace] = container_id;
 
@@ -226,6 +250,22 @@ int update_policy_with_file(struct bpf_map *syscall_array, char* abs_file_name) 
         printf("Updated policy for container %s: monitoring %zu syscalls\n", 
                container_id.c_str(), syscall_list.size());
     }
+
+    // 이전에 모니터링하던 네임스페이스 중 새로운 정책에 없는 것들을 찾아서 제거
+    for (const auto& old_namespace : current_monitored_namespaces) {
+        if (new_namespaces.find(old_namespace) == new_namespaces.end()) {
+            // 새로운 정책에 없는 네임스페이스의 정책을 제거
+            err = clear_syscall_array_entry(syscall_array, old_namespace);
+            if (err) {
+                fprintf(stderr, "Failed to remove old policy for namespace: %u\n", old_namespace);
+            } else {
+                printf("Removed policy for namespace: %u\n", old_namespace);
+            }
+        }
+    }
+
+    // 현재 모니터링 중인 네임스페이스 목록 업데이트
+    current_monitored_namespaces = new_namespaces;
 
     return 0;
 }
