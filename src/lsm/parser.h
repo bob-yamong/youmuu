@@ -17,6 +17,12 @@
 
 #include "yaml_structs.h"
 
+struct DockerEventData {
+    std::mutex* mtx;
+    std::condition_variable* cv;
+    std::string buffer; // 수신된 데이터를 누적할 버퍼
+};
+
 
 std::map<std::string, __u32> flags_map = {
     {"POLICY_AUDIT", POLICY_AUDIT},

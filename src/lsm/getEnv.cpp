@@ -85,9 +85,14 @@ std::string env::splitHostnamePort(const std::string& hostname) {
 }
 
 void env::getEnv() {
-    cgroup_path = get_env_var("CGROUP_SYSTEM_SLICE_PATH");
-    proc_path = get_env_var("PROC_PATH");
-    update_interval = std::stoi(get_env_var("UPDATE_INTERVAL"));
-    kafka_brokers = splitHostnamePort(get_env_var("KAFKA_BROKERS"));
-    kafka_topic_lsm = get_env_var("KAFKA_TOPIC_LSM");
+    // cgroup_path = get_env_var("CGROUP_SYSTEM_SLICE_PATH");
+    // proc_path = get_env_var("PROC_PATH");
+    // update_interval = std::stoi(get_env_var("UPDATE_INTERVAL"));
+    // kafka_brokers = splitHostnamePort(get_env_var("KAFKA_BROKERS"));
+    // kafka_topic_lsm = get_env_var("KAFKA_TOPIC_LSM");
+
+    cgroup_path = "/sys/fs/cgroup/system.slice/";
+    proc_path = "/proc";
+    kafka_brokers = "113.198.229.153:3001,113.198.229.153:3002,113.198.229.153:3003";
+    kafka_topic_lsm = "lsm";
 }
