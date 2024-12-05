@@ -745,9 +745,11 @@ void monitor_policy_file(std::mutex& mtx, std::condition_variable& cv) {
     std::string file_name = file_path.substr(last_slash + 1);
 
     // 디렉토리를 감시
-    uint32_t watch_events = IN_MODIFY | IN_CLOSE_WRITE | IN_ATTRIB |
-                            IN_MOVED_TO | IN_CREATE | IN_DELETE |
-                            IN_DELETE_SELF | IN_MOVE_SELF;
+    // uint32_t watch_events = IN_MODIFY | IN_CLOSE_WRITE | IN_ATTRIB |
+    //                         IN_MOVED_TO | IN_CREATE | IN_DELETE |
+    //                         IN_DELETE_SELF | IN_MOVE_SELF;
+
+    uint32_t watch_events = IN_CLOSE_WRITE | IN_DELETE;
 
     int watch_fd = inotify_add_watch(inotify_fd, dir_path.c_str(), watch_events);
     if (watch_fd < 0) {
@@ -800,7 +802,7 @@ void monitor_policy_file(std::mutex& mtx, std::condition_variable& cv) {
                     // 디버깅을 위한 이벤트 정보 출력
                     std::cout << "Event mask: " << mask << " on file: " << event->name << std::endl;
 
-                    if (mask & (IN_MODIFY | IN_CLOSE_WRITE | IN_ATTRIB | IN_MOVED_TO | IN_CREATE)) {
+                    if (mask & (IN_CLOSE_WRITE | IN_CREATE)) {
                         // 파일이 수정되거나 생성됨
                         std::unique_lock<std::mutex> lock(mtx);
                         cv.notify_one();
@@ -946,8 +948,10 @@ int main(int argc, char **argv) {
             if (update_policy_with_file(map_fd, POLICY_FILE_PATH) != 0) {
                 throw std::runtime_error("Failed to apply initial policy");
             }
-        } else {
-            throw std::runtime_error("Policy file not found: " + std::string(POLICY_FILE_PATH));
+        } 
+        else {
+            // throw std::runtime_error("Policy file not found: " + std::string(POLICY_FILE_PATH));
+            std::cerr << "Policy file not found: " << POLICY_FILE_PATH << std::endl;
         }
 
         file_monitor_thread = std::thread(monitor_policy_file, std::ref(mtx), std::ref(cv));
