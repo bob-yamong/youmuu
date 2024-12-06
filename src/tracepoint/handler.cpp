@@ -28,7 +28,7 @@ static db_event_t get_str(const struct current_task *task, time_t boot_time)
     if (it != ContainerManager::containers.end())
     {
         // 일치하는 ns_id가 있는 경우
-        event.container_name = it->name;
+        event.container_name = it->id;
     }
     else
     {
