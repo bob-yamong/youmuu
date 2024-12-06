@@ -920,8 +920,8 @@ int main(int argc, char **argv) {
     std::thread docker_event_thread;
 
     try {
-        libbpf_set_print(libbpf_print_fn);
-        bump_memlock_rlimit();
+        // libbpf_set_print(libbpf_print_fn);
+        // bump_memlock_rlimit();
 
         skel = enforcement_bpf__open();
         if (!skel) throw std::runtime_error("Failed to open BPF skeleton");
