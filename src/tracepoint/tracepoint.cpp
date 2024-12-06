@@ -592,7 +592,7 @@ int main(int argc, char **argv)
 
         if (file_exists(POLICY_FILE_PATH)) {
             if (update_policy_with_file(skel->maps.syscall_array, POLICY_FILE_PATH) != 0) {
-                throw std::runtime_error("Failed to apply initial policy");
+                std::cerr << "Failed to apply initial policy" << std::endl;
             }
         } else {
             std::cerr << "Policy file not found: " << POLICY_FILE_PATH << std::endl;
@@ -620,15 +620,13 @@ int main(int argc, char **argv)
         err = 1;
     }
 
-    // 종료 처리부
-    exiting = true;
+    // 스레드 join
+    if (file_monitor_thread.joinable()) file_monitor_thread.join();
+    if (docker_event_thread.joinable()) docker_event_thread.join();
 
     // 리소스 정리
     delete eventLogger;
     eventLogger = nullptr;
-    // 스레드 join
-    if (file_monitor_thread.joinable()) file_monitor_thread.join();
-    if (docker_event_thread.joinable()) docker_event_thread.join();
 
     if (rb)
         ring_buffer__free(rb);

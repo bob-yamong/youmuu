@@ -159,7 +159,11 @@ EventLogger::~EventLogger() {
     {
         std::unique_lock<std::mutex> lock(threadPoolMutex_);
         stop_ = true;
-        threadPoolCV_.notify_all();
+        // threadPoolCV_.notify_all();
+    }
+
+    for (auto& q : threadQueues_) {
+        q->cv.notify_all();
     }
 
     for (auto& thread : threadPool_) {
@@ -208,16 +212,6 @@ EventLogger::~EventLogger() {
             std::cerr << "Error flushing producer: " << e.what() << std::endl;
         }
     }
-
-        // 프로듀서 및 토픽 리소스 해제
-    producer_.reset();
-    topic_.reset();
-
-    // librdkafka 내부 리소스가 완전히 정리될 때까지 최대 5초 대기
-    RdKafka::wait_destroyed(5000);
-
-    // unique_ptr이 자동으로 리소스를 해제하므로 수동 delete 제거
-    // topic_, conf_, tconf_는 자동으로 정리됨
 }
 
 

@@ -101,23 +101,18 @@ void env::getEnv() {
     try {
         std::cout << "=== Starting environment initialization ===" << std::endl;
 
-        // std::string temp_cgroup = get_env_var("CGROUP_SYSTEM_SLICE_PATH", "/sys/fs/cgroup/system.slice/");
-        // std::string temp_proc = get_env_var("PROC_PATH", "/proc");
-        // std::string temp_kafka_brokers = splitHostnamePort(get_env_var("KAFKA_BROKERS", ""));
-        // std::string temp_kafka_topic_tp = get_env_var("KAFKA_TOPIC_TRACEPOINT", "");
-        // std::string temp_buffer_cnt = get_env_var("BUFFER_CNT", "4");
+        std::string temp_cgroup = get_env_var("CGROUP_SYSTEM_SLICE_PATH", "/sys/fs/cgroup/system.slice/");
+        std::string temp_proc = get_env_var("PROC_PATH", "/proc");
+        std::string temp_kafka_brokers = splitHostnamePort(get_env_var("KAFKA_BROKERS", ""));
+        std::string temp_kafka_topic_tp = get_env_var("KAFKA_TOPIC_TRACEPOINT", "");
+        std::string temp_buffer_cnt = get_env_var("BUFFER_CNT", "4");
 
-        // kafka_brokers = temp_kafka_brokers;
-        // kafka_topic_tp = temp_kafka_topic_tp;
-        // cgroup_path = temp_cgroup;
-        // proc_path = temp_proc;
-        // buffer_cnt = std::stoi(temp_buffer_cnt);
+        kafka_brokers = temp_kafka_brokers;
+        kafka_topic_tp = temp_kafka_topic_tp;
+        cgroup_path = temp_cgroup;
+        proc_path = temp_proc;
+        buffer_cnt = std::stoi(temp_buffer_cnt);
 
-        kafka_brokers = "113.198.229.153:3001,113.198.229.153:3002,113.198.229.153:3003";
-        kafka_topic_tp = "tracepoint";
-        cgroup_path = "/sys/fs/cgroup/system.slice/";
-        proc_path = "/proc";
-        buffer_cnt = 4;
 
     } catch (const std::exception& e) {
         std::cerr << "Critical error in getEnv: " << e.what() << std::endl;
