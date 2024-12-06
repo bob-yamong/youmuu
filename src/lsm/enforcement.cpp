@@ -828,9 +828,6 @@ void monitor_policy_file(std::mutex& mtx, std::condition_variable& cv) {
     std::cerr << "File monitoring thread exited.\n";
 }
 
-
-
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
