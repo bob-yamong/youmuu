@@ -828,6 +828,9 @@ void monitor_policy_file(std::mutex& mtx, std::condition_variable& cv) {
     std::cerr << "File monitoring thread exited.\n";
 }
 
+
+
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -920,8 +923,8 @@ int main(int argc, char **argv) {
     std::thread docker_event_thread;
 
     try {
-        // libbpf_set_print(libbpf_print_fn);
-        // bump_memlock_rlimit();
+        libbpf_set_print(libbpf_print_fn);
+        bump_memlock_rlimit();
 
         skel = enforcement_bpf__open();
         if (!skel) throw std::runtime_error("Failed to open BPF skeleton");
@@ -943,7 +946,7 @@ int main(int argc, char **argv) {
 
         if (file_exists(POLICY_FILE_PATH)) {
             if (update_policy_with_file(map_fd, POLICY_FILE_PATH) != 0) {
-                throw std::runtime_error("Failed to apply initial policy");
+                std::cerr << "Failed to apply initial policy" << std::endl;
             }
         } 
         else {
