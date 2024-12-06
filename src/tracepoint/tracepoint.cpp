@@ -351,7 +351,8 @@ size_t docker_event_callback(char *ptr, size_t size, size_t nmemb, void *userdat
             if (type == "container")
             {
                 // 관심 있는 액션인지 확인
-                if (action == "create" || action == "destroy" || action == "stop" || action == "start" || action == "restart")
+                // action == "create" || 
+                if (action == "destroy" || action == "stop" || action == "start" || action == "restart")
                 {
                     // 정책 업데이트 호출
                     {
