@@ -5,7 +5,8 @@
 
 time_t boot_time;
 
-static db_event_t get_str(const struct current_task *task, time_t boot_time) {
+static db_event_t get_str(const struct current_task *task, time_t boot_time)
+{
     db_event_t event;
     time_t timer, actual_time;
 
@@ -13,54 +14,74 @@ static db_event_t get_str(const struct current_task *task, time_t boot_time) {
     timer = task->timestamp / NANOSECONDS_IN_A_SECOND;
     actual_time = boot_time + timer;
 
-    event.timestamp = std::chrono::system_clock::from_time_t(actual_time) + 
-                    std::chrono::nanoseconds(nanoseconds / 1000);
+    event.timestamp = std::chrono::system_clock::from_time_t(actual_time) +
+                      std::chrono::nanoseconds(nanoseconds / 1000);
     event.syscall = task->event_id;
     event.pid_namespace = task->pid_namespace;
     event.mnt_namespace = task->mnt_namespace;
-    // Safely get the container_id from the map
-    auto it = pid_namespace_to_container_id.find(task->pid_namespace);
-    if (it != pid_namespace_to_container_id.end()) {
-        event.container_name = it->second;
-    } else {
-        event.container_name = "Unknown"; // or handle as appropriate
+    auto it = std::find_if(ContainerManager::containers.begin(), ContainerManager::containers.end(),
+                           [&](const ContainerInfo &container)
+                           {
+                               return container.ns_id == task->pid_namespace; // ns_id 비교
+                           });
+
+    if (it != ContainerManager::containers.end())
+    {
+        // 일치하는 ns_id가 있는 경우
+        event.container_name = it->name;
     }
+    else
+    {
+        // 일치하는 ns_id가 없는 경우
+        event.container_name = "Unknown";
+    }
+
     event.ppid = task->ppid;
     event.pid = task->pid;
     event.tid = task->tid;
     event.uid = task->uid;
     event.gid = task->gid;
-    event.comm = std::string(reinterpret_cast<const char*>(task->comm));
+    event.comm = std::string(reinterpret_cast<const char *>(task->comm));
 
     return event;
 }
 
-typedef int (*event_handler_t)(const struct event_t *e, const db_event_t& base_event);
+typedef int (*event_handler_t)(const struct event_t *e, const db_event_t &base_event);
 
-static void get_ip_str(const struct event_t *e, char *ip_str, size_t str_len) {
+static void get_ip_str(const struct event_t *e, char *ip_str, size_t str_len)
+{
     memset(ip_str, 0, str_len);
-    
-    if (e->addr_family == AF_INET) {
+
+    if (e->addr_family == AF_INET)
+    {
         inet_ntop(AF_INET, &(e->ip), ip_str, INET_ADDRSTRLEN);
-    } else if (e->addr_family == AF_INET6) {
+    }
+    else if (e->addr_family == AF_INET6)
+    {
         inet_ntop(AF_INET6, e->ipv6_addr, ip_str, INET6_ADDRSTRLEN);
     }
 }
 
-static void add_event(const db_event_t& event) {
-    if (eventLogger) {
+static void add_event(const db_event_t &event)
+{
+    if (eventLogger)
+    {
         eventLogger->addEvent(event);
-    } else {
+    }
+    else
+    {
         std::cerr << "EventLogger가 초기화되지 않았습니다.\n";
     }
 }
 
-struct socket_handlers {
+struct socket_handlers
+{
     event_handler_t enter;
     event_handler_t exit;
 };
 
-static int handle_enter_socket(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_socket(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // domain
@@ -70,7 +91,8 @@ static int handle_enter_socket(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_exit_socket(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_socket(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -78,7 +100,8 @@ static int handle_exit_socket(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_socketpair(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_socketpair(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // domain
@@ -88,11 +111,13 @@ static int handle_enter_socketpair(const struct event_t *e, const db_event_t& ba
     return 0;
 }
 
-static int handle_exit_socketpair(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_socketpair(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    if (e->is_valid) {
+    if (e->is_valid)
+    {
         event.arg0 = std::to_string(e->arg_s32[0]); // sv[0]
         event.arg1 = std::to_string(e->arg_s32[1]); // sv[1]
     }
@@ -100,21 +125,24 @@ static int handle_exit_socketpair(const struct event_t *e, const db_event_t& bas
     return 0;
 }
 
-static int handle_enter_setsockopt(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_setsockopt(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
     event.arg1 = std::to_string(e->arg_s32[1]); // level
     event.arg2 = std::to_string(e->arg_s32[2]); // optname
     event.arg4 = std::to_string(e->arg_s32[3]); // optlen
-    if (e->is_valid) {
+    if (e->is_valid)
+    {
         event.arg3 = std::to_string(e->arg_u32[0]); // optval
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_setsockopt(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_setsockopt(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -122,7 +150,8 @@ static int handle_exit_setsockopt(const struct event_t *e, const db_event_t& bas
     return 0;
 }
 
-static int handle_enter_getsockopt(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_getsockopt(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
@@ -132,11 +161,13 @@ static int handle_enter_getsockopt(const struct event_t *e, const db_event_t& ba
     return 0;
 }
 
-static int handle_exit_getsockopt(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_getsockopt(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    if (e->is_valid) {
+    if (e->is_valid)
+    {
         event.arg0 = std::to_string(e->arg_u32[0]); // optval
         event.arg1 = std::to_string(e->arg_u32[1]); // optlen
     }
@@ -144,7 +175,8 @@ static int handle_exit_getsockopt(const struct event_t *e, const db_event_t& bas
     return 0;
 }
 
-static int handle_enter_getsockname(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_getsockname(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
@@ -152,22 +184,25 @@ static int handle_enter_getsockname(const struct event_t *e, const db_event_t& b
     return 0;
 }
 
-static int handle_exit_getsockname(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_getsockname(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    if (e->is_valid) {
+    if (e->is_valid)
+    {
         char ip_str[INET6_ADDRSTRLEN];
         get_ip_str(e, ip_str, sizeof(ip_str));
-        event.arg0 = ip_str;    // ip
-        event.arg1 = std::to_string(e->port);   // port
-        event.arg2 = std::to_string(e->addr_family);    // ip_version
+        event.arg0 = ip_str;                         // ip
+        event.arg1 = std::to_string(e->port);        // port
+        event.arg2 = std::to_string(e->addr_family); // ip_version
     }
     add_event(event);
     return 0;
 }
 
-static int handle_enter_getpeername(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_getpeername(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
@@ -175,37 +210,42 @@ static int handle_enter_getpeername(const struct event_t *e, const db_event_t& b
     return 0;
 }
 
-static int handle_exit_getpeername(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_getpeername(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    if (e->is_valid) {
+    if (e->is_valid)
+    {
         char ip_str[INET6_ADDRSTRLEN];
         get_ip_str(e, ip_str, sizeof(ip_str));
-        event.arg0 = ip_str;    // ip
-        event.arg1 = std::to_string(e->port);   // port
-        event.arg2 = std::to_string(e->addr_family);    // ip_version
+        event.arg0 = ip_str;                         // ip
+        event.arg1 = std::to_string(e->port);        // port
+        event.arg2 = std::to_string(e->addr_family); // ip_version
     }
     add_event(event);
     return 0;
 }
 
-static int handle_enter_bind(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_bind(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
-    if (e->is_valid) {
+    if (e->is_valid)
+    {
         char ip_str[INET6_ADDRSTRLEN];
         get_ip_str(e, ip_str, sizeof(ip_str));
-        event.arg0 = ip_str;    // ip
-        event.arg1 = std::to_string(e->port);   // port
-        event.arg2 = std::to_string(e->addr_family);    // ip_version
+        event.arg0 = ip_str;                         // ip
+        event.arg1 = std::to_string(e->port);        // port
+        event.arg2 = std::to_string(e->addr_family); // ip_version
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_bind(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_bind(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -213,7 +253,8 @@ static int handle_exit_bind(const struct event_t *e, const db_event_t& base_even
     return 0;
 }
 
-static int handle_enter_listen(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_listen(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
@@ -222,7 +263,8 @@ static int handle_enter_listen(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_exit_listen(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_listen(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -230,7 +272,8 @@ static int handle_exit_listen(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_accept(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_accept(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
@@ -238,25 +281,29 @@ static int handle_enter_accept(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_exit_accept(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_accept(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    if (e->is_null) {
+    if (e->is_null)
+    {
         event.arg0 = "socket address info is not requested";
     }
-    if (e->is_valid) {
+    if (e->is_valid)
+    {
         char ip_str[INET6_ADDRSTRLEN];
         get_ip_str(e, ip_str, sizeof(ip_str));
-        event.arg0 = ip_str;    // ip
-        event.arg1 = std::to_string(e->port);   // port
-        event.arg2 = std::to_string(e->addr_family);    // ip_version
+        event.arg0 = ip_str;                         // ip
+        event.arg1 = std::to_string(e->port);        // port
+        event.arg2 = std::to_string(e->addr_family); // ip_version
     }
     add_event(event);
     return 0;
 }
 
-static int handle_enter_accept4(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_accept4(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
@@ -265,40 +312,46 @@ static int handle_enter_accept4(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_exit_accept4(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_accept4(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    if (e->is_null) {
+    if (e->is_null)
+    {
         event.arg0 = "socket address info is not requested";
     }
-    if (e->is_valid) {
+    if (e->is_valid)
+    {
         char ip_str[INET6_ADDRSTRLEN];
         get_ip_str(e, ip_str, sizeof(ip_str));
-        event.arg0 = ip_str;    // ip
-        event.arg1 = std::to_string(e->port);   // port
-        event.arg2 = std::to_string(e->addr_family);    // ip_version
+        event.arg0 = ip_str;                         // ip
+        event.arg1 = std::to_string(e->port);        // port
+        event.arg2 = std::to_string(e->addr_family); // ip_version
     }
     add_event(event);
     return 0;
 }
 
-static int handle_enter_connect(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_connect(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
-    if (e->is_valid) {
+    if (e->is_valid)
+    {
         char ip_str[INET6_ADDRSTRLEN];
         get_ip_str(e, ip_str, sizeof(ip_str));
-        event.arg0 = ip_str;    // ip
-        event.arg1 = std::to_string(e->port);   // port
-        event.arg2 = std::to_string(e->addr_family);    // ip_version
+        event.arg0 = ip_str;                         // ip
+        event.arg1 = std::to_string(e->port);        // port
+        event.arg2 = std::to_string(e->addr_family); // ip_version
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_connect(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_connect(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -306,7 +359,8 @@ static int handle_exit_connect(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_enter_shutdown(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_shutdown(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
@@ -315,7 +369,8 @@ static int handle_enter_shutdown(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_exit_shutdown(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_shutdown(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -323,7 +378,8 @@ static int handle_exit_shutdown(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_enter_recvfrom (const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_recvfrom(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
@@ -333,49 +389,56 @@ static int handle_enter_recvfrom (const struct event_t *e, const db_event_t& bas
     return 0;
 }
 
-static int handle_exit_recvfrom(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_recvfrom(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    if (e->is_null) {
+    if (e->is_null)
+    {
         event.arg0 = "socket address info is not requested";
     }
-    if (e->is_valid) {
+    if (e->is_valid)
+    {
         char ip_str[INET6_ADDRSTRLEN];
         get_ip_str(e, ip_str, sizeof(ip_str));
-        event.arg0 = ip_str;    // ip
-        event.arg1 = std::to_string(e->port);   // port
-        event.arg2 = std::to_string(e->addr_family);    // ip_version
-    }
-    add_event(event);
-    return 0;
-}
-
-static int handle_enter_recvmsg(const struct event_t *e, const db_event_t& base_event) {
-    db_event_t event = base_event;
-
-    event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
-    event.arg1 = std::to_string(e->arg_s32[1]); // flags
-    add_event(event);
-    return 0;
-}
-
-static int handle_exit_recvmsg(const struct event_t *e, const db_event_t& base_event) {
-    db_event_t event = base_event;
-
-    event.ret = e->ret;
-    if (e->is_valid) {
-        char ip_str[INET6_ADDRSTRLEN];
-        get_ip_str(e, ip_str, sizeof(ip_str));
-        event.arg0 = std::string(ip_str); // src_addr
-        event.arg1 = std::to_string(e->port); // src_port
+        event.arg0 = ip_str;                         // ip
+        event.arg1 = std::to_string(e->port);        // port
         event.arg2 = std::to_string(e->addr_family); // ip_version
     }
     add_event(event);
     return 0;
 }
 
-static int handle_enter_recvmmsg(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_recvmsg(const struct event_t *e, const db_event_t &base_event)
+{
+    db_event_t event = base_event;
+
+    event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
+    event.arg1 = std::to_string(e->arg_s32[1]); // flags
+    add_event(event);
+    return 0;
+}
+
+static int handle_exit_recvmsg(const struct event_t *e, const db_event_t &base_event)
+{
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    if (e->is_valid)
+    {
+        char ip_str[INET6_ADDRSTRLEN];
+        get_ip_str(e, ip_str, sizeof(ip_str));
+        event.arg0 = std::string(ip_str);            // src_addr
+        event.arg1 = std::to_string(e->port);        // src_port
+        event.arg2 = std::to_string(e->addr_family); // ip_version
+    }
+    add_event(event);
+    return 0;
+}
+
+static int handle_enter_recvmmsg(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
@@ -385,7 +448,8 @@ static int handle_enter_recvmmsg(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_exit_recvmmsg(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_recvmmsg(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -393,24 +457,27 @@ static int handle_exit_recvmmsg(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_enter_sendto(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_sendto(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
     event.arg1 = std::to_string(e->arg_u64[0]); // msg_len
     event.arg2 = std::to_string(e->arg_s32[1]); // flags
-    if (e->is_valid) {
+    if (e->is_valid)
+    {
         char ip_str[INET6_ADDRSTRLEN];
         get_ip_str(e, ip_str, sizeof(ip_str));
-        event.arg3 = std::string(ip_str); // dest_addr
-        event.arg4 = std::to_string(e->port); // dest_port
+        event.arg3 = std::string(ip_str);            // dest_addr
+        event.arg4 = std::to_string(e->port);        // dest_port
         event.arg5 = std::to_string(e->addr_family); // ip_version
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_sendto(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_sendto(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -418,23 +485,26 @@ static int handle_exit_sendto(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_sendmsg(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_sendmsg(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
     event.arg1 = std::to_string(e->arg_s32[1]); // flags
-    if (e->is_valid) {
+    if (e->is_valid)
+    {
         char ip_str[INET6_ADDRSTRLEN];
         get_ip_str(e, ip_str, sizeof(ip_str));
-        event.arg2 = std::string(ip_str); // dest_addr
-        event.arg3 = std::to_string(e->port); // dest_port
+        event.arg2 = std::string(ip_str);            // dest_addr
+        event.arg3 = std::to_string(e->port);        // dest_port
         event.arg4 = std::to_string(e->addr_family); // ip_version
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_sendmsg(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -442,7 +512,8 @@ static int handle_exit_sendmsg(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_enter_sendmmsg(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_sendmmsg(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // socketfd
@@ -452,7 +523,8 @@ static int handle_enter_sendmmsg(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_exit_sendmmsg(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_sendmmsg(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -460,18 +532,21 @@ static int handle_exit_sendmmsg(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_enter_sethostname(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_sethostname(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u64[0]); // len
-    if (e->is_valid) {
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str));    // hostname
+    if (e->is_valid)
+    {
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str)); // hostname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_sethostname(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_sethostname(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -479,18 +554,21 @@ static int handle_exit_sethostname(const struct event_t *e, const db_event_t& ba
     return 0;
 }
 
-static int handle_enter_setdomainname(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_setdomainname(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u64[0]); // len
-    if (e->is_valid) {
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str));    // domainname
+    if (e->is_valid)
+    {
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str)); // domainname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_setdomainname(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_setdomainname(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -498,7 +576,8 @@ static int handle_exit_setdomainname(const struct event_t *e, const db_event_t& 
     return 0;
 }
 
-static int handle_enter_ioctl(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_ioctl(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -507,7 +586,8 @@ static int handle_enter_ioctl(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_exit_ioctl(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_ioctl(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -515,7 +595,8 @@ static int handle_exit_ioctl(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_enter_close(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_close(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -523,7 +604,8 @@ static int handle_enter_close(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_exit_close(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_close(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -531,18 +613,21 @@ static int handle_exit_close(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_enter_creat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_creat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg1 = std::to_string(e->arg_u32[0]); // mode
-    if (e->is_valid) {
-        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_creat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_creat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -550,19 +635,22 @@ static int handle_exit_creat(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_enter_open(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_open(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg1 = std::to_string(e->arg_s32[0]); // flags
     event.arg2 = std::to_string(e->arg_u32[0]); // mode
-    if (e->is_valid) {
-        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_open(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_open(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -570,20 +658,23 @@ static int handle_exit_open(const struct event_t *e, const db_event_t& base_even
     return 0;
 }
 
-static int handle_enter_openat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_openat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[1]); // dirfd
     event.arg2 = std::to_string(e->arg_u32[0]); // flags
     event.arg3 = std::to_string(e->arg_u32[1]); // mode
-    if (e->is_valid) {
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_openat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_openat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -591,22 +682,25 @@ static int handle_exit_openat(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_openat2(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_openat2(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // dirfd
     event.arg5 = std::to_string(e->arg_u64[0]); // size
-    if (e->is_valid) {
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
-        event.arg2 = std::to_string(e->arg_u64[1]); // flags
-        event.arg3 = std::to_string(e->arg_u64[2]); // mode
-        event.arg4 = std::to_string(e->arg_u64[3]); // resolve
+    if (e->is_valid)
+    {
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
+        event.arg2 = std::to_string(e->arg_u64[1]);                           // flags
+        event.arg3 = std::to_string(e->arg_u64[2]);                           // mode
+        event.arg4 = std::to_string(e->arg_u64[3]);                           // resolve
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_openat2(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_openat2(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -658,18 +752,21 @@ static int handle_exit_openat2(const struct event_t *e, const db_event_t& base_e
 //     return 0;
 // }
 
-static int handle_enter_memfd_create(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_memfd_create(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u32[0]); // flags
-    if (e->is_valid) {
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // name
+    if (e->is_valid)
+    {
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str)); // name
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_memfd_create(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_memfd_create(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -677,19 +774,22 @@ static int handle_exit_memfd_create(const struct event_t *e, const db_event_t& b
     return 0;
 }
 
-static int handle_enter_mknod(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_mknod(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg1 = std::to_string(e->arg_u32[0]); // mode
     event.arg2 = std::to_string(e->arg_u64[0]); // dev
-    if (e->is_valid) {
-        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_mknod(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_mknod(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -697,20 +797,23 @@ static int handle_exit_mknod(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_enter_mknodat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_mknodat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // dirfd
     event.arg2 = std::to_string(e->arg_u32[0]); // mode
     event.arg3 = std::to_string(e->arg_u64[0]); // dev
-    if (e->is_valid) {
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_mknodat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_mknodat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -718,18 +821,21 @@ static int handle_exit_mknodat(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_enter_rename(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_rename(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
-    if (e->is_valid) {
-        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // oldpath
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str2)); // newpath
+    if (e->is_valid)
+    {
+        event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str));  // oldpath
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str2)); // newpath
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_rename(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_rename(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -737,20 +843,23 @@ static int handle_exit_rename(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_renameat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_renameat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // olddirfd
     event.arg2 = std::to_string(e->arg_s32[1]); // newdirfd
-    if (e->is_valid) {
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // oldpath
-        event.arg3 = std::string(reinterpret_cast<const char*>(e->arg_str2)); // newpath
+    if (e->is_valid)
+    {
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str));  // oldpath
+        event.arg3 = std::string(reinterpret_cast<const char *>(e->arg_str2)); // newpath
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_renameat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_renameat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -758,21 +867,24 @@ static int handle_exit_renameat(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_enter_renameat2(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_renameat2(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[1]); // olddirfd
     event.arg2 = std::to_string(e->arg_s32[2]); // newdirfd
     event.arg4 = std::to_string(e->arg_u64[0]); // flags
-    if (e->is_valid) {
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // oldpath
-        event.arg3 = std::string(reinterpret_cast<const char*>(e->arg_str2)); // newpath
+    if (e->is_valid)
+    {
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str));  // oldpath
+        event.arg3 = std::string(reinterpret_cast<const char *>(e->arg_str2)); // newpath
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_renameat2(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_renameat2(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -780,18 +892,21 @@ static int handle_exit_renameat2(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_enter_truncate(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_truncate(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg1 = std::to_string(e->arg_u64[0]); // length
-    if (e->is_valid) {
-        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_truncate(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_truncate(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -799,7 +914,8 @@ static int handle_exit_truncate(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_enter_ftruncate(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_ftruncate(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -808,7 +924,8 @@ static int handle_enter_ftruncate(const struct event_t *e, const db_event_t& bas
     return 0;
 }
 
-static int handle_exit_ftruncate(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_ftruncate(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -816,7 +933,8 @@ static int handle_exit_ftruncate(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_enter_fallocate(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_fallocate(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -827,7 +945,8 @@ static int handle_enter_fallocate(const struct event_t *e, const db_event_t& bas
     return 0;
 }
 
-static int handle_exit_fallocate(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_fallocate(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -835,18 +954,21 @@ static int handle_exit_fallocate(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_enter_mkdir(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_mkdir(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg1 = std::to_string(e->arg_u32[0]); // mode
-    if (e->is_valid) {
-        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_mkdir(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_mkdir(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -854,19 +976,22 @@ static int handle_exit_mkdir(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_enter_mkdirat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_mkdirat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // dirfd
     event.arg2 = std::to_string(e->arg_u32[0]); // mode
-    if (e->is_valid) {
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_mkdirat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_mkdirat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -874,17 +999,20 @@ static int handle_exit_mkdirat(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_enter_rmdir(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_rmdir(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
-    if (e->is_valid) {
-        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_rmdir(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_rmdir(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -892,7 +1020,8 @@ static int handle_exit_rmdir(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_enter_getcwd(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_getcwd(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u64[0]); // size
@@ -900,7 +1029,8 @@ static int handle_enter_getcwd(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_exit_getcwd(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_getcwd(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -908,17 +1038,20 @@ static int handle_exit_getcwd(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_chdir(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_chdir(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
-    if (e->is_valid) {
-        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_chdir(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_chdir(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -926,7 +1059,8 @@ static int handle_exit_chdir(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_enter_fchdir(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_fchdir(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -934,7 +1068,8 @@ static int handle_enter_fchdir(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_exit_fchdir(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_fchdir(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -942,17 +1077,20 @@ static int handle_exit_fchdir(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_chroot(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_chroot(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
-    if (e->is_valid) {
-        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_chroot(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_chroot(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -960,18 +1098,21 @@ static int handle_exit_chroot(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_pivot_root(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_pivot_root(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
-    if (e->is_valid) {
-        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // new_root
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str2)); // put_old
+    if (e->is_valid)
+    {
+        event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str));  // new_root
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str2)); // put_old
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_pivot_root(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_pivot_root(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -979,7 +1120,8 @@ static int handle_exit_pivot_root(const struct event_t *e, const db_event_t& bas
     return 0;
 }
 
-static int handle_enter_getdents(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_getdents(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u32[0]); // fd
@@ -988,18 +1130,21 @@ static int handle_enter_getdents(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_exit_getdents(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_getdents(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    if (e->is_valid) {
+    if (e->is_valid)
+    {
         event.arg0 = std::to_string(e->arg_u64[0]); // data
     }
     add_event(event);
     return 0;
 }
 
-static int handle_enter_getdents64(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_getdents64(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -1008,29 +1153,34 @@ static int handle_enter_getdents64(const struct event_t *e, const db_event_t& ba
     return 0;
 }
 
-static int handle_exit_getdents64(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_getdents64(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    if (e->is_valid) {
+    if (e->is_valid)
+    {
         event.arg0 = std::to_string(e->arg_u64[0]); // data
     }
     add_event(event);
     return 0;
 }
 
-static int handle_enter_link(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_link(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
-    if (e->is_valid) {
-        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // oldpath
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str2)); // newpath
+    if (e->is_valid)
+    {
+        event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str));  // oldpath
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str2)); // newpath
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_link(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_link(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1038,21 +1188,24 @@ static int handle_exit_link(const struct event_t *e, const db_event_t& base_even
     return 0;
 }
 
-static int handle_enter_linkat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_linkat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // olddirfd
     event.arg2 = std::to_string(e->arg_s32[1]); // newdirfd
     event.arg4 = std::to_string(e->arg_u32[0]); // flags
-    if (e->is_valid) {
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // oldpath
-        event.arg3 = std::string(reinterpret_cast<const char*>(e->arg_str2)); // newpath
+    if (e->is_valid)
+    {
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str));  // oldpath
+        event.arg3 = std::string(reinterpret_cast<const char *>(e->arg_str2)); // newpath
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_linkat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_linkat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1060,18 +1213,21 @@ static int handle_exit_linkat(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_symlink(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_symlink(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
-    if (e->is_valid) {
-        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // target
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str2)); // linkpath
+    if (e->is_valid)
+    {
+        event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str));  // target
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str2)); // linkpath
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_symlink(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_symlink(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1079,19 +1235,22 @@ static int handle_exit_symlink(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_enter_symlinkat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_symlinkat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // newdirfd
-    if (e->is_valid) {
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // target
-        event.arg2 = std::string(reinterpret_cast<const char*>(e->arg_str2)); // linkpath
+    if (e->is_valid)
+    {
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str));  // target
+        event.arg2 = std::string(reinterpret_cast<const char *>(e->arg_str2)); // linkpath
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_symlinkat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_symlinkat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1099,17 +1258,20 @@ static int handle_exit_symlinkat(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_enter_unlink(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_unlink(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
-    if (e->is_valid) {
-        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_unlink(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_unlink(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1117,19 +1279,22 @@ static int handle_exit_unlink(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_unlinkat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_unlinkat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // dirfd
     event.arg2 = std::to_string(e->arg_u32[0]); // flags
-    if (e->is_valid) {
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_unlinkat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_unlinkat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1137,18 +1302,21 @@ static int handle_exit_unlinkat(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_enter_readlink(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_readlink(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg1 = std::to_string(e->arg_u64[0]); // size
-    if (e->is_valid) {
-        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_readlink(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_readlink(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1156,19 +1324,22 @@ static int handle_exit_readlink(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_enter_readlinkat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_readlinkat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // dirfd
     event.arg2 = std::to_string(e->arg_u64[0]); // size
-    if (e->is_valid) {
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_readlinkat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_readlinkat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1176,7 +1347,8 @@ static int handle_exit_readlinkat(const struct event_t *e, const db_event_t& bas
     return 0;
 }
 
-static int handle_enter_umask(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_umask(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u32[0]); // mask
@@ -1184,7 +1356,8 @@ static int handle_enter_umask(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_exit_umask(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_umask(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1192,17 +1365,20 @@ static int handle_exit_umask(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_enter_newstat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_newstat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
-    if (e->is_valid) {
-        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // filename
+    if (e->is_valid)
+    {
+        event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str)); // filename
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_newstat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_newstat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1210,17 +1386,20 @@ static int handle_exit_newstat(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_enter_newlstat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_newlstat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
-    if (e->is_valid) {
-        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // filename
+    if (e->is_valid)
+    {
+        event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str)); // filename
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_newlstat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_newlstat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1228,7 +1407,8 @@ static int handle_exit_newlstat(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_enter_newfstat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_newfstat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -1236,7 +1416,8 @@ static int handle_enter_newfstat(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_exit_newfstat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_newfstat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1244,19 +1425,22 @@ static int handle_exit_newfstat(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_enter_newfstatat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_newfstatat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // dirfd
     event.arg2 = std::to_string(e->arg_s32[1]); // flags
-    if (e->is_valid) {
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_newfstatat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_newfstatat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1264,20 +1448,23 @@ static int handle_exit_newfstatat(const struct event_t *e, const db_event_t& bas
     return 0;
 }
 
-static int handle_enter_statx(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_statx(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // dirfd
     event.arg2 = std::to_string(e->arg_u32[0]); // flags
     event.arg3 = std::to_string(e->arg_u32[1]); // mask
-    if (e->is_valid) {
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_statx(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_statx(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1285,17 +1472,20 @@ static int handle_exit_statx(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_enter_statfs(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_statfs(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
-    if (e->is_valid) {
-        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_statfs(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_statfs(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1303,7 +1493,8 @@ static int handle_exit_statfs(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_fstatfs(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_fstatfs(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -1311,7 +1502,8 @@ static int handle_enter_fstatfs(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_exit_fstatfs(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_fstatfs(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1319,18 +1511,21 @@ static int handle_exit_fstatfs(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_enter_chmod(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_chmod(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg1 = std::to_string(e->arg_u32[0]); // mode
-    if (e->is_valid) {
-        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_chmod(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_chmod(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1338,7 +1533,8 @@ static int handle_exit_chmod(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_enter_fchmod(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_fchmod(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -1347,7 +1543,8 @@ static int handle_enter_fchmod(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_exit_fchmod(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_fchmod(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1355,20 +1552,23 @@ static int handle_exit_fchmod(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_fchmodat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_fchmodat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // dirfd
     event.arg2 = std::to_string(e->arg_u32[0]); // mode
     event.arg3 = std::to_string(e->arg_s32[1]); // flags
-    if (e->is_valid) {
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_fchmodat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_fchmodat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1376,19 +1576,22 @@ static int handle_exit_fchmodat(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_enter_chown(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_chown(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg1 = std::to_string(e->arg_u32[0]); // owner
     event.arg2 = std::to_string(e->arg_u32[1]); // group
-    if (e->is_valid) {
-        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_chown(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_chown(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1396,19 +1599,22 @@ static int handle_exit_chown(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_enter_lchown(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_lchown(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg1 = std::to_string(e->arg_u32[0]); // owner
     event.arg2 = std::to_string(e->arg_u32[1]); // group
-    if (e->is_valid) {
-        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_lchown(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_lchown(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1416,7 +1622,8 @@ static int handle_exit_lchown(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_fchown(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_fchown(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -1426,7 +1633,8 @@ static int handle_enter_fchown(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_exit_fchown(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_fchown(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1434,21 +1642,24 @@ static int handle_exit_fchown(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_fchownat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_fchownat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // dirfd
     event.arg2 = std::to_string(e->arg_u32[0]); // owner
     event.arg3 = std::to_string(e->arg_u32[1]); // group
     event.arg4 = std::to_string(e->arg_s32[1]); // flags
-    if (e->is_valid) {
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_fchownat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_fchownat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1456,18 +1667,21 @@ static int handle_exit_fchownat(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_enter_access(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_access(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg1 = std::to_string(e->arg_u32[0]); // mode
-    if (e->is_valid) {
-        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_access(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_access(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1475,20 +1689,23 @@ static int handle_exit_access(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_faccessat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_faccessat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // dirfd
     event.arg2 = std::to_string(e->arg_s32[1]); // mode
     event.arg3 = std::to_string(e->arg_s32[2]); // flags
-    if (e->is_valid) {
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_faccessat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_faccessat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1496,7 +1713,8 @@ static int handle_exit_faccessat(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_enter_fcntl(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_fcntl(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -1506,7 +1724,8 @@ static int handle_enter_fcntl(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_exit_fcntl(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_fcntl(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1514,7 +1733,8 @@ static int handle_exit_fcntl(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_enter_dup(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_dup(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // oldfd
@@ -1522,7 +1742,8 @@ static int handle_enter_dup(const struct event_t *e, const db_event_t& base_even
     return 0;
 }
 
-static int handle_exit_dup(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_dup(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1530,7 +1751,8 @@ static int handle_exit_dup(const struct event_t *e, const db_event_t& base_event
     return 0;
 }
 
-static int handle_enter_dup2(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_dup2(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // oldfd
@@ -1539,7 +1761,8 @@ static int handle_enter_dup2(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_exit_dup2(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_dup2(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1547,7 +1770,8 @@ static int handle_exit_dup2(const struct event_t *e, const db_event_t& base_even
     return 0;
 }
 
-static int handle_enter_dup3(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_dup3(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // oldfd
@@ -1557,7 +1781,8 @@ static int handle_enter_dup3(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_exit_dup3(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_dup3(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1565,7 +1790,8 @@ static int handle_exit_dup3(const struct event_t *e, const db_event_t& base_even
     return 0;
 }
 
-static int handle_enter_flock(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_flock(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -1574,7 +1800,8 @@ static int handle_enter_flock(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_exit_flock(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_flock(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1582,7 +1809,8 @@ static int handle_exit_flock(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_enter_read(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_read(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -1591,7 +1819,8 @@ static int handle_enter_read(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_exit_read(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_read(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1599,7 +1828,8 @@ static int handle_exit_read(const struct event_t *e, const db_event_t& base_even
     return 0;
 }
 
-static int handle_enter_pread64(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_pread64(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -1609,7 +1839,8 @@ static int handle_enter_pread64(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_exit_pread64(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_pread64(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1617,7 +1848,8 @@ static int handle_exit_pread64(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_enter_readv(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_readv(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -1626,7 +1858,8 @@ static int handle_enter_readv(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_exit_readv(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_readv(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1634,7 +1867,8 @@ static int handle_exit_readv(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_enter_preadv(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_preadv(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -1644,7 +1878,8 @@ static int handle_enter_preadv(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_exit_preadv(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_preadv(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1652,7 +1887,8 @@ static int handle_exit_preadv(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_preadv2(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_preadv2(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -1663,7 +1899,8 @@ static int handle_enter_preadv2(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_exit_preadv2(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_preadv2(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1671,7 +1908,8 @@ static int handle_exit_preadv2(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_enter_write(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_write(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -1680,7 +1918,8 @@ static int handle_enter_write(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_exit_write(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_write(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1688,7 +1927,8 @@ static int handle_exit_write(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_enter_pwrite64(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_pwrite64(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -1698,7 +1938,8 @@ static int handle_enter_pwrite64(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_exit_pwrite64(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_pwrite64(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1706,7 +1947,8 @@ static int handle_exit_pwrite64(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_enter_writev(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_writev(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -1715,7 +1957,8 @@ static int handle_enter_writev(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_exit_writev(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_writev(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1723,7 +1966,8 @@ static int handle_exit_writev(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_pwritev(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_pwritev(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -1733,7 +1977,8 @@ static int handle_enter_pwritev(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_exit_pwritev(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_pwritev(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1741,7 +1986,8 @@ static int handle_exit_pwritev(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_enter_pwritev2(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_pwritev2(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -1752,7 +1998,8 @@ static int handle_enter_pwritev2(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_exit_pwritev2(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_pwritev2(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1760,7 +2007,8 @@ static int handle_exit_pwritev2(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_enter_lseek(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_lseek(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -1770,7 +2018,8 @@ static int handle_enter_lseek(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_exit_lseek(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_lseek(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1778,7 +2027,8 @@ static int handle_exit_lseek(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_enter_sendfile64(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_sendfile64(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // out_fd
@@ -1789,7 +2039,8 @@ static int handle_enter_sendfile64(const struct event_t *e, const db_event_t& ba
     return 0;
 }
 
-static int handle_exit_sendfile64(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_sendfile64(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1797,14 +2048,16 @@ static int handle_exit_sendfile64(const struct event_t *e, const db_event_t& bas
     return 0;
 }
 
-static int handle_enter_inotify_init(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_inotify_init(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     add_event(event);
     return 0;
 }
 
-static int handle_exit_inotify_init(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_inotify_init(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1812,7 +2065,8 @@ static int handle_exit_inotify_init(const struct event_t *e, const db_event_t& b
     return 0;
 }
 
-static int handle_enter_inotify_init1(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_inotify_init1(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // flags
@@ -1820,7 +2074,8 @@ static int handle_enter_inotify_init1(const struct event_t *e, const db_event_t&
     return 0;
 }
 
-static int handle_exit_inotify_init1(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_inotify_init1(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1828,19 +2083,22 @@ static int handle_exit_inotify_init1(const struct event_t *e, const db_event_t& 
     return 0;
 }
 
-static int handle_enter_inotify_add_watch(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_inotify_add_watch(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
     event.arg2 = std::to_string(e->arg_u32[0]); // mask
-    if (e->is_valid) {
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_inotify_add_watch(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_inotify_add_watch(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1848,7 +2106,8 @@ static int handle_exit_inotify_add_watch(const struct event_t *e, const db_event
     return 0;
 }
 
-static int handle_enter_inotify_rm_watch(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_inotify_rm_watch(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -1857,7 +2116,8 @@ static int handle_enter_inotify_rm_watch(const struct event_t *e, const db_event
     return 0;
 }
 
-static int handle_exit_inotify_rm_watch(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_inotify_rm_watch(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1865,7 +2125,8 @@ static int handle_exit_inotify_rm_watch(const struct event_t *e, const db_event_
     return 0;
 }
 
-static int handle_enter_fanotify_init(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_fanotify_init(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // flags
@@ -1874,7 +2135,8 @@ static int handle_enter_fanotify_init(const struct event_t *e, const db_event_t&
     return 0;
 }
 
-static int handle_exit_fanotify_init(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_fanotify_init(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1882,26 +2144,31 @@ static int handle_exit_fanotify_init(const struct event_t *e, const db_event_t& 
     return 0;
 }
 
-static int handle_enter_fanotify_mark(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_fanotify_mark(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fanotify_fd
     event.arg1 = std::to_string(e->arg_u32[0]); // flags
     event.arg2 = std::to_string(e->arg_u64[0]); // mask
     event.arg3 = std::to_string(e->arg_s32[1]); // dirfd
-    if (e->is_null == false) {
-        if (e->is_valid) {
-            event.arg4 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_null == false)
+    {
+        if (e->is_valid)
+        {
+            event.arg4 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
         }
     }
-    if (e->is_null == true) {
+    if (e->is_null == true)
+    {
         event.arg4 = "monitoring directory events";
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_fanotify_mark(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_fanotify_mark(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1909,20 +2176,23 @@ static int handle_exit_fanotify_mark(const struct event_t *e, const db_event_t& 
     return 0;
 }
 
-static int handle_enter_mount(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_mount(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg3 = std::to_string(e->arg_u64[0]); // mountflags
-    if (e->is_valid) {
-        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // source
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str2)); // target
-        event.arg2 = std::string(reinterpret_cast<const char*>(e->filesystem_type)); // filesystemtype
+    if (e->is_valid)
+    {
+        event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str));         // source
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str2));        // target
+        event.arg2 = std::string(reinterpret_cast<const char *>(e->filesystem_type)); // filesystemtype
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_mount(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_mount(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1930,18 +2200,21 @@ static int handle_exit_mount(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_enter_umount(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_umount(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg1 = std::to_string(e->arg_u64[0]); // flags
-    if (e->is_valid) {
-        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // target
+    if (e->is_valid)
+    {
+        event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str)); // target
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_umount(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_umount(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1949,21 +2222,24 @@ static int handle_exit_umount(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_move_mount(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_move_mount(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // from_fd
     event.arg2 = std::to_string(e->arg_s32[1]); // to_fd
     event.arg4 = std::to_string(e->arg_u64[0]); // flags
-    if (e->is_valid) {
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // from_pathname
-        event.arg3 = std::string(reinterpret_cast<const char*>(e->arg_str2)); // to_pathname
+    if (e->is_valid)
+    {
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str));  // from_pathname
+        event.arg3 = std::string(reinterpret_cast<const char *>(e->arg_str2)); // to_pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_move_mount(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_move_mount(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1971,7 +2247,8 @@ static int handle_exit_move_mount(const struct event_t *e, const db_event_t& bas
     return 0;
 }
 
-static int handle_enter_clone(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_clone(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u64[0]); // fn_ptr
@@ -1979,7 +2256,8 @@ static int handle_enter_clone(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_exit_clone(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_clone(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -1987,10 +2265,12 @@ static int handle_exit_clone(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_enter_clone3(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_clone3(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
-    if (e->is_valid) {
+    if (e->is_valid)
+    {
         event.arg0 = std::to_string(e->arg_u64[0]); // flags
         event.arg1 = std::to_string(e->arg_u64[1]); // stack
         event.arg2 = std::to_string(e->arg_u64[2]); // stack_size
@@ -2000,7 +2280,8 @@ static int handle_enter_clone3(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_exit_clone3(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_clone3(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2008,14 +2289,16 @@ static int handle_exit_clone3(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_fork(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_fork(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     add_event(event);
     return 0;
 }
 
-static int handle_exit_fork(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_fork(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2023,14 +2306,16 @@ static int handle_exit_fork(const struct event_t *e, const db_event_t& base_even
     return 0;
 }
 
-static int handle_enter_vfork(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_vfork(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     add_event(event);
     return 0;
 }
 
-static int handle_exit_vfork(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_vfork(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2038,17 +2323,20 @@ static int handle_exit_vfork(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_enter_execve(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_execve(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
-    if (e->is_valid) {
-        event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_execve(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_execve(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2056,19 +2344,22 @@ static int handle_exit_execve(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_execveat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_execveat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // dirfd
     event.arg2 = std::to_string(e->arg_s32[1]); // flags
-    if (e->is_valid) {
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // pathname
+    if (e->is_valid)
+    {
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str)); // pathname
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_execveat(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_execveat(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2076,7 +2367,8 @@ static int handle_exit_execveat(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_enter_exit(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_exit(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // status
@@ -2084,7 +2376,8 @@ static int handle_enter_exit(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_exit_exit(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_exit(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2092,7 +2385,8 @@ static int handle_exit_exit(const struct event_t *e, const db_event_t& base_even
     return 0;
 }
 
-static int handle_enter_exit_group(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_exit_group(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // status
@@ -2100,7 +2394,8 @@ static int handle_enter_exit_group(const struct event_t *e, const db_event_t& ba
     return 0;
 }
 
-static int handle_exit_exit_group(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_exit_group(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2108,11 +2403,13 @@ static int handle_exit_exit_group(const struct event_t *e, const db_event_t& bas
     return 0;
 }
 
-static int handle_enter_wait4(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_wait4(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u32[0]); // pid
-    if (e->is_valid) {
+    if (e->is_valid)
+    {
         event.arg1 = std::to_string(e->arg_s32[1]); // status
         event.arg2 = std::to_string(e->arg_s32[0]); // options
     }
@@ -2120,7 +2417,8 @@ static int handle_enter_wait4(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_exit_wait4(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_wait4(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2128,13 +2426,15 @@ static int handle_exit_wait4(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_enter_waitid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_waitid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // idtype
     event.arg1 = std::to_string(e->arg_u32[0]); // pid
     event.arg4 = std::to_string(e->arg_s32[1]); // options
-    if (e->is_valid) {
+    if (e->is_valid)
+    {
         event.arg2 = std::to_string(e->arg_s32[2]); // si_signo
         event.arg3 = std::to_string(e->arg_s32[3]); // si_code
     }
@@ -2142,7 +2442,8 @@ static int handle_enter_waitid(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_exit_waitid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_waitid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2150,29 +2451,16 @@ static int handle_exit_waitid(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_getpid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_getpid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     add_event(event);
     return 0;
 }
 
-static int handle_exit_getpid(const struct event_t *e, const db_event_t& base_event) {
-    db_event_t event = base_event;
-
-    event.ret = e->ret;
-    add_event(event);
-    return 0;
-}
-
-static int handle_enter_getppid(const struct event_t *e, const db_event_t& base_event) {
-    db_event_t event = base_event;
-
-    add_event(event);
-    return 0;
-}
-
-static int handle_exit_getppid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_getpid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2180,29 +2468,16 @@ static int handle_exit_getppid(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_enter_gettid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_getppid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     add_event(event);
     return 0;
 }
 
-static int handle_exit_gettid(const struct event_t *e, const db_event_t& base_event) {
-    db_event_t event = base_event;
-
-    event.ret = e->ret;
-    add_event(event);
-    return 0;
-}
-
-static int handle_enter_setsid(const struct event_t *e, const db_event_t& base_event) {
-    db_event_t event = base_event;
-
-    add_event(event);
-    return 0;
-}
-
-static int handle_exit_setsid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_getppid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2210,7 +2485,42 @@ static int handle_exit_setsid(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_getsid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_gettid(const struct event_t *e, const db_event_t &base_event)
+{
+    db_event_t event = base_event;
+
+    add_event(event);
+    return 0;
+}
+
+static int handle_exit_gettid(const struct event_t *e, const db_event_t &base_event)
+{
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    add_event(event);
+    return 0;
+}
+
+static int handle_enter_setsid(const struct event_t *e, const db_event_t &base_event)
+{
+    db_event_t event = base_event;
+
+    add_event(event);
+    return 0;
+}
+
+static int handle_exit_setsid(const struct event_t *e, const db_event_t &base_event)
+{
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    add_event(event);
+    return 0;
+}
+
+static int handle_enter_getsid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u32[0]); // pid
@@ -2218,7 +2528,8 @@ static int handle_enter_getsid(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_exit_getsid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_getsid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2226,7 +2537,8 @@ static int handle_exit_getsid(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_setpgid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_setpgid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u32[0]); // pid
@@ -2235,7 +2547,8 @@ static int handle_enter_setpgid(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_exit_setpgid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_setpgid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2243,7 +2556,8 @@ static int handle_exit_setpgid(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_enter_getpgid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_getpgid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u32[0]); // pid
@@ -2251,7 +2565,8 @@ static int handle_enter_getpgid(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_exit_getpgid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_getpgid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2259,14 +2574,16 @@ static int handle_exit_getpgid(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_enter_getpgrp(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_getpgrp(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     add_event(event);
     return 0;
 }
 
-static int handle_exit_getpgrp(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_getpgrp(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2274,7 +2591,8 @@ static int handle_exit_getpgrp(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_enter_setuid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_setuid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u32[0]); // uid
@@ -2282,7 +2600,8 @@ static int handle_enter_setuid(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_exit_setuid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_setuid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2290,14 +2609,16 @@ static int handle_exit_setuid(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_getuid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_getuid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     add_event(event);
     return 0;
 }
 
-static int handle_exit_getuid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_getuid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2305,7 +2626,8 @@ static int handle_exit_getuid(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_setgid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_setgid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u32[0]); // gid
@@ -2313,7 +2635,8 @@ static int handle_enter_setgid(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_exit_setgid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_setgid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2321,14 +2644,16 @@ static int handle_exit_setgid(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_getgid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_getgid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     add_event(event);
     return 0;
 }
 
-static int handle_exit_getgid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_getgid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2336,7 +2661,8 @@ static int handle_exit_getgid(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_setresuid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_setresuid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u32[0]); // ruid
@@ -2346,7 +2672,8 @@ static int handle_enter_setresuid(const struct event_t *e, const db_event_t& bas
     return 0;
 }
 
-static int handle_exit_setresuid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_setresuid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2354,18 +2681,21 @@ static int handle_exit_setresuid(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_enter_getresuid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_getresuid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
-    add_event(event); 
+    add_event(event);
     return 0;
 }
 
-static int handle_exit_getresuid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_getresuid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    if (e->is_valid) {
+    if (e->is_valid)
+    {
         event.arg0 = std::to_string(e->arg_u32[0]); // ruid
         event.arg1 = std::to_string(e->arg_u32[1]); // euid
         event.arg2 = std::to_string(e->arg_u32[2]); // suid
@@ -2374,7 +2704,8 @@ static int handle_exit_getresuid(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_enter_setresgid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_setresgid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u32[0]); // rgid
@@ -2384,7 +2715,8 @@ static int handle_enter_setresgid(const struct event_t *e, const db_event_t& bas
     return 0;
 }
 
-static int handle_exit_setresgid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_setresgid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2392,18 +2724,21 @@ static int handle_exit_setresgid(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_enter_getresgid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_getresgid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
-    add_event(event); 
+    add_event(event);
     return 0;
 }
 
-static int handle_exit_getresgid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_getresgid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    if (e->is_valid) {
+    if (e->is_valid)
+    {
         event.arg0 = std::to_string(e->arg_u32[0]); // rgid
         event.arg1 = std::to_string(e->arg_u32[1]); // egid
         event.arg2 = std::to_string(e->arg_u32[2]); // sgid
@@ -2412,7 +2747,8 @@ static int handle_exit_getresgid(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_enter_setreuid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_setreuid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u32[0]); // ruid
@@ -2421,7 +2757,8 @@ static int handle_enter_setreuid(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_exit_setreuid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_setreuid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2429,7 +2766,8 @@ static int handle_exit_setreuid(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_enter_setregid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_setregid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u32[0]); // rgid
@@ -2438,7 +2776,8 @@ static int handle_enter_setregid(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_exit_setregid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_setregid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2446,29 +2785,16 @@ static int handle_exit_setregid(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_enter_geteuid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_geteuid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     add_event(event);
     return 0;
 }
 
-static int handle_exit_geteuid(const struct event_t *e, const db_event_t& base_event) {
-    db_event_t event = base_event;
-
-    event.ret = e->ret;
-    add_event(event);
-    return 0;
-}
-
-static int handle_enter_getegid(const struct event_t *e, const db_event_t& base_event) {
-    db_event_t event = base_event;
-
-    add_event(event);
-    return 0;
-}
-
-static int handle_exit_getegid(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_geteuid(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2476,7 +2802,25 @@ static int handle_exit_getegid(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_enter_setgroups(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_getegid(const struct event_t *e, const db_event_t &base_event)
+{
+    db_event_t event = base_event;
+
+    add_event(event);
+    return 0;
+}
+
+static int handle_exit_getegid(const struct event_t *e, const db_event_t &base_event)
+{
+    db_event_t event = base_event;
+
+    event.ret = e->ret;
+    add_event(event);
+    return 0;
+}
+
+static int handle_enter_setgroups(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u64[0]); // size
@@ -2484,7 +2828,8 @@ static int handle_enter_setgroups(const struct event_t *e, const db_event_t& bas
     return 0;
 }
 
-static int handle_exit_setgroups(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_setgroups(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2492,14 +2837,16 @@ static int handle_exit_setgroups(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_enter_getgroups(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_getgroups(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // size
     return 0;
 }
 
-static int handle_exit_getgroups(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_getgroups(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2507,7 +2854,8 @@ static int handle_exit_getgroups(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_enter_setns(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_setns(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
@@ -2516,7 +2864,8 @@ static int handle_enter_setns(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_exit_setns(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_setns(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2524,11 +2873,13 @@ static int handle_exit_setns(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_enter_setrlimit(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_setrlimit(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u64[0]); // resource
-    if (e->is_valid) {
+    if (e->is_valid)
+    {
         event.arg1 = std::to_string(e->arg_u64[1]); // rlim_cur
         event.arg2 = std::to_string(e->arg_u64[2]); // rlim_max
     }
@@ -2536,7 +2887,8 @@ static int handle_enter_setrlimit(const struct event_t *e, const db_event_t& bas
     return 0;
 }
 
-static int handle_exit_setrlimit(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_setrlimit(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2544,7 +2896,8 @@ static int handle_exit_setrlimit(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_enter_getrlimit(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_getrlimit(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // resource
@@ -2552,18 +2905,21 @@ static int handle_enter_getrlimit(const struct event_t *e, const db_event_t& bas
     return 0;
 }
 
-static int handle_exit_getrlimit(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_getrlimit(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    if (e->is_valid) {
+    if (e->is_valid)
+    {
         event.arg0 = std::to_string(e->arg_u64[0]); // rlim_cur
         event.arg1 = std::to_string(e->arg_u64[1]); // rlim_max
     }
     return 0;
 }
 
-static int handle_enter_prlimit64(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_prlimit64(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u32[0]); // pid
@@ -2572,7 +2928,8 @@ static int handle_enter_prlimit64(const struct event_t *e, const db_event_t& bas
     return 0;
 }
 
-static int handle_exit_prlimit64(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_prlimit64(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2580,14 +2937,16 @@ static int handle_exit_prlimit64(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_enter_getrusage(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_getrusage(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // who
     return 0;
 }
 
-static int handle_exit_getrusage(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_getrusage(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2595,7 +2954,8 @@ static int handle_exit_getrusage(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_enter_setpriority(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_setpriority(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // which
@@ -2605,7 +2965,8 @@ static int handle_enter_setpriority(const struct event_t *e, const db_event_t& b
     return 0;
 }
 
-static int handle_exit_setpriority(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_setpriority(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2613,7 +2974,8 @@ static int handle_exit_setpriority(const struct event_t *e, const db_event_t& ba
     return 0;
 }
 
-static int handle_enter_getpriority(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_getpriority(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // which
@@ -2622,7 +2984,8 @@ static int handle_enter_getpriority(const struct event_t *e, const db_event_t& b
     return 0;
 }
 
-static int handle_exit_getpriority(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_getpriority(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2630,7 +2993,8 @@ static int handle_exit_getpriority(const struct event_t *e, const db_event_t& ba
     return 0;
 }
 
-static int handle_enter_ioprio_set(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_ioprio_set(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // which
@@ -2640,7 +3004,8 @@ static int handle_enter_ioprio_set(const struct event_t *e, const db_event_t& ba
     return 0;
 }
 
-static int handle_exit_ioprio_set(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_ioprio_set(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2648,7 +3013,8 @@ static int handle_exit_ioprio_set(const struct event_t *e, const db_event_t& bas
     return 0;
 }
 
-static int handle_enter_ioprio_get(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_ioprio_get(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // which
@@ -2657,7 +3023,8 @@ static int handle_enter_ioprio_get(const struct event_t *e, const db_event_t& ba
     return 0;
 }
 
-static int handle_exit_ioprio_get(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_ioprio_get(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2665,7 +3032,8 @@ static int handle_exit_ioprio_get(const struct event_t *e, const db_event_t& bas
     return 0;
 }
 
-static int handle_enter_mmap(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_mmap(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u64[0]); // addr
@@ -2678,7 +3046,8 @@ static int handle_enter_mmap(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_exit_mmap(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_mmap(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2686,7 +3055,8 @@ static int handle_exit_mmap(const struct event_t *e, const db_event_t& base_even
     return 0;
 }
 
-static int handle_enter_mprotect(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_mprotect(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u64[0]); // len
@@ -2695,7 +3065,8 @@ static int handle_enter_mprotect(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_exit_mprotect(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_mprotect(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2703,7 +3074,8 @@ static int handle_exit_mprotect(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_enter_capset(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_capset(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u32[0]); // header_version
@@ -2715,7 +3087,8 @@ static int handle_enter_capset(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_exit_capset(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_capset(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2723,7 +3096,8 @@ static int handle_exit_capset(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_ptrace(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_ptrace(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // request
@@ -2732,7 +3106,8 @@ static int handle_enter_ptrace(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_exit_ptrace(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_ptrace(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2740,7 +3115,8 @@ static int handle_exit_ptrace(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_process_vm_readv(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_process_vm_readv(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u32[0]); // pid
@@ -2751,7 +3127,8 @@ static int handle_enter_process_vm_readv(const struct event_t *e, const db_event
     return 0;
 }
 
-static int handle_exit_process_vm_readv(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_process_vm_readv(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2759,7 +3136,8 @@ static int handle_exit_process_vm_readv(const struct event_t *e, const db_event_
     return 0;
 }
 
-static int handle_enter_process_vm_writev(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_process_vm_writev(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u32[0]); // pid
@@ -2769,7 +3147,8 @@ static int handle_enter_process_vm_writev(const struct event_t *e, const db_even
     return 0;
 }
 
-static int handle_exit_process_vm_writev(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_process_vm_writev(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2777,18 +3156,21 @@ static int handle_exit_process_vm_writev(const struct event_t *e, const db_event
     return 0;
 }
 
-static int handle_enter_init_module(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_init_module(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u64[0]); // len
-    if (e->is_valid) {
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // param
+    if (e->is_valid)
+    {
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str)); // param
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_init_module(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_init_module(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2796,19 +3178,22 @@ static int handle_exit_init_module(const struct event_t *e, const db_event_t& ba
     return 0;
 }
 
-static int handle_enter_finit_module(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_finit_module(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // fd
     event.arg2 = std::to_string(e->arg_s32[1]); // flags
-    if (e->is_valid) {
-        event.arg1 = std::string(reinterpret_cast<const char*>(e->arg_str)); // param
+    if (e->is_valid)
+    {
+        event.arg1 = std::string(reinterpret_cast<const char *>(e->arg_str)); // param
     }
     add_event(event);
     return 0;
 }
 
-static int handle_exit_finit_module(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_finit_module(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2816,16 +3201,18 @@ static int handle_exit_finit_module(const struct event_t *e, const db_event_t& b
     return 0;
 }
 
-static int handle_enter_delete_module(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_delete_module(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
-    event.arg0 = std::string(reinterpret_cast<const char*>(e->arg_str)); // name
-    event.arg1 = std::to_string(e->arg_s32[0]); // flags
+    event.arg0 = std::string(reinterpret_cast<const char *>(e->arg_str)); // name
+    event.arg1 = std::to_string(e->arg_s32[0]);                           // flags
     add_event(event);
     return 0;
 }
 
-static int handle_exit_delete_module(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_delete_module(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2833,7 +3220,8 @@ static int handle_exit_delete_module(const struct event_t *e, const db_event_t& 
     return 0;
 }
 
-static int handle_enter_munmap(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_munmap(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u64[0]); // addr
@@ -2841,7 +3229,8 @@ static int handle_enter_munmap(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_exit_munmap(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_munmap(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2849,7 +3238,8 @@ static int handle_exit_munmap(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_mremap(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_mremap(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u64[0]); // old_addr
@@ -2861,7 +3251,8 @@ static int handle_enter_mremap(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_exit_mremap(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_mremap(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2869,7 +3260,8 @@ static int handle_exit_mremap(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_madvise(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_madvise(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u64[0]); // addr
@@ -2879,7 +3271,8 @@ static int handle_enter_madvise(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_exit_madvise(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_madvise(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2887,7 +3280,8 @@ static int handle_exit_madvise(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_enter_mlock(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_mlock(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u64[0]); // addr
@@ -2896,7 +3290,8 @@ static int handle_enter_mlock(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_exit_mlock(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_mlock(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2904,7 +3299,8 @@ static int handle_exit_mlock(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_enter_mlock2(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_mlock2(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u64[0]); // addr
@@ -2914,7 +3310,8 @@ static int handle_enter_mlock2(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_exit_mlock2(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_mlock2(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2922,7 +3319,8 @@ static int handle_exit_mlock2(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_munlock(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_munlock(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u64[0]); // addr
@@ -2931,7 +3329,8 @@ static int handle_enter_munlock(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_exit_munlock(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_munlock(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2939,7 +3338,8 @@ static int handle_exit_munlock(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_enter_mlockall(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_mlockall(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // flags
@@ -2947,7 +3347,8 @@ static int handle_enter_mlockall(const struct event_t *e, const db_event_t& base
     return 0;
 }
 
-static int handle_exit_mlockall(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_mlockall(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -2955,14 +3356,16 @@ static int handle_exit_mlockall(const struct event_t *e, const db_event_t& base_
     return 0;
 }
 
-static int handle_enter_munlockall(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_munlockall(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
-    add_event(event); 
+    add_event(event);
     return 0;
 }
 
-static int handle_exit_munlockall(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_munlockall(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -3005,18 +3408,21 @@ static int handle_exit_munlockall(const struct event_t *e, const db_event_t& bas
 //     return 0;
 // }
 
-static int handle_enter_capget(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_capget(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     add_event(event);
     return 0;
 }
 
-static int handle_exit_capget(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_capget(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
-    if (e->is_valid) {
+    if (e->is_valid)
+    {
         event.arg0 = std::to_string(e->arg_u32[0]); // header_version
         event.arg1 = std::to_string(e->arg_u32[1]); // header_pid
         event.arg2 = std::to_string(e->arg_u32[2]); // data_effective
@@ -3027,7 +3433,8 @@ static int handle_exit_capget(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_prctl(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_prctl(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // option
@@ -3035,7 +3442,8 @@ static int handle_enter_prctl(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_exit_prctl(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_prctl(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -3043,7 +3451,8 @@ static int handle_exit_prctl(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_enter_arch_prctl(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_arch_prctl(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_s32[0]); // option
@@ -3052,7 +3461,8 @@ static int handle_enter_arch_prctl(const struct event_t *e, const db_event_t& ba
     return 0;
 }
 
-static int handle_exit_arch_prctl(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_arch_prctl(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -3060,7 +3470,8 @@ static int handle_exit_arch_prctl(const struct event_t *e, const db_event_t& bas
     return 0;
 }
 
-static int handle_enter_kill(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_kill(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u32[0]); // pid
@@ -3069,7 +3480,8 @@ static int handle_enter_kill(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_exit_kill(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_kill(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -3077,7 +3489,8 @@ static int handle_exit_kill(const struct event_t *e, const db_event_t& base_even
     return 0;
 }
 
-static int handle_enter_tkill(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_tkill(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u32[0]); // tid
@@ -3086,7 +3499,8 @@ static int handle_enter_tkill(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_exit_tkill(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_tkill(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -3094,7 +3508,8 @@ static int handle_exit_tkill(const struct event_t *e, const db_event_t& base_eve
     return 0;
 }
 
-static int handle_enter_tgkill(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_tgkill(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u32[0]); // tgid
@@ -3104,7 +3519,8 @@ static int handle_enter_tgkill(const struct event_t *e, const db_event_t& base_e
     return 0;
 }
 
-static int handle_exit_tgkill(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_tgkill(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -3112,7 +3528,8 @@ static int handle_exit_tgkill(const struct event_t *e, const db_event_t& base_ev
     return 0;
 }
 
-static int handle_enter_brk(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_brk(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u64[0]); // addr
@@ -3120,7 +3537,8 @@ static int handle_enter_brk(const struct event_t *e, const db_event_t& base_even
     return 0;
 }
 
-static int handle_exit_brk(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_brk(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -3128,7 +3546,8 @@ static int handle_exit_brk(const struct event_t *e, const db_event_t& base_event
     return 0;
 }
 
-static int handle_enter_sched_setscheduler(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_sched_setscheduler(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u32[0]); // pid
@@ -3137,7 +3556,8 @@ static int handle_enter_sched_setscheduler(const struct event_t *e, const db_eve
     return 0;
 }
 
-static int handle_exit_sched_setscheduler(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_sched_setscheduler(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -3145,7 +3565,8 @@ static int handle_exit_sched_setscheduler(const struct event_t *e, const db_even
     return 0;
 }
 
-static int handle_enter_sched_setaffinity(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_sched_setaffinity(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.arg0 = std::to_string(e->arg_u32[0]); // pid
@@ -3154,7 +3575,8 @@ static int handle_enter_sched_setaffinity(const struct event_t *e, const db_even
     return 0;
 }
 
-static int handle_exit_sched_setaffinity(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_sched_setaffinity(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -3162,14 +3584,16 @@ static int handle_exit_sched_setaffinity(const struct event_t *e, const db_event
     return 0;
 }
 
-static int handle_enter_sysinfo(const struct event_t *e, const db_event_t& base_event) {
+static int handle_enter_sysinfo(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     add_event(event);
     return 0;
 }
 
-static int handle_exit_sysinfo(const struct event_t *e, const db_event_t& base_event) {
+static int handle_exit_sysinfo(const struct event_t *e, const db_event_t &base_event)
+{
     db_event_t event = base_event;
 
     event.ret = e->ret;
@@ -3179,7 +3603,8 @@ static int handle_exit_sysinfo(const struct event_t *e, const db_event_t& base_e
 
 static struct socket_handlers event_handler[MAX_EVENT_ID] = {0};
 
-void init_event_handlers(void) {
+void init_event_handlers(void)
+{
     event_handler[__NR_socket].enter = handle_enter_socket;
     event_handler[__NR_socket].exit = handle_exit_socket;
     event_handler[__NR_socketpair].enter = handle_enter_socketpair;
@@ -3521,10 +3946,12 @@ void init_event_handlers(void) {
 // debug
 long long count = 0;
 
-int handle_event(void *ctx, void *data, size_t data_sz) {
+int handle_event(void *ctx, void *data, size_t data_sz)
+{
     static auto start_time = std::chrono::steady_clock::now(); // 시작 시간 저장
     count++;
-    if (count % 100000 == 0) {
+    if (count % 100000 == 0)
+    {
         auto current_time = std::chrono::steady_clock::now();
         std::chrono::duration<double> elapsed_seconds = current_time - start_time;
         double events_per_second = count / elapsed_seconds.count();
@@ -3533,10 +3960,11 @@ int handle_event(void *ctx, void *data, size_t data_sz) {
     const struct event_t *e = (struct event_t *)data;
 
     db_event_t base_event = get_str(&e->task, boot_time);
-    
+
     struct socket_handlers *handlers = &event_handler[e->task.event_id];
     event_handler_t handler = e->is_enter ? handlers->enter : handlers->exit;
-    if (handler) {
+    if (handler)
+    {
         base_event.is_enter = e->is_enter;
         return handler(e, base_event);
     }
