@@ -27,7 +27,6 @@ RUN apt-get update && apt-get install -y \
 RUN mkdir -p /etc/supervisor.d/
 RUN mkdir -p /var/log/supervisor
 
-COPY supervisord.conf /etc/supervisord.conf
 
 # COPY youmuu/ /ebpf/
 ADD . /ebpf 
@@ -42,4 +41,5 @@ RUN make
 
 WORKDIR /
 
+ADD supervisord.conf /etc/supervisord.conf
 CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisord.conf"]
