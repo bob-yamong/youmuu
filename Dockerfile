@@ -2,7 +2,6 @@ FROM ubuntu:22.04
 
 # 필요한 패키지 설치
 RUN apt-get update && apt-get install -y \
-    # git\
     g++\
     make\
     clang\
@@ -22,15 +21,14 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     nlohmann-json3-dev \
     librdkafka-dev \
+    supervisor \
     && rm -rf /var/lib/apt/lists/*
 
-# # make를 위한 git module 설치
-# RUN git clone https://github.com/libbpf/bpftool.git /ebpf/bpftool
-# RUN git clone https://github.com/libbpf/libbpf.git /ebpf/libbpf
-# RUN git clone https://github.com/bob-yamong/youmuu/tree/main/vmlinux
-# COPY ebpf/vmlinux /ebpf/vmlinux
+RUN mkdir -p /etc/supervisor.d/
+RUN mkdir -p /var/log/supervisor
 
-# 애플리케이션 파일 복사
+COPY supervisord.conf /etc/supervisord.conf
+
 # COPY youmuu/ /ebpf/
 ADD . /ebpf 
 
@@ -44,7 +42,4 @@ RUN make
 
 WORKDIR /
 
-# 애플리케이션 실행
-# CMD \
-# CMD tail -f /dev/null
-
+CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisord.conf"]
