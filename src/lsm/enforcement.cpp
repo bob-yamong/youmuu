@@ -27,6 +27,8 @@
 #include <condition_variable>
 #include <sys/inotify.h>
 #include <poll.h>
+#include <curl/curl.h>
+#include <memory>
 
 #include "enforcement.skel.h"
 #include "policy_map_structs.h"
@@ -93,6 +95,13 @@ static int print_event(void *ctx, void *data, size_t data_sz) {
             printf("Success to send event to Kafka\n");
             return 0;
         }
+        else {
+            fprintf(stderr, "Failed to send event to Kafka\n");
+            return -1;
+        }
+    } else {
+        fprintf(stderr, "Kafka producer not initialized\n");
+        return -1;
     }
 
     fprintf(stderr, "Dropping event after failed attempts\n");
@@ -916,6 +925,25 @@ int main(int argc, char **argv) {
 
     env::getEnv();
 
+    // Kafka 설정 가져오기
+    std::string brokers = env::kafka_brokers;
+    std::string topic = env::kafka_topic_lsm;
+
+    if (brokers.empty() || topic.empty()) {
+        fprintf(stderr, "Kafka 설정이 누락되었습니다: brokers='%s', topic='%s'\n",
+                brokers.c_str(), topic.c_str());
+        exit(1);
+    }
+
+    // KafkaProducer 객체 초기화 (shared_ptr 사용)
+    printf("KafkaProducer 객체 초기화 중...\n");
+    std::shared_ptr<KafkaProducer> producer_ptr = std::make_shared<KafkaProducer>(brokers, topic);
+    if (!producer_ptr->init()) {
+        fprintf(stderr, "KafkaProducer 초기화 실패\n");
+        exit(1);
+    }
+    printf("KafkaProducer 초기화 성공.\n");
+
     std::mutex mtx;
     std::condition_variable cv;
 
@@ -937,7 +965,7 @@ int main(int argc, char **argv) {
 
         map_fd = bpf_map__fd(skel->maps.policy_map);
 
-        rb = ring_buffer__new(bpf_map__fd(skel->maps.events), print_event, NULL, NULL);
+        rb = ring_buffer__new(bpf_map__fd(skel->maps.events), print_event, &producer_ptr, NULL);
         if (!rb) throw std::runtime_error("Failed to create Ring Buffer");
 
         if (signal(SIGINT, handle_signal) == SIG_ERR) {
