@@ -11,6 +11,17 @@
 #include <bpf/libbpf.h>    // BPF 관련
 #include <filesystem>      // 파일 존재 확인
 #include <algorithm>       // std::find 사용
+#include <regex>           // 정규표현식 사용
+#include <sys/stat.h>      // stat 사용
+#include <curl/curl.h>     // curl 사용
+#include <json-c/json.h>   // json-c 사용
+#include <glob.h>          // glob 사용
+#include <sys/socket.h>    // AF_UNIX 사용
+#include <sys/un.h>        // sockaddr_un 사용
+#include <sys/types.h>     // stat 사용
+#include <sys/inotify.h>   // inotify 사용
+#include <poll.h>          // poll 사용
+#include <nlohmann/json.hpp> // json 사용
 
 // 프로젝트 관련 헤더
 #include "raw_tracepoint.skel.h"
@@ -20,14 +31,20 @@
 #include "parser.h"
 #include "EventLogger.h"
 #include "getEnv.h"
+#include "yaml_structs.h"
 
 #define POLICY_FILE_PATH "/policy/policy.yaml"
 
+using json = nlohmann::json;
+
 // 단일 종료 플래그 사용
-static std::atomic<bool> exiting(false);
+std::atomic<bool> exiting(false);
+std::atomic<bool> policy_update_running(false);
+
 std::condition_variable cv;
 std::mutex cv_m;
 struct raw_tracepoint_bpf *skel;
+int inotify_fd = -1;
 
 // debug value
 int rb_cnt_1 = 0;
@@ -130,6 +147,229 @@ int update_policy_with_file(char* abs_file_name) {
     return 0;
 }
 
+// 정책 업데이트 함수
+void update_policy_on_event(std::mutex& mtx, std::condition_variable& cv) {
+    if (policy_update_running.exchange(true)) {
+        std::cerr << "Policy update already in progress, skipping.\n";
+        return;
+    }
+
+    try {
+        std::unique_lock<std::mutex> lock(mtx);
+
+        while (true) {
+            if (update_policy_with_file(POLICY_FILE_PATH) == 0) {
+                std::cout << "Policy updated successfully.\n";
+                break; // 성공적으로 업데이트되면 루프를 빠져나옵니다.
+            } else {
+                std::cerr << "Failed to update policy, waiting to retry.\n";
+                cv.wait_for(lock, std::chrono::seconds(3));
+            }
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Exception during policy update: " << e.what() << std::endl;
+    }
+
+    policy_update_running.store(false);
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+// 진행 상황 콜백 함수
+int progress_callback(void* clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
+    if (exiting) {
+        return 1; // 0이 아닌 값을 반환하면 전송이 중단됩니다.
+    }
+    return 0;
+}
+
+// Docker 이벤트 콜백 함수
+size_t docker_event_callback(char* ptr, size_t size, size_t nmemb, void* userdata) {
+    size_t total_size = size * nmemb;
+    auto* event_data = static_cast<DockerEventData*>(userdata);
+
+    // 수신된 데이터를 버퍼에 추가
+    event_data->buffer.append(ptr, total_size);
+
+    size_t pos = 0;
+    while (true) {
+        // 버퍼에서 개행 문자 위치 찾기 (JSON 객체는 개행 문자로 구분됨)
+        size_t newline_pos = event_data->buffer.find('\n', pos);
+        if (newline_pos == std::string::npos) {
+            // 완전한 JSON 객체가 아직 없음
+            break;
+        }
+
+        // JSON 문자열 추출
+        std::string json_str = event_data->buffer.substr(pos, newline_pos - pos);
+        pos = newline_pos + 1;
+
+        // JSON 파싱
+        try {
+            json event_json = json::parse(json_str);
+
+            // 이벤트 처리
+            std::string action = event_json["Action"];
+            std::string type = event_json["Type"];
+            if (type == "container") {
+                // 관심 있는 액션인지 확인
+                if (action == "create" || action == "destroy" || action == "stop" || action == "start" || action == "restart") {
+                    // 정책 업데이트 호출
+                    {
+                        std::unique_lock<std::mutex> lock(*event_data->mtx);
+                        event_data->cv->notify_one();
+                    }
+
+                    std::cout << "Docker event detected: " << action << ", updating policy...\n";
+                    update_policy_on_event(*event_data->mtx, *event_data->cv);
+                }
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "Error parsing Docker event JSON: " << e.what() << std::endl;
+        }
+    }
+
+    // 처리된 부분을 버퍼에서 제거
+    event_data->buffer.erase(0, pos);
+
+    // 종료 플래그 확인
+    if (exiting) {
+        return 0; // 0을 반환하면 전송이 중단됩니다.
+    }
+
+    return total_size;
+}
+
+// Docker 이벤트 감지 함수
+void monitor_docker_events(std::mutex& mtx, std::condition_variable& cv) {
+    std::cout << "Monitoring Docker events...\n";
+
+    CURL *curl = curl_easy_init();
+    if (!curl) {
+        std::cerr << "Failed to initialize CURL for Docker events." << std::endl;
+        return;
+    }
+
+    curl_easy_setopt(curl, CURLOPT_UNIX_SOCKET_PATH, DOCKER_SOCKET);
+    curl_easy_setopt(curl, CURLOPT_URL, "http://localhost/events");
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, docker_event_callback);
+
+    // 진행 상황 콜백 설정
+    curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, progress_callback);
+    curl_easy_setopt(curl, CURLOPT_XFERINFODATA, nullptr);
+    curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L); // 진행 상황 콜백 활성화
+
+    // 사용자 데이터 설정
+    DockerEventData event_data = { &mtx, &cv, "" };
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &event_data);
+
+    // 전송 시작 (한 번만 호출)
+    CURLcode res = curl_easy_perform(curl);
+    if (res != CURLE_OK && res != CURLE_ABORTED_BY_CALLBACK) {
+        std::cerr << "CURL Error: " << curl_easy_strerror(res) << std::endl;
+    }
+
+    curl_easy_cleanup(curl);
+    std::cerr << "Docker event monitoring thread exited.\n";
+}
+
+void monitor_policy_file(std::mutex& mtx, std::condition_variable& cv) {
+    std::cout << "Monitoring policy file for changes...\n";
+
+    int inotify_fd = inotify_init1(IN_NONBLOCK); // IN_NONBLOCK 플래그 사용
+    if (inotify_fd < 0) {
+        std::cerr << "Failed to initialize inotify: " << strerror(errno) << std::endl;
+        return;
+    }
+
+    // 파일 경로와 이름 분리
+    std::string file_path = POLICY_FILE_PATH;
+    size_t last_slash = file_path.find_last_of('/');
+    std::string dir_path = file_path.substr(0, last_slash);
+    std::string file_name = file_path.substr(last_slash + 1);
+
+    // 디렉토리를 감시
+    // uint32_t watch_events = IN_MODIFY | IN_CLOSE_WRITE | IN_ATTRIB |
+    //                         IN_MOVED_TO | IN_CREATE | IN_DELETE |
+    //                         IN_DELETE_SELF | IN_MOVE_SELF;
+
+    uint32_t watch_events = IN_CLOSE_WRITE | IN_DELETE;
+
+    int watch_fd = inotify_add_watch(inotify_fd, dir_path.c_str(), watch_events);
+    if (watch_fd < 0) {
+        std::cerr << "Failed to add inotify watch for " << dir_path
+                  << ": " << strerror(errno) << std::endl;
+        close(inotify_fd);
+        return;
+    }
+
+    std::cout << "Watching directory " << dir_path << " for changes to " << file_name << "...\n";
+
+    char buffer[4096]; // 충분히 큰 버퍼 크기 설정
+
+    struct pollfd fds[1];
+    fds[0].fd = inotify_fd;
+    fds[0].events = POLLIN;
+
+    while (!exiting) {
+        int poll_num = poll(fds, 1, 1000); // 타임아웃을 1초로 설정
+        if (poll_num == -1) {
+            if (errno == EINTR)
+                continue;
+            std::cerr << "Poll error: " << strerror(errno) << std::endl;
+            break;
+        } else if (poll_num == 0) {
+            // 타임아웃 발생, 'exiting' 조건 확인
+            continue;
+        }
+
+        if (fds[0].revents & POLLIN) {
+            int length = read(inotify_fd, buffer, sizeof(buffer));
+            if (length < 0) {
+                if (errno == EAGAIN)
+                    continue;
+                std::cerr << "Error reading inotify events: " << strerror(errno) << std::endl;
+                break;
+            } else if (length == 0) {
+                // EOF 처리
+                continue;
+            }
+
+            int i = 0;
+            while (i < length) {
+                struct inotify_event *event = (struct inotify_event *)&buffer[i];
+
+                // 관심 있는 파일인지 확인
+                if (event->len > 0 && file_name == event->name) {
+                    uint32_t mask = event->mask;
+
+                    // 디버깅을 위한 이벤트 정보 출력
+                    std::cout << "Event mask: " << mask << " on file: " << event->name << std::endl;
+
+                    if (mask & (IN_CLOSE_WRITE | IN_CREATE)) {
+                        // 파일이 수정되거나 생성됨
+                        std::unique_lock<std::mutex> lock(mtx);
+                        cv.notify_one();
+                        lock.unlock();
+
+                        std::cout << "File change detected, updating policy...\n";
+                        update_policy_on_event(mtx, cv);
+                    }
+
+                    if (mask & (IN_DELETE | IN_DELETE_SELF | IN_MOVE_SELF)) {
+                        std::cout << "File was deleted or moved: " << event->name << std::endl;
+                        update_policy_on_event(mtx, cv);
+                    }
+                }
+
+                i += sizeof(struct inotify_event) + event->len;
+            }
+        }
+    }
+
+    inotify_rm_watch(inotify_fd, watch_fd);
+    close(inotify_fd);
+    std::cerr << "File monitoring thread exited.\n";
+}
+
 // 이벤트 핸들러 대신 로그 메시지를 큐에 추가하는 함수
 void logging(const struct event& e){
     if (eventLogger) {
@@ -175,31 +415,31 @@ void ringbuf_thread_func(struct ring_buffer *rb)
 }
 
 // 정책을 주기적으로 재적용하는 쓰레드 함수
-void policy_reload_thread(const std::string &yaml_file_path) {
-    std::unique_lock<std::mutex> lock(cv_m);
-    while (!exiting.load(std::memory_order_relaxed)) {
-        if(cv.wait_for(lock, std::chrono::seconds(env::update_interval), []{ return exiting.load(); })) // 1분에 한번씩 정책을 감지 
-            break;
+// void policy_reload_thread(const std::string &yaml_file_path) {
+//     std::unique_lock<std::mutex> lock(cv_m);
+//     while (!exiting.load(std::memory_order_relaxed)) {
+//         if(cv.wait_for(lock, std::chrono::seconds(env::update_interval), []{ return exiting.load(); })) // 1분에 한번씩 정책을 감지 
+//             break;
 
-        std::cout << "정책을 재로딩합니다: " << yaml_file_path << "\n";
+//         std::cout << "정책을 재로딩합니다: " << yaml_file_path << "\n";
 
-        bool file_exists = std::filesystem::exists(yaml_file_path);
-        if(!file_exists){
-            std::cerr << "YAML 정책 파일을 찾을 수 없습니다.\n";
-            delete_all_monitoring_map();
-            continue;
-        }
+//         bool file_exists = std::filesystem::exists(yaml_file_path);
+//         if(!file_exists){
+//             std::cerr << "YAML 정책 파일을 찾을 수 없습니다.\n";
+//             delete_all_monitoring_map();
+//             continue;
+//         }
 
-        // YAML 정책을 업데이트
-        int err = update_policy_with_file(const_cast<char*>(yaml_file_path.c_str()));
-        if (err < 0) {
-            std::cerr << "정책 재로딩에 실패했습니다.\n";
-            continue;
-        }
+//         // YAML 정책을 업데이트
+//         int err = update_policy_with_file(const_cast<char*>(yaml_file_path.c_str()));
+//         if (err < 0) {
+//             std::cerr << "정책 재로딩에 실패했습니다.\n";
+//             continue;
+//         }
 
-        std::cout << "정책이 성공적으로 재로딩되었습니다.\n";
-    }
-}
+//         std::cout << "정책이 성공적으로 재로딩되었습니다.\n";
+//     }
+// }
 
 // 시그널 핸들러
 void sig_handler(int signum) {
@@ -218,6 +458,9 @@ int main(int argc, char **argv)
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
     sigaction(SIGINT, &sa, NULL);
+
+    std::thread file_monitor_thread;
+    std::thread docker_event_thread;
 
     try
     {
@@ -249,13 +492,11 @@ int main(int argc, char **argv)
 
         std::cout << "BPF 프로그램을 성공적으로 시작했습니다! 프로세스 모니터링을 시작합니다...\n";
 
-        // YAML 파일 경로 지정 (예: "policy.yaml")
-        std::string yaml_file = POLICY_FILE_PATH;
-        bool file_exists = std::filesystem::exists(yaml_file);
+        bool file_exists = std::filesystem::exists(POLICY_FILE_PATH);
         if (file_exists)
         {
             std::cout << "YAML 정책 파일을 발견했습니다. 정책을 업데이트합니다...\n";
-            err = update_policy_with_file(const_cast<char*>(yaml_file.c_str()));
+            err = update_policy_with_file(POLICY_FILE_PATH);
             if (err < 0)
             {
                 std::cerr << "YAML 정책 파일을 처리하는데 실패했습니다. 정책이 파일이 감지되면 다시 모니터링을 재개합니다.\n";
@@ -289,8 +530,8 @@ int main(int argc, char **argv)
         // 링버퍼 읽기 스레드 생성
         std::thread ringbuf_thread1(ringbuf_thread_func, rb1);
 
-        // 정책 재적용 쓰레드 시작
-        std::thread policy_thread(policy_reload_thread, yaml_file);
+        file_monitor_thread = std::thread(monitor_policy_file, std::ref(cv_m), std::ref(cv));
+        docker_event_thread = std::thread(monitor_docker_events, std::ref(cv_m), std::ref(cv));
 
         // 메인 루프
         while (!exiting.load(std::memory_order_relaxed))
@@ -298,8 +539,9 @@ int main(int argc, char **argv)
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
 
-        // 정책 재적용 스레드 종료
-        policy_thread.join();
+        exiting = true;
+        if (file_monitor_thread.joinable()) file_monitor_thread.join();
+        if (docker_event_thread.joinable()) docker_event_thread.join();
         // 링버퍼 읽기 스레드 종료
         ringbuf_thread1.join();
 

@@ -100,7 +100,7 @@ int ContainerManager::getContainerPIDs() {
                                     // 정책에 맞는 lsm_policies 찾기
                                     for (const auto& policy_container : parsed_policy.containers) {
                                         if (policy_container.container_name == matched_pattern) {
-                                            info.raw_tp_policy = policy_container.raw_tp_policy;
+                                            info.lsm_policies = policy_container.lsm_policies;
                                             break;
                                         }
                                     }

@@ -100,7 +100,7 @@ int ContainerManager::getContainerPIDs() {
                                     // 정책에 맞는 lsm_policies 찾기
                                     for (const auto& policy_container : parsed_policy.containers) {
                                         if (policy_container.container_name == matched_pattern) {
-                                            info.raw_tp_policy = policy_container.raw_tp_policy;
+                                            info.tp_policies = policy_container.tracepoint_policy;
                                             break;
                                         }
                                     }
@@ -149,5 +149,20 @@ void ContainerManager::getContainerInode(const std::string &container_id) {
         globfree(&globbuf);
     } else {
         std::cerr << "Failed to perform glob for pattern: " << pattern << std::endl;
+    }
+}
+
+// ns_id를 설정하는 메서드 구현
+void ContainerInfo::set_ns_id(__u32 new_ns_id) {
+    ns_id = new_ns_id;
+}
+
+void ContainerManager::updateContainerNsId(const std::string& container_id, __u32 new_ns_id) {
+    // 특정 컨테이너를 찾습니다.
+    for(auto &container : ContainerManager::containers) {
+        if(container.id == container_id) {
+            container.set_ns_id(new_ns_id);
+            break;
+        }
     }
 }

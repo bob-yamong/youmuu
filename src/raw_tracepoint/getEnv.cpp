@@ -5,7 +5,6 @@
 std::string env::cgroup_path;
 std::string env::proc_path;
 std::string env::log_file_path;
-int env::update_interval;
 
 // static 멤버 함수 구현
 std::string env::get_env_var(const std::string& var_name) {
@@ -54,5 +53,4 @@ void env::getEnv() {
     cgroup_path = get_env_var("CGROUP_SYSTEM_SLICE_PATH");
     proc_path = get_env_var("PROC_PATH");
     log_file_path = get_env_var("RAW_LOG_PATH");
-    update_interval = std::stoi(get_env_var("UPDATE_INTERVAL"));
 }

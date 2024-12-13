@@ -13,7 +13,15 @@
 #include "../include/reflect-cpp/src/reflectcpp.cpp"
 #include "../include/reflect-cpp/include/rfl/yaml.hpp"
 
+#include "yaml_structs.h"
+
 using namespace std;
+
+struct DockerEventData {
+    mutex* mtx;
+    condition_variable* cv;
+    string buffer; // 수신된 데이터를 누적할 버퍼
+};
 
 map<string, __u32> tracepoints_map = {
     {"__NR_socket", __NR_socket},
@@ -220,49 +228,5 @@ vector<int> string_to_syscalls(vector<string> str_tracepoints){
 
     return tracepoints;
 }
-
-// Policy 관련 구조체 정의
-struct YamlNetworkPolicy {
-    string ip;
-    int port;
-    int protocol;
-    vector<string> flags;
-    vector<int> uid;
-};
-
-struct YamlFilePolicy {
-    string path;
-    vector<string> flags;
-    vector<int> uid;
-};
-
-struct YamlProcessPolicy {
-    string comm;
-    vector<string> flags;
-    vector<int> uid;
-};
-
-struct YamlLsmPolicy {
-    vector<YamlFilePolicy> file;
-    vector<YamlNetworkPolicy> network;
-    vector<YamlProcessPolicy> process;
-};
-
-struct YamlTracepointPolicy {
-    vector<string> syscalls;
-};
-
-struct YamlContainerPolicy {
-    string container_name;
-    bool raw_tp_policy;
-    YamlLsmPolicy lsm_policies;
-    YamlTracepointPolicy tracepoint_policy;
-};
-
-struct YamlPolicy {
-    string api_version;
-    string name;
-    vector<YamlContainerPolicy> containers;
-};
 
 #endif
