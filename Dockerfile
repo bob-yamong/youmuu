@@ -1,4 +1,4 @@
-FROM ubuntu:jammy-slim AS builder
+FROM ubuntu:22.04 AS builder
 
 # 필요한 패키지 설치
 RUN apt-get update && apt-get install -y \
@@ -40,7 +40,7 @@ RUN make
 
 WORKDIR /
 
-FROM ubuntu:jammy-slim AS runner
+FROM ubuntu:22.04 AS runner
 
 RUN apt-get update && apt-get install -y \
     supervisor \
