@@ -46,11 +46,8 @@ RUN apt-get update && apt-get install -y \
     supervisor \
     && rm -rf /var/lib/apt/lists/*
 
-RUN mkdir -p /ebpf
 
-COPY --from=builder /ebpf/src/raw_tracepoint/raw_tracepoint /ebpf/raw_tracepoint
-COPY --from=builder /ebpf/src/tracepoint/tracepoint /ebpf/tracepoint
-COPY --from=builder /ebpf/src/lsm/enforcement /ebpf/enforcement
+COPY --from=builder /ebpf/ /ebpf/
 
 ADD supervisord.conf /etc/supervisord.conf
 CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisord.conf"]
