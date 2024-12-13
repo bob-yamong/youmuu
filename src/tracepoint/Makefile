@@ -34,7 +34,7 @@ ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS)
 # syslog를 남기고 싶으면 SRCS에 위의 파일을 추가
 
 APPS = tracepoint
-SRCS = tracepoint.cpp handler.cpp getEnv.cpp container_pid_id.cpp EventLogger.cpp
+SRCS = tracepoint.cpp handler.cpp getEnv.cpp container_info.cpp EventLogger.cpp
 OBJS = $(patsubst %.cpp,$(OUTPUT)/%.o,$(SRCS))
 
 # Get Clang's default includes on this system. We'll explicitly add these dirs
@@ -116,7 +116,7 @@ $(OUTPUT)/%.o: %.cpp $(wildcard %.h) | $(OUTPUT)
 # Build application binary
 $(APPS): %: $(OBJS) $(LIBBPF_OBJ) | $(OUTPUT)
 	$(call msg,BINARY,$@)
-	$(Q)$(CXX) $(CXXFLAGS) $^ $(ALL_LDFLAGS) -lelf -lz -lyaml-cpp -lrdkafka++ -lrdkafka -lpthread -o $@
+	$(Q)$(CXX) $(CXXFLAGS) $^ $(ALL_LDFLAGS) -lelf -lz -lyaml-cpp -lrdkafka++ -lrdkafka -lpthread -lcurl -ljson-c -o $@
 
 # delete failed targets
 .DELETE_ON_ERROR:

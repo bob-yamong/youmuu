@@ -13,6 +13,7 @@
 #include <memory>
 #include <algorithm>
 #include <regex>
+#include <linux/types.h>
 
 #include "getEnv.h"
 
@@ -26,8 +27,9 @@ struct ContainerInfo {
     std::string name; // 컨테이너 이름 추가
     int pid;
     unsigned long cgroup_id;
+    __u32 ns_id;
 
-    bool raw_tp_policy;
+    YamlTracepointPolicy tp_policies;
 
     bool operator==(const ContainerInfo& other) const {
         return id == other.id &&
@@ -35,6 +37,9 @@ struct ContainerInfo {
                pid == other.pid &&
                cgroup_id == other.cgroup_id;
     }
+
+    // ns_id를 설정하는 메서드 추가
+    void set_ns_id(__u32 new_ns_id);
 };
 
 class ContainerManager {
@@ -46,6 +51,7 @@ public:
     static size_t writeCallback(void *contents, size_t size, size_t nmemb, std::string *str);
     static int getContainerPIDs();
     static void getContainerInode(const std::string &container_id);
+    static void updateContainerNsId(const std::string& container_id, __u32 new_ns_id);
 
     // 모니터링 대상 확인 함수 선언 추가
     static std::vector<std::string> isMonitored(const std::string& name);

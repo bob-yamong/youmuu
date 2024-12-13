@@ -27,7 +27,7 @@ struct ContainerInfo {
     int pid;
     unsigned long cgroup_id;
 
-    bool raw_tp_policy;
+    YamlLsmPolicy lsm_policies;
 
     bool operator==(const ContainerInfo& other) const {
         return id == other.id &&

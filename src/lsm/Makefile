@@ -112,7 +112,7 @@ $(OUTPUT)/%.o: %.cpp $(wildcard %.h) | $(OUTPUT)
 
 # Build application binary
 # Build application binary
-$(APPS): %: $(OUTPUT)/%.o $(LIBBPF_OBJ) $(OUTPUT)/getEnv.o $(OUTPUT)/kafkaProducer.o | $(OUTPUT)
+$(APPS): %: $(OUTPUT)/%.o $(LIBBPF_OBJ) $(OUTPUT)/getEnv.o $(OUTPUT)/kafkaProducer.o $(OUTPUT)/container_info.o | $(OUTPUT)
 	$(call msg,BINARY,$@)
 	$(Q)$(CXX) $(CXXFLAGS) $^ $(ALL_LDFLAGS) $(LIBS) -lyaml-cpp -o $@
 
