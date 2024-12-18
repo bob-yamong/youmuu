@@ -61,7 +61,7 @@ int BPF_PROG(bprm_check_security, struct linux_binprm *bprm)
 
     if ((flags & POLICY_PROC_EXEC)||(flags & POLICY_FILE_EXEC)){
         e->retval = (flags & POLICY_AUDIT) ? 0 : -1;
-        ret = (flags & POLICY_AUDIT) ? 0 : ret;
+        ret = e->retval;
         bpf_ringbuf_submit(e, 0);
         return ret;
     } else {
