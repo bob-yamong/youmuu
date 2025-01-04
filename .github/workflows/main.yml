@@ -1,4 +1,4 @@
-name: Validate Dockerfile
+name: Build and Install
 
 on:
   pull_request:
@@ -6,15 +6,29 @@ on:
       - main
 
 jobs:
-  validate:
+  build:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Build Docker image
-        run: docker build -t my-repo-image:pr-${{ github.event.number }} .
+      - name: Set up environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential
 
-      - name: Run Docker container with tests
-        run: docker run --rm my-repo-image:pr-${{ github.event.number }} /bin/sh -c "make test"
+      - name: Cache dependencies
+        id: cache-deps
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/my-dependencies  # Adjust this path to where your dependencies are stored
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/Makefile') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-
+
+      - name: Run make install
+        run: make install
+
+      - name: Run make build
+        run: make build
