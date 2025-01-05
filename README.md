@@ -40,6 +40,12 @@ sudo apt-get install -y --no-install-recommends \
 to install dependencies.
 
 ### **3. Activate BPF LSM Availability**
+### One command
+```sh
+sudo bash lsm_config.bash
+```
+
+### Manual 
 
 First, please confirm that your kernel version is higher than 5.7. Next, you can use the following command to check if BPF LSM support is enabled:
 ```sh
