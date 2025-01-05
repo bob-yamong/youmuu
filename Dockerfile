@@ -32,12 +32,8 @@ RUN mkdir -p /var/log/supervisor
 ADD . /ebpf 
 
 # 애플리케이션 빌드
-WORKDIR /ebpf/src/raw_tracepoint/
-RUN make clean && make
-WORKDIR /ebpf/src/tracepoint
-RUN make
-WORKDIR /ebpf/src/lsm
-RUN make
+WORKDIR /ebpf
+RUN make build
 
 WORKDIR /
 
