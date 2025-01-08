@@ -623,223 +623,23 @@ int trace_sys_exit_shutdown(struct trace_event_raw_sys_exit *ctx) {
     return 0;
 }
 
-SEC("tracepoint/syscalls/sys_enter_recvfrom")
-int trace_sys_enter_recvfrom(struct trace_event_raw_sys_enter *ctx) {
-    struct current_task ct = get_task_struct(BPF_CORE_READ(ctx, id));
-    struct map_key key = get_map_key(&ct);
-    struct sock_addr_args args = {
-        .addr_ptr = (void *)BPF_CORE_READ(ctx, args[4]),
-        .addrlen_ptr = (__u64 *)BPF_CORE_READ(ctx, args[5])
-    };
+//네트워크 스택 기반 tracepoint
+// 패킷 전송 이벤트
+SEC("tracepoint/net/net_dev_xmit")
+int trace_net_dev_xmit(struct trace_event_raw_net_dev_xmit *ctx) {
+    struct sk_buff *skb = (struct sk_buff *)ctx->skbaddr;
 
-    bpf_map_update_elem(&recvfrom_args_map, &key, &args, BPF_ANY);
-
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
-    
-    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
-    e->arg_u64[0] = BPF_CORE_READ(ctx, args[2]);
-    e->arg_s32[1] = BPF_CORE_READ(ctx, args[3]);
-    
-    bpf_ringbuf_submit(e, 0);
-    return 0;
+    // 패킷 전송 정보 추적
+    return process_packet(ctx, skb, true);
 }
 
-SEC("tracepoint/syscalls/sys_exit_recvfrom")
-int trace_sys_exit_recvfrom(struct trace_event_raw_sys_exit *ctx) {
-    __s64 ret = BPF_CORE_READ(ctx, ret);
-    struct current_task ct = get_task_struct(BPF_CORE_READ(ctx, id));
-    struct map_key key = get_map_key(&ct);
+// 패킷 수신 이벤트
+SEC("tracepoint/net/netif_receive_skb")
+int trace_netif_receive_skb(struct trace_event_raw_netif_receive_skb *ctx) {
+    struct sk_buff *skb = (struct sk_buff *)ctx->skbaddr;
 
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        goto cleanup;
-
-    e->ret = ret;
-    init_socket_fields(e);
-
-    if (ret >= 0) {
-        struct sock_addr_args *args = bpf_map_lookup_elem(&recvfrom_args_map, &key);
-        if (args && args->addr_ptr) {
-            read_sockaddr(e, args->addr_ptr);
-        } else {
-            e->is_null = true;
-        }
-    }
-
-    bpf_ringbuf_submit(e, 0);
-
-cleanup:
-    bpf_map_delete_elem(&recvfrom_args_map, &key);
-    return 0;
-}
-
-SEC("tracepoint/syscalls/sys_enter_recvmsg")
-int trace_sys_enter_recvmsg(struct trace_event_raw_sys_enter *ctx) {
-    struct current_task ct = get_task_struct(BPF_CORE_READ(ctx, id));
-    struct map_key key = get_map_key(&ct);
-    void *msg_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
-
-    bpf_map_update_elem(&recvmsg_args_map, &key, &msg_ptr, BPF_ANY);
-
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
-    
-    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
-    e->arg_s32[1] = BPF_CORE_READ(ctx, args[2]);
-    
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
-
-SEC("tracepoint/syscalls/sys_exit_recvmsg")
-int trace_sys_exit_recvmsg(struct trace_event_raw_sys_exit *ctx) {
-    __s64 ret = BPF_CORE_READ(ctx, ret);
-    struct current_task ct = get_task_struct(BPF_CORE_READ(ctx, id));
-    struct map_key key = get_map_key(&ct);
-
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        goto cleanup;
-
-    e->ret = ret;
-    init_socket_fields(e);
-
-    if (ret >= 0) {
-        __u64 *msg_ptr = bpf_map_lookup_elem(&recvmsg_args_map, &key);
-        if (msg_ptr) {
-            struct msghdr msg;
-            if (bpf_probe_read_user(&msg, sizeof(msg), (void *)*msg_ptr) == 0) {
-                read_sockaddr(e, msg.msg_name);
-            }
-        }
-    }
-    
-    bpf_ringbuf_submit(e, 0);
-
-cleanup:
-    bpf_map_delete_elem(&recvmsg_args_map, &key);
-    return 0;
-}
-
-SEC("tracepoint/syscalls/sys_enter_recvmmsg")
-int trace_sys_enter_recvmmsg(struct trace_event_raw_sys_enter *ctx) {
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
-    
-    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
-    e->arg_u32[0] = BPF_CORE_READ(ctx, args[2]);
-    e->arg_s32[1] = BPF_CORE_READ(ctx, args[3]);
-    
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
-
-SEC("tracepoint/syscalls/sys_exit_recvmmsg")
-int trace_sys_exit_recvmmsg(struct trace_event_raw_sys_exit *ctx) {
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
-
-    e->ret = BPF_CORE_READ(ctx, ret);
-    
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
-
-SEC("tracepoint/syscalls/sys_enter_sendto")
-int trace_sys_enter_sendto(struct trace_event_raw_sys_enter *ctx) {
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
-
-    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
-    e->arg_u64[0] = BPF_CORE_READ(ctx, args[2]);
-    e->arg_s32[1] = BPF_CORE_READ(ctx, args[3]);
-    init_socket_fields(e);
-
-    void *dest_addr_ptr = (void *)BPF_CORE_READ(ctx, args[4]);
-    read_sockaddr(e, dest_addr_ptr);
-
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
-
-SEC("tracepoint/syscalls/sys_exit_sendto")
-int trace_sys_exit_sendto(struct trace_event_raw_sys_exit *ctx) {
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
-
-    e->ret = BPF_CORE_READ(ctx, ret);
-
-    bpf_ringbuf_submit(e, 0);    
-    return 0;
-}
-
-SEC("tracepoint/syscalls/sys_enter_sendmsg")
-int trace_sys_enter_sendmsg(struct trace_event_raw_sys_enter *ctx) {
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
-
-    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
-    e->arg_s32[1] = BPF_CORE_READ(ctx, args[2]);
-    init_socket_fields(e);
-
-    void *msg_ptr = (void *)BPF_CORE_READ(ctx, args[1]);
-    if (msg_ptr) {
-        struct msghdr msg;
-        if (bpf_probe_read_user(&msg, sizeof(msg), msg_ptr) != 0)
-            goto submit;
-        read_sockaddr(e, msg.msg_name);
-    }
-
-submit:
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
-
-SEC("tracepoint/syscalls/sys_exit_sendmsg")
-int trace_sys_exit_sendmsg(struct trace_event_raw_sys_exit *ctx) {
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
-    
-    e->ret = BPF_CORE_READ(ctx, ret);
-    __s64 ret = BPF_CORE_READ(ctx, ret);
-    
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
-
-SEC("tracepoint/syscalls/sys_enter_sendmmsg")
-int trace_sys_enter_sendmmsg(struct trace_event_raw_sys_enter *ctx) {
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
-
-    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
-    e->arg_u32[0] = BPF_CORE_READ(ctx, args[2]);
-    e->arg_s32[1] = BPF_CORE_READ(ctx, args[3]);
-    
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
-
-SEC("tracepoint/syscalls/sys_exit_sendmmsg")
-int trace_sys_exit_sendmmsg(struct trace_event_raw_sys_exit *ctx) {
-    struct event_t *e = handle_exit_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
-
-    e->ret = BPF_CORE_READ(ctx, ret);
-    
-    bpf_ringbuf_submit(e, 0);
-    return 0;
+    // 패킷 수신 정보 추적
+    return process_packet(ctx, skb, false);
 }
 
 SEC("tracepoint/syscalls/sys_enter_sethostname")
@@ -906,15 +706,4 @@ int trace_sys_exit_setdomainname(struct trace_event_raw_sys_exit *ctx) {
     return 0;
 }
 
-SEC("tracepoint/syscalls/sys_enter_ioctl")
-int trace_sys_enter_ioctl(struct trace_event_raw_sys_enter *ctx) {
-    struct event_t *e = handle_enter_event(BPF_CORE_READ(ctx, id));
-    if (!e) 
-        return 0;
-    
-    e->arg_s32[0] = BPF_CORE_READ(ctx, args[0]);
-    e->arg_u64[0] = BPF_CORE_READ(ctx, args[1]);
-    
-    bpf_ringbuf_submit(e, 0);
-    return 0;
-}
+
