@@ -18,23 +18,11 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    # Step 2: Set up build environment (install required tools)
-    - name: Set up build environment
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential
-
-    # Step 3: Run the build process (make build and make install)
-    - name: Build the project
-      run: |
-        make install
-        make build
-
     # Step 4: Initialize CodeQL
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v2
       with:
-        languages: 'cpp' # Specify the language(s) to analyze
+        languages: 'c, cpp' # Specify the language(s) to analyze
 
     # Step 5: Perform CodeQL Analysis
     - name: Perform CodeQL Analysis
