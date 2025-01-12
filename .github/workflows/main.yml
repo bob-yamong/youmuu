@@ -16,16 +16,19 @@ jobs:
       - name: Set up environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential
+          sudo apt-get install -y build-essential git
 
       - name: Cache dependencies
         id: cache-deps
         uses: actions/cache@v3
         with:
-          path: ~/.cache/my-dependencies  # Adjust this path to where your dependencies are stored
+          path: ~/.cache/my-dependencies # Adjust this path to where your dependencies are stored
           key: ${{ runner.os }}-deps-${{ hashFiles('**/Makefile') }}
           restore-keys: |
             ${{ runner.os }}-deps-
+
+      - name: Install submodule
+        run: git submodule update --init --recursive
 
       - name: Run make install
         run: make install
