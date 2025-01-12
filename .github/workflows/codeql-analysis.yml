@@ -2,11 +2,11 @@ name: "CodeQL"
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
   schedule:
-    - cron: '0 0 * * 0' # Weekly run
+    - cron: "0 0 * * 0" # Weekly run
   workflow_dispatch:
 
 jobs:
@@ -15,37 +15,37 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v2
-      with:
-        languages: 'c, cpp'
-        paths: 'src'  # Replace 'src' with the path to your C/C++ code
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: "c, cpp"
+          paths: "src" # Replace 'src' with the path to your C/C++ code
 
-    - name: Set up environment
+      - name: Set up environment
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential git
 
-    - name: Cache dependencies
-      id: cache-deps
-      uses: actions/cache@v3
-      with:
-        path: ~/.cache/my-dependencies # Adjust this path to where your dependencies are stored
-        key: ${{ runner.os }}-deps-${{ hashFiles('**/Makefile') }}
-        restore-keys: |
-          ${{ runner.os }}-deps-
+      - name: Cache dependencies
+        id: cache-deps
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/my-dependencies # Adjust this path to where your dependencies are stored
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/Makefile') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-
 
-    - name: Install submodule
-      run: git submodule update --init --recursive
+      - name: Install submodule
+        run: git submodule update --init --recursive
 
-    - name: Run make install
-      run: make install
+      - name: Run make install
+        run: make install
 
-    - name: Run make build
-      run: make build
+      - name: Run make build
+        run: make build
 
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v2
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
