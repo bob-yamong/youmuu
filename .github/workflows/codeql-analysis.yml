@@ -2,25 +2,52 @@ name: "CodeQL"
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
-  schedule:
-    - cron: '0 0 * * 0' # Weekly run
+    branches: ["main"]
+  workflow_dispatch:
 
 jobs:
   analyze:
     name: Analyze
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write # Required for uploading results to Code Scanning API
+      actions: read # Required for checking out the repository
+      contents: read # Required for accessing the repository contents
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v2
-      with:
-        languages: 'cpp'
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: "c, cpp"
+          source-root: "src" # Replace 'src' with the path to your C/C++ code
 
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v2
+      - name: Set up environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential git
+
+      - name: Cache dependencies
+        id: cache-deps
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/my-dependencies # Adjust this path to where your dependencies are stored
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/Makefile') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-
+
+      - name: Install submodule
+        run: git submodule update --init --recursive
+
+      - name: Run make install
+        run: make install
+
+      - name: Run make build
+        run: make build
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
