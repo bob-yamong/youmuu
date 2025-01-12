@@ -23,10 +23,10 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v2
+        uses: github/codeql-action/init@v3
         with:
           languages: "c, cpp"
-          paths: "src" # Replace 'src' with the path to your C/C++ code
+          source-root: "src" # Replace 'src' with the path to your C/C++ code
 
       - name: Set up environment
         run: |
@@ -52,4 +52,4 @@ jobs:
         run: make build
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
+        uses: github/codeql-action/analyze@v3
