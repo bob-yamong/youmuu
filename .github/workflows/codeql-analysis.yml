@@ -13,6 +13,10 @@ jobs:
   analyze:
     name: Analyze
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write # Required for uploading results to Code Scanning API
+      actions: read # Required for checking out the repository
+      contents: read # Required for accessing the repository contents
 
     steps:
       - name: Checkout repository
